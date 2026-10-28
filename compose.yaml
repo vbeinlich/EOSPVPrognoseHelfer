@@ -4,6 +4,9 @@ services:
       context: .
       target: eos-source
     image: eos-pv-helper:local
+    environment:
+      DRY_RUN: "${DRY_RUN:-true}"
+      HA_TOKEN: "${HA_TOKEN:-}"
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
@@ -17,4 +20,5 @@ services:
     mem_limit: 512m
     cpus: 0.25
     # No published ports, Docker socket, privileged mode, or device mounts.
-    # Default command is dry-run. Do not add --write-eos before explicit approval.
+    # Default command is PV-only dry-run. Optional: command: ["sync", "--config", "/app/config.toml"]
+    # Writes additionally need DRY_RUN=false, --write-eos and per-component config approvals.

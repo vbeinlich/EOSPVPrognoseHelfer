@@ -55,7 +55,8 @@ def test_payload_matches_the_live_captured_eos_contract(config, forecast_case, s
     ).validate(payload)
 
 
-def test_write_only_exact_provider_import_then_readback(config, forecast_case, schema):
+def test_write_only_exact_provider_import_then_readback(config, forecast_case, schema, monkeypatch):
+    monkeypatch.setenv("DRY_RUN", "false")
     config["eos"].update(url="http://127.0.0.1:8503", write_enabled=True)
     calls, imported = [], {}
 
@@ -85,8 +86,9 @@ def test_write_only_exact_provider_import_then_readback(config, forecast_case, s
     ("PVForecastImport", {"import_file_path": "/some/file.json"}),
 ])
 def test_provider_or_overwriting_import_configuration_is_never_changed(
-    config, forecast_case, schema, provider, settings
+    config, forecast_case, schema, provider, settings, monkeypatch
 ):
+    monkeypatch.setenv("DRY_RUN", "false")
     config["eos"].update(url="http://127.0.0.1:8503", write_enabled=True)
     calls = []
 
@@ -108,7 +110,8 @@ def test_schema_mismatch_fails_even_if_generic_dict_would_accept_payload(schema)
         verify_contract(schema)
 
 
-def test_bad_readback_is_an_error_and_is_not_retried(config, forecast_case, schema):
+def test_bad_readback_is_an_error_and_is_not_retried(config, forecast_case, schema, monkeypatch):
+    monkeypatch.setenv("DRY_RUN", "false")
     config["eos"].update(url="http://127.0.0.1:8503", write_enabled=True)
     writes = []
 
@@ -124,3 +127,11 @@ def test_bad_readback_is_an_error_and_is_not_retried(config, forecast_case, sche
     with pytest.raises(ForecastError, match="readback"):
         run_once(config, write_eos=True, source_reader=source_reader(forecast_case), http=http)
     assert len(writes) == 1
+
+
+def test_pv_default_dry_run_environment_blocks_accidental_flag(config, forecast_case, monkeypatch):
+    monkeypatch.delenv("DRY_RUN", raising=False)
+    config["eos"].update(url="http://127.0.0.1:8503", write_enabled=True)
+    with pytest.raises(ForecastError, match="DRY_RUN"):
+        run_once(config, write_eos=True, source_reader=source_reader(forecast_case),
+                 http=lambda *a, **kw: pytest.fail("No HTTP allowed after dry-run gate"))

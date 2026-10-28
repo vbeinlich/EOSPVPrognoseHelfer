@@ -1,5 +1,33 @@
 # Validierung — 28.10.2026
 
+## Erweiterungen aus Issue #1
+
+- 96 Tests mit gepinntem EOS-Quellbaum erfolgreich; ohne EOS 93 Tests und eine explizit
+  übersprungene Integrationstestdatei. Ruff ohne Befunde.
+- Neues echtes EOS-HTTP-Integrationstest-Szenario im Container ohne Netzwerk:
+  PV-/Last-/Einspeisetarifimport, HA-SoC-Konvertierung 55,5 % → 0,555 via
+  `/v1/measurement/value` mit Roh-Rücklesung; evcc-Endkundenpreise einschließlich
+  negativer Preise in `ElecPriceImport`; anschließend 24-h-GENETIC-Lauf über
+  POST `/v1/optimize` mit 3.600-s-Slots und frischem Anfangs-SoC.
+- Aktiver nativer `ElecFeeFixed` mit 0,1138655 EUR/kWh und 19 % wird dabei aktualisiert.
+  Positiver und negativer Importpreis bleiben auch nach nativen Providerupdates und
+  Simulation exakt unverändert; Gebührenkonfiguration und EMS-Modus bleiben erhalten.
+- Neue Tests prüfen SoC-Grenzen/Quellalter, unknown/unavailable, DST-Liefertage
+  (92/96/100 Intervalle), Preis-/Lastlücken, 24-h-Kontrollhorizont und begrenzten Tail,
+  persistente Idempotenz/Preisrevisionen, Timeout-/Speicherfehler, getrennte Opt-ins,
+  DRY_RUN-Standard und Sperren bei Geräteadaptern/Webhooks/fremden Providern.
+- Zwei parallel gestartete Helferprozesse mit derselben Statusablage erzeugen zusammen
+  genau einen POST; beide sehen anschließend denselben erfolgreichen Ereignisstatus.
+- Vorhandenen privaten evcc-Snapshot ohne neue Netzwerkabfrage mit dem neuen Parser
+  geprüft: 192 gültige Viertelstunden, 27.10.2026 23:00 UTC bis 29.10.2026 22:45 UTC,
+  vollständiger nächster Liefertag 29.10.2026 mit 96 Intervallen erkannt. Dies bestätigt
+  das Datenformat, ersetzt aber keine LUOX-Endpreisabnahme oder EOS-Schreibfreigabe.
+- Installiertes OpenAPI und laufende EOS-/evcc-Konfiguration ausschließlich lesend
+  geprüft. EOS-Preisprovider ist weiterhin `ElecPriceEnergyCharts`; der Live-Preisimport
+  wird bis zur separaten Umstellungsfreigabe blockiert. Kein HA-Token veröffentlicht.
+
+Die folgenden Angaben dokumentieren zusätzlich die ursprüngliche PV-Validierung.
+
 ## Lokal erfolgreich ausgeführt
 
 - Ruff: keine Befunde in `src` und `tests`.

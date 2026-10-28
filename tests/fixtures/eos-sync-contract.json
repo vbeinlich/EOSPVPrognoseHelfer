@@ -1,0 +1,341 @@
+{
+  "_note": "Selected unchanged request definitions from installed OpenAPI; response models omitted. Responses tested against real EOS.",
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Akkudoktor-EOS",
+    "summary": "Comprehensive solution for simulating and optimizing an energy system based on renewable energy sources",
+    "description": "This project provides a comprehensive solution for simulating and optimizing an energy system based on renewable energy sources. With a focus on photovoltaic (PV) systems, battery storage (batteries), load management (consumer requirements), heat pumps, electric vehicles, and consideration of electricity price data, this system enables forecasting and optimization of energy flow and costs over a specified period.\n\n## Currency Information\n\nAll monetary values in this API are expressed in the locally configured currency of the EOS installation. The system is designed to work with any currency (e.g., EUR, SEK, CHF, USD, GBP, etc.). Each installation uses a single, consistent currency throughout all endpoints and responses.\n\nValues are given in whole currency units, not in hundredth subunits: a value of `0.0003` in an installation configured for Euro means 0.0003 EUR/Wh (i.e. 0.30 EUR/kWh), never cents. The same applies to all totals (e.g. `total_costs` of `1.5` = 1.50 EUR).\n\nField names containing cost, price, revenue, tariff, or similar monetary terms (e.g., `total_costs`, `electricity_price_per_wh`, `revenue_per_hour`) represent amounts in the configured currency, without explicit currency designation in the field name to maintain currency-neutrality.\n\n## Deprecated Field Names\n\nThe genetic optimization API fields were renamed from German to English. For backward compatibility the old German field names (e.g. `gesamtlast`, `pv_prognose_wh`, `Gesamtbilanz_Euro`) are still accepted on input and are emitted in responses alongside the English names, marked as deprecated in the schema. They will be removed in a future release — new clients should use the English field names only.\n",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "version": "v0.3.0.dev2602241646141478"
+  },
+  "paths": {
+    "/v1/prediction/import/{provider_id}": {
+      "put": {
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Provider ID.",
+              "title": "Provider Id"
+            },
+            "description": "Provider ID."
+          },
+          {
+            "name": "force_enable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Force Enable"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PydanticDateTimeDataFrame"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PydanticDateTimeData"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Data"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/measurement/value": {
+      "put": {
+        "parameters": [
+          {
+            "name": "datetime",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Datetime.",
+              "title": "Datetime"
+            },
+            "description": "Datetime."
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Measurement key.",
+              "title": "Key"
+            },
+            "description": "Measurement key."
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "title": "Value"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/optimize": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigOptimizationRequest"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PydanticDateTimeDataFrame": {
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Data"
+          },
+          "dtypes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Dtypes"
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz",
+            "description": "Timezone for datetime values"
+          },
+          "datetime_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Datetime Columns",
+            "description": "Columns to be treated as datetime"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PydanticDateTimeDataFrame",
+        "description": "Pydantic model for validating pandas DataFrame data with datetime index."
+      },
+      "PydanticDateTimeData": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "type": "object",
+        "title": "PydanticDateTimeData",
+        "description": "Pydantic model for time series data with consistent value lengths.\n\nThis model validates a dictionary where:\n- Keys are strings representing data series names\n- Values are lists of numeric or string values\n- Special keys 'start_datetime' and 'interval' can contain string values\nfor time series indexing\n- All value lists must have the same length\n\nExample:\n    .. code-block:: python\n\n        {\n            \"start_datetime\": \"2024-01-01 00:00:00\",  # optional\n            \"interval\": \"1 hour\",                     # optional\n            \"loadforecast_power_w\": [20.5, 21.0, 22.1],\n            \"load_min\": [18.5, 19.0, 20.1]\n        }"
+      },
+      "ConfigOptimizationRequest": {
+        "properties": {
+          "soc": {
+            "additionalProperties": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 0
+            },
+            "type": "object",
+            "title": "Soc"
+          },
+          "forecasts": {
+            "$ref": "#/components/schemas/RuntimeForecasts"
+          },
+          "start_solution": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Solution"
+          },
+          "start_solution_datetime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Solution Datetime"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ConfigOptimizationRequest",
+        "description": "Supply observations while hardware, tariffs and scheduling remain in config.\n\nExplicit SoC values take precedence over fresh measurements. Without a usable\nmeasurement, assume 0% initial SoC for the affected device and continue."
+      },
+      "RuntimeForecasts": {
+        "properties": {
+          "pv_forecast_wh": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pv Forecast Wh"
+          },
+          "total_load": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Load"
+          },
+          "electricity_price_per_wh": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Electricity Price Per Wh"
+          },
+          "feed_in_tariff_per_wh": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feed In Tariff Per Wh"
+          },
+          "temperature_forecast": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature Forecast"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RuntimeForecasts",
+        "description": "External series from local midnight, in slot Wh and currency per Wh.\n\nThe interval is configured in optimization.genetic.interval_sec. Omitted\nseries are read from the configured providers, preserving their raw coverage."
+      }
+    }
+  }
+}

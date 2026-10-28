@@ -1,6 +1,7 @@
 # Copy to config.toml (ignored by Git). Example coordinates are Berlin city centre,
 # NOT an installation location. Replace them with your own private configuration.
 poll_seconds = 300
+timezone = "Europe/Berlin"
 
 [source]
 kind = "eos-forecastsolar"
@@ -21,3 +22,24 @@ directory = "/output"
 # Set the existing local EOS origin for read-only schema/provider checks.
 url = "http://eos:8503" # Replace with your actual existing local EOS origin.
 write_enabled = false # Never enable before explicit operator approval.
+
+# Optional command: eos-pv-helper sync --config /app/config.toml
+# Reads enabled sources every 60 s, PV remains on poll_seconds above.
+# DRY_RUN=true by default, including when --write-eos is accidentally supplied.
+[soc]
+enabled = false
+url = "http://homeassistant:8123"
+bearer_token_env = "HA_TOKEN" # Supply privately to the NEW helper only, never in Git.
+max_age_seconds = 300
+write_enabled = false
+
+[prices]
+enabled = false
+url = "http://evcc:7070"
+write_enabled = false
+retail_prices_confirmed = false # Compare sample intervals to LUOX before live import.
+
+[trigger]
+enabled = false # Observe/validate new complete next-day price publications.
+run_enabled = false # Separate approval required for POST /v1/optimize.
+request_timeout_seconds = 300 # Ambiguous/failed dispatch is never retried automatically.

@@ -100,6 +100,53 @@ Schreibsperren, Cache-Wiederverwendung, native EOS-Quelle mit abgefangenem HTTP 
 echten 48-h-EOS-Import-/Optimierungslauf mit synthetischen Daten ohne Netzwerkzugang.
 Die konkrete Installation benötigt weiterhin einen echten Quellen-/Unraid-Dry-run,
 explizite EOS-Schreibfreigabe und einen erfolgreichen Optimierungslauf mit diesen Daten.
+
+## Erweiterungen aus Issue #1: Prüfung der installierten Verträge
+
+Am 28.10.2026 erneut ausschließlich per GET geprüft: installiertes OpenAPI
+`v0.3.0.dev2602241646141478`, `ems.mode=PREDICTION`, `ems.interval=3600`,
+`optimization.algorithm=GENETIC`, `interval_sec=3600`, Kontrollhorizont 24 h,
+Prognose 48 h, `tail_horizon_hours=48`. Preisprovider bleibt `ElecPriceEnergyCharts`;
+keine automatische Umstellung. Konkrete Adressen, HA-Zugangsdaten, Standortparameter und
+vollständige Anlagenkonfiguration werden nicht im Repository gespeichert.
+
+Die neuen Module verwenden folgende bestehende EOS-Implementierungen des bereits oben
+gepinnten Quellstands:
+
+- [`server/eos.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/server/eos.py):
+  `fastapi_measurement_value_put()` bestätigt Query-Parameter statt Samples-Payload;
+  `fastapi_optimize_config()` akzeptiert `ConfigOptimizationRequest` und liefert einen
+  neuen `GeneticSolution`, bei fehlendem neuen Ergebnis HTTP 503.
+- [`prediction/elecpriceimport.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/prediction/elecpriceimport.py):
+  `ElecPriceImport._update_data()` importiert ausschließlich konfigurierte Datei/JSON;
+  es führt kein `_store_gross_series()` oder `_apply_fees()` aus.
+- [`prediction/elecpriceabc.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/prediction/elecpriceabc.py)
+  und `priceabc.py`: `elecprice_marketprice_wh` enthält Gebühren, das Feld mit `_raw_`
+  nicht. Nur die Raw→Gross-Berechnung addiert Betrag und Prozent. Ein Import bereits
+  vollständiger evcc-Endkundenpreise muss das Gross-Feld verwenden.
+- [`optimization/genetic/configrequest.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/optimization/genetic/configrequest.py):
+  `ConfigOptimizationRequest.resolve()` liest frische SoC-Messwerte, quantisiert Prozent
+  auf Integer und fällt bei fehlenden Werten auf angenommene 0 % zurück. Der Helfer
+  blockiert fehlenden/veralteten SoC und übergibt den bestätigten Integer explizit.
+  Native Forecastarrays beginnen an lokaler Mitternacht; der Helfer baut keine
+  verschobenen Runtime-Arrays und verwendet die EOS-eigenen Reihen.
+- [`optimization/genetic/genetic.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/optimization/genetic/genetic.py):
+  Tail-Slots werden auf den nach dem Kontrollhorizont verbleibenden Prognoseumfang
+  begrenzt und bei Lücken verkürzt. Aktuell maximal 24 h Tail, keine 72-h-Pflicht.
+- [`optimization/genetic/forecast.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/optimization/genetic/forecast.py):
+  `bounded_forecast_array()` integriert vollständig gedeckte Intervalle ohne Füllung;
+  dieselbe strikte Semantik dient der lesenden Vorprüfung.
+- [`core/ems.py`](https://github.com/Akkudoktor-EOS/EOS/blob/8a8cd43a1915668927eda5504b7de039c2e762b4/src/akkudoktoreos/core/ems.py):
+  `EnergyManagement.run()` kann einmalig im Optimierungsmodus aufgerufen werden, ohne
+  den gespeicherten EMS-Modus zu ändern. Es aktualisiert dabei nativ Prognosen und
+  Adapter und kann einen Abschluss-Webhook senden. Deshalb sperrt der Helfer bei
+  konfigurierten aktiven Adaptern oder Webhook; er schaltet sie nicht selbst ab.
+
+**Entscheidung:** EOS bleibt Prognose- und Optimierungsdienst. Der Helfer ergänzt nur
+validierte externe Eingaben, gemeinsame Cachedateien und eine persistente Verarbeitung
+neuer vollständiger Preisveröffentlichungen. Ein neuer Scheduler, Preisclient,
+Tarifmodell oder Hardwareadapter ist nicht erforderlich. Abläufe und bewusste
+Grenzen der Idempotenz stehen in [synchronisation.md](synchronisation.md).
 Issue #1 bleibt offen; keine automatische Schließreferenz im PR.
 
 ## Quellen

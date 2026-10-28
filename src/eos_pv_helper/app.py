@@ -1,4 +1,4 @@
-"""File/local-HTTP adapter with dry-run default and a single allowlisted EOS write."""
+"""Local input adapter. All production writes require explicit opt-ins."""
 
 import argparse
 import hashlib
@@ -9,6 +9,7 @@ import os
 import signal
 import socket
 import sys
+import tempfile
 import threading
 import time
 import tomllib
@@ -47,9 +48,9 @@ def validate_url(url, local_only=True):
     return url
 
 
-def request_json(url, *, method="GET", payload=None, token_env=None):
-    # Fixed methods only. Callers construct the sole writable path internally.
-    if method not in ("GET", "PUT"):
+def request_json(url, *, method="GET", payload=None, token_env=None, timeout=10):
+    # Callers construct the limited writable EOS paths internally.
+    if method not in ("GET", "PUT", "POST"):
         raise ForecastError("Unsupported HTTP method")
     headers = {"Accept": "application/json"}
     if token_env:
@@ -63,7 +64,7 @@ def request_json(url, *, method="GET", payload=None, token_env=None):
         headers["Content-Type"] = "application/json"
     try:
         with build_opener(NoRedirect()).open(
-            Request(url, data=body, headers=headers, method=method), timeout=10
+            Request(url, data=body, headers=headers, method=method), timeout=timeout
         ) as response:
             content = response.read(MAX_BYTES + 1)
             if len(content) > MAX_BYTES:
@@ -122,9 +123,24 @@ def read_source(config):
 def atomic_json(path, data):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(json.dumps(data, indent=2, allow_nan=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+        if os.name == "posix":
+            descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+    finally:
+        if temporary and temporary.exists():
+            temporary.unlink()
 
 
 def run_once(config, *, write_eos=False, refresh_source=False, now=None,
@@ -161,6 +177,8 @@ def run_once(config, *, write_eos=False, refresh_source=False, now=None,
     eos = config.get("eos", {})
     if write_eos and eos.get("write_enabled") is not True:
         raise ForecastError("EOS writing requires both write_enabled=true and --write-eos")
+    if write_eos and os.environ.get("DRY_RUN", "true").lower() != "false":
+        raise ForecastError("EOS writes are blocked by DRY_RUN (default true)")
     contract = {}
     base = None
     if eos.get("url"):
@@ -198,7 +216,7 @@ def run_once(config, *, write_eos=False, refresh_source=False, now=None,
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", choices=("run", "health"), default="run")
+    parser.add_argument("command", nargs="?", choices=("run", "sync", "health"), default="run")
     parser.add_argument("--config", default="/app/config.toml")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--write-eos", action="store_true", help="Requires prior operator approval")
@@ -213,15 +231,26 @@ def main():
         if isinstance(interval, bool) or not isinstance(interval, int) or not 30 <= interval <= 3600:
             raise ForecastError("poll_seconds must be an integer between 30 and 3600")
         output = Path(config.get("output", {}).get("directory", "/output"))
+        health_age = max(interval * 2 + 30,
+                         config.get("trigger", {}).get("request_timeout_seconds", 300) + 150)
         if args.command == "health":
             state = json.loads((output / "health.json").read_text())
-            return 0 if state.get("ok") is True and time.time() - state["checked_at"] < interval * 2 + 30 else 1
+            return 0 if state.get("ok") is True and time.time() - state["checked_at"] < health_age else 1
+        if args.command == "sync":
+            interval = 60
         stop = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, lambda *_: stop.set())
         while not stop.is_set():
             try:
-                run_once(config, write_eos=args.write_eos, refresh_source=args.refresh_source)
+                if args.command == "sync":
+                    from .sync import sync_once
+                    report = sync_once(config, write_eos=args.write_eos,
+                                       refresh_source=args.refresh_source)
+                    if args.once and report["errors"]:
+                        return 1
+                else:
+                    run_once(config, write_eos=args.write_eos, refresh_source=args.refresh_source)
             except Exception as exc:
                 atomic_json(output / "health.json", {"ok": False, "checked_at": time.time()})
                 # Whitelist our own safe diagnostics; do not dump source bodies, URLs or secrets.

@@ -5,7 +5,8 @@ UTC-Viertelstundenreihe bereit. Keine Gerätebefehle, keine neue Wetter-API und 
 Forecast.Solar-Client: verwendet wird der originale EOS-Provider `PVForecastForecastSolar`.
 
 **Standard: Dry-run und Cache-only.** Ein externer Abruf braucht zwei ausdrückliche
-Opt-ins, ein Import ins bestehende EOS zwei weitere. Unraid-/Produktionsabnahme steht
+Opt-ins. EOS-Schreibzugriffe benötigen `DRY_RUN=false`, Konfigurationsfreigaben und
+`--write-eos`. Unraid-/Produktionsabnahme steht
 noch aus. [Issue #1](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/1) bleibt offen.
 
 ## Recherche zuerst
@@ -93,10 +94,36 @@ noch keinen EOS-Import. Bei einem Zugriff alle fünf Minuten verhindert die Cach
 weitere Abrufe innerhalb derselben Stunde. Für dauerhaften freigegebenen Quellenbetrieb
 den Helfer mit `run --refresh-source` starten.
 
-**Erst nach separater EOS-Schreibfreigabe:** zusätzlich `eos.write_enabled=true` und
-`--write-eos` verwenden. Einzige produktive Schreiboperation ist
+**Erst nach separater EOS-Schreibfreigabe:** zusätzlich `DRY_RUN=false`,
+`eos.write_enabled=true` und `--write-eos` verwenden. Im PV-Kommando `run` ist die
+einzige produktive Schreiboperation
 `PUT /v1/prediction/import/PVForecastImport`, anschließend GET zur Rückleseprüfung.
 Kein `force_enable`, kein Provider-Update, keine Konfigurationsänderung oder Optimierung.
+
+## Optionale SoC-, Preis- und Ereignis-Erweiterung
+
+Das Kommando `sync` liest aktivierte HA-/evcc-Quellen alle 60 Sekunden; die PV-Prüfung
+behält `poll_seconds` bei. Alle Erweiterungen sind in `config.example.toml` deaktiviert.
+Die [Installations- und Ablaufbeschreibung](docs/synchronisation.md) erklärt die
+getrennten Freigaben, Eingabeprüfungen und Betriebsgrenzen.
+
+- HA `sensor.evcc_battery_soc`: Prozent → Faktor, Quellzeitstempel erhalten,
+  maximal 300 Sekunden alt; bestätigtes EOS-API `/v1/measurement/value` mit Roh-Rücklesung.
+- evcc `forecast.grid`: vollständiger EUR/kWh-Endkundenpreis → EUR/Wh durch 1.000;
+  keine zusätzlichen LUOX-, USt- oder Netzgebühren. Negative Preise bleiben gültig.
+- Nur eine neue vollständige Day-Ahead-Preisversion kann einen separat freigegebenen
+  EOS-Lauf auslösen. Verschobene Prognosefenster und SoC-Änderungen lösen keinen aus.
+- EOS bleibt `PREDICTION`, Intervall 3.600 s. Der Helfer ruft keine periodischen
+  Wetter-/Lastupdates auf und verändert weder Provider noch Gebühren oder Geräte.
+- Vor Simulation: vollständiger Kontrollhorizont, frischer SoC, verifizierte Importe,
+  keine aktiven EOS-Geräteadapter oder Benachrichtigungs-Webhooks.
+- `sync-state.json` verhindert Wiederholungen nach Neustarts. Ein unklarer HTTP-Ausgang
+  bleibt gesperrt und benötigt manuelle Prüfung. Dry-run verbraucht keine Live-Preisversion.
+
+`soc.json`, `prices-source.json`, `prices.json` und `sync-report.json` ergänzen den
+gemeinsamen Dateicache für spätere EMHASS-/HA-Verbraucher. Kein zusätzlicher Dienstport
+und keine zweite externe Preisquelle sind erforderlich. Modul-3-Netzentgelte werden
+nicht als aktive Preiskomponente ergänzt.
 Die beiden CLI-Flags können kombiniert werden, jedoch nur nach entsprechender Freigabe.
 
 ```sh

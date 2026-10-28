@@ -2,7 +2,7 @@
 
 ## Erweiterungen aus Issue #1
 
-- 96 Tests mit gepinntem EOS-Quellbaum erfolgreich; ohne EOS 93 Tests und eine explizit
+- 98 Tests mit gepinntem EOS-Quellbaum erfolgreich; ohne EOS 95 Tests und eine explizit
   übersprungene Integrationstestdatei. Ruff ohne Befunde.
 - Neues echtes EOS-HTTP-Integrationstest-Szenario im Container ohne Netzwerk:
   PV-/Last-/Einspeisetarifimport, HA-SoC-Konvertierung 55,5 % → 0,555 via
@@ -16,6 +16,8 @@
   (92/96/100 Intervalle), Preis-/Lastlücken, 24-h-Kontrollhorizont und begrenzten Tail,
   persistente Idempotenz/Preisrevisionen, Timeout-/Speicherfehler, getrennte Opt-ins,
   DRY_RUN-Standard und Sperren bei Geräteadaptern/Webhooks/fremden Providern.
+- Frische HA-Meldungen während eines laufenden Zyklus werden gegen die Uhrzeit nach
+  dem Lesen geprüft. Während der Vorprüfung veraltender SoC verhindert den POST.
 - Zwei parallel gestartete Helferprozesse mit derselben Statusablage erzeugen zusammen
   genau einen POST; beide sehen anschließend denselben erfolgreichen Ereignisstatus.
 - Vorhandenen privaten evcc-Snapshot ohne neue Netzwerkabfrage mit dem neuen Parser

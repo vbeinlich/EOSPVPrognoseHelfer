@@ -94,15 +94,16 @@ def verify_solution(solution, plan):
 
 
 def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=request_json,
-              pv_runner=run_once):
+              pv_runner=run_once, clock=None):
     """One 60-second tick. A durable claim precedes POST; ambiguous outcomes never retry."""
     import fcntl
 
-    now = now or datetime.now(UTC)
+    clock = clock or (lambda: datetime.now(UTC))
     output = Path(config.get("output", {}).get("directory", "/output"))
     output.mkdir(parents=True, exist_ok=True)
     with (output / "sync.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        now = now or clock()
         state_path = output / "sync-state.json"
         state = json.loads(state_path.read_text()) if state_path.exists() else {"events": {}}
         report = {"checked_at_utc": now.isoformat(), "mode": "dry-run", "errors": {}}
@@ -142,7 +143,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
             def sync_soc():
                 base = eos_base({"url": soc["url"]})
                 value = soc_sample(http(base + "/api/states/sensor.evcc_battery_soc",
-                                       token_env=soc.get("bearer_token_env")), now,
+                                       token_env=soc.get("bearer_token_env")), clock(),
                                    soc.get("max_age_seconds", 300))
                 report["soc"] = value
                 atomic_json(output / "soc.json", value)
@@ -193,7 +194,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                     raise ForecastError("Simulation needs PVForecastImport without file/JSON override")
                 simulation_safe(settings)
                 try:
-                    version = day_ahead_version(frame, now, config.get("timezone", "Europe/Berlin"))
+                    version = day_ahead_version(frame, clock(), config.get("timezone", "Europe/Berlin"))
                 except ForecastError:
                     report["event"] = {"status": "waiting-publication"}
                     return
@@ -209,7 +210,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 for key in ("pvforecast_ac_power", "loadforecast_power_w", "feed_in_tariff_wh"):
                     series[key] = raw_series(http(origin + "/v1/prediction/series?" + urlencode(
                         {"key": key, "processing": "raw", "dropna": "false"})))
-                plan = coverage(settings, series, now)
+                plan = coverage(settings, series, clock())
                 report["event"].update(plan, status="ready-dry-run")
                 LOG.info("simulation_ready mode=%s delivery_day=%s version=%s tail_hours=%s",
                          report["mode"], version["delivery_day"], version["version"],
@@ -232,12 +233,12 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 readback(http, origin, "/v1/measurement/series?" + urlencode(
                     {"key": SOC_KEY, "processing": "raw", "dropna": "false"}),
                     {sample["source_timestamp"]: sample["factor"]})
-                actual_age = (datetime.now(UTC) - timestamp(sample["source_timestamp"])).total_seconds()
+                actual_age = (clock() - timestamp(sample["source_timestamp"])).total_seconds()
                 if not 0 <= actual_age <= min(300, settings["optimization"]["genetic"].get(
                     "measurement_max_age_seconds", 300)):
                     raise ForecastError("SoC expired before simulation dispatch")
                 # Do not dispatch using coverage validated for the preceding slot.
-                final_plan = coverage(settings, series, datetime.now(UTC))
+                final_plan = coverage(settings, series, clock())
                 if final_plan["start_utc"] != plan["start_utc"]:
                     raise ForecastError("GENETIC slot changed; revalidate on the next input tick")
                 claim = {**version, **plan, "status": "uncertain", "claimed_at_utc": now.isoformat()}

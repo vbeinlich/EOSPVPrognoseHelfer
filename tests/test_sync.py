@@ -90,6 +90,7 @@ def sync_case(config, monkeypatch):
 
 
 def tick(case, **kwargs):
+    kwargs.setdefault("clock", lambda: case["now"])
     return sync_once(case["config"], now=case["now"], http=case["http"],
                      pv_runner=case["pv_runner"], **kwargs)
 
@@ -312,3 +313,29 @@ def test_two_processes_share_one_durable_event_claim(sync_case, monkeypatch):
                 process.terminate()
                 process.join(2)
         queue.close()
+
+
+def test_ha_update_after_cycle_start_is_not_future_dated(sync_case):
+    observed = sync_case["now"] + timedelta(seconds=2)
+    sync_case["ha"]["last_updated"] = observed.isoformat()
+    report = tick(sync_case, clock=lambda: sync_case["now"] + timedelta(seconds=3))
+    assert report["errors"] == {}
+    assert report["soc"]["age_seconds"] == 1
+    assert report["soc"]["source_timestamp"] == observed.isoformat()
+
+
+def test_soc_expiring_during_preflight_blocks_post(sync_case, monkeypatch):
+    monkeypatch.setenv("DRY_RUN", "false")
+    instant = [sync_case["now"]]
+    original = sync_case["http"]
+
+    def delayed(url, **kwargs):
+        result = original(url, **kwargs)
+        if "key=feed_in_tariff_wh" in url:
+            instant[0] += timedelta(seconds=301)
+        return result
+
+    sync_case["http"] = delayed
+    report = tick(sync_case, write_eos=True, clock=lambda: instant[0])
+    assert "expired" in report["errors"]["event"]
+    assert not writes(sync_case, "POST")

@@ -1,0 +1,23 @@
+# Copy to config.toml (ignored by Git). Example coordinates are Berlin city centre,
+# NOT an installation location. Replace them with your own private configuration.
+poll_seconds = 300
+
+[source]
+kind = "eos-forecastsolar"
+cache_file = "/output/source.json"
+max_age_seconds = 3600
+refresh_enabled = false # External retrieval requires this AND --refresh-source.
+interval_seconds = 3600 # Declared native support-point cadence; verify against source.
+# Coordinates, geometry, capacity and timezone are read from existing EOS via GET.
+
+[horizon]
+hours = 48 # 192 elapsed 15-minute intervals, including across DST changes.
+# start = "2026-10-28T00:00:00+01:00" # Omit for rolling UTC-quarter-hour start.
+
+[output]
+directory = "/output"
+
+[eos]
+# Set the existing local EOS origin for read-only schema/provider checks.
+url = "http://eos:8503" # Replace with your actual existing local EOS origin.
+write_enabled = false # Never enable before explicit operator approval.

@@ -1,0 +1,20 @@
+FROM python:3.11-slim-bookworm
+ARG EOS_REF=8a8cd43a1915668927eda5504b7de039c2e762b4
+ENV EOS_DIR=/tmp/eos-test EOS_CONFIG_DIR=/tmp/eos-test \
+    OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MPLBACKEND=Agg \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+RUN pip install --no-cache-dir \
+    "https://github.com/Akkudoktor-EOS/EOS/archive/${EOS_REF}.tar.gz"
+# The upstream wheel currently omits subpackages. Keep the pinned source tree
+# on PYTHONPATH rather than silently testing a different PyPI version.
+RUN mkdir -p /opt/eos && python -c \
+    "import urllib.request; urllib.request.urlretrieve('https://github.com/Akkudoktor-EOS/EOS/archive/${EOS_REF}.tar.gz', '/tmp/eos.tar.gz')" \
+    && tar -xzf /tmp/eos.tar.gz --strip-components=1 -C /opt/eos
+ENV PYTHONPATH=/opt/eos/src
+COPY pyproject.toml ./
+COPY src ./src
+COPY tests ./tests
+RUN pip install --no-cache-dir '.[test]'
+ENTRYPOINT ["pytest"]
+CMD ["-q", "tests"]

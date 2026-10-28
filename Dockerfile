@@ -1,0 +1,33 @@
+FROM python:3.11-slim-bookworm AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+COPY pyproject.toml ./
+COPY src ./src
+RUN pip install --no-cache-dir . && useradd --uid 10001 --create-home helper \
+    && mkdir /output && chown helper:helper /output
+USER 10001:10001
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+  CMD ["python", "-m", "eos_pv_helper", "health"]
+ENTRYPOINT ["python", "-m", "eos_pv_helper"]
+CMD ["run"]
+
+FROM runtime AS test
+USER root
+RUN pip install --no-cache-dir '.[test]'
+COPY tests ./tests
+HEALTHCHECK NONE
+ENTRYPOINT ["pytest"]
+CMD ["-q", "/app/tests"]
+
+FROM runtime AS normalizer
+
+FROM runtime AS eos-source
+USER root
+ARG EOS_REF=8a8cd43a1915668927eda5504b7de039c2e762b4
+RUN pip install --no-cache-dir \
+    "https://github.com/Akkudoktor-EOS/EOS/archive/${EOS_REF}.tar.gz" \
+    && mkdir -p /opt/eos && python -c \
+    "import urllib.request; urllib.request.urlretrieve('https://github.com/Akkudoktor-EOS/EOS/archive/${EOS_REF}.tar.gz', '/tmp/eos.tar.gz')" \
+    && tar -xzf /tmp/eos.tar.gz --strip-components=1 -C /opt/eos
+ENV PYTHONPATH=/opt/eos/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+USER 10001:10001

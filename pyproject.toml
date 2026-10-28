@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eos-pv-helper"
+version = "0.1.0"
+description = "Validate existing PV forecasts and fill only missing solar-night intervals for EOS"
+requires-python = ">=3.11"
+dependencies = ["astral==3.2", "tzdata==2025.2"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "jsonschema>=4.23,<5", "ruff>=0.9,<1"]
+
+[project.scripts]
+eos-pv-helper = "eos_pv_helper.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

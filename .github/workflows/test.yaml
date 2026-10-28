@@ -1,0 +1,25 @@
+name: Tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install '.[test]'
+      - run: ruff check src tests
+      - run: pytest -q
+      - run: docker compose config --no-path-resolution
+      - run: docker build -t eos-pv-helper:ci .
+  eos-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
+      - run: docker run --rm --network none eos-pv-helper:eos-test

@@ -125,8 +125,14 @@ jobs:
           for tag in $PROMOTION_TAGS; do tags+=(--tag "$tag"); done
           # Version tags are immutable. Do not move an existing version to a new digest.
           for tag in $PROMOTION_TAGS; do
-            if [[ "$tag" != *:latest ]] && docker buildx imagetools inspect "$tag" > /dev/null 2>&1; then
-              test "$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}')" = "$IMAGE_DIGEST"
+            if [[ "$tag" != *:latest ]]; then
+              if existing=$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}' 2>version-inspect-error); then
+                test "$existing" = "$IMAGE_DIGEST"
+              elif ! grep -Fq "$tag: not found" version-inspect-error; then
+                # Network/auth/registry errors do not prove that a version is absent.
+                cat version-inspect-error >&2
+                exit 1
+              fi
             fi
           done
           docker buildx imagetools create --prefer-index=false "${tags[@]}" "$image"

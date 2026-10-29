@@ -5,7 +5,8 @@ manuell gestarteter `docker run` sind nicht erforderlich. Zielsystem: Unraid 7.3
 das Image wird als `linux/amd64` gebaut. Die Erstfassung dieser Anleitung war vor der realen Abnahme entstanden;
 am 29.10.2026 hat der Betreiber Installation/Upgrade, Secret-Mounts und echte Datenimporte
 auf Unraid bestätigt. Details unter [UNRAID_VALIDATION.md](UNRAID_VALIDATION.md).
-Die automatisch erstellte GENETIC-Lösung ist weiterhin nicht abgenommen.
+Die automatisch erstellte GENETIC-Lösung wurde inzwischen vom Betreiber bestätigt
+und unabhängig lesend geprüft: [GENETIC-Abnahme](GENETIC_ABNAHME.md).
 
 Für den inzwischen vorhandenen Helfer gelten die [aktuellen Findings mit konkretem
 erneutem Dry-run-Test](FINDINGS_ISSUE_1.md). Sie behandeln dynamischen PV-Horizont,
@@ -353,8 +354,8 @@ er bestätigt keine bereits erfolgte Installation auf dem privaten Unraid-Server
 
 ## Abschluss der laufenden Abnahme
 
-PV-, evcc-SoC- und Preisimport wurden real bestätigt; der automatische GENETIC-Plan
-ist noch offen. Der [rein lesende Doctor und Release-Ablauf](RELEASE_CHECKLIST.md)
+PV-, evcc-SoC- und Preisimport sowie der automatische GENETIC-Plan wurden real
+bestätigt. Der [rein lesende Doctor und Release-Ablauf](RELEASE_CHECKLIST.md)
 prüft die vorhandenen Artefakte ohne erneuten Lauf. Kein Deployment oder Update
 durch Codex ohne ausdrückliche Freigabe. Wizard/Skill werden gemäß PR-Auftrag erst
 nach erfolgreichem Abschluss #1, Merge #3 und stabilem Release implementiert.

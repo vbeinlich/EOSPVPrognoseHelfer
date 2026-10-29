@@ -3,7 +3,7 @@
 Stand 29.10.2026. **Vorbereitet, nicht veröffentlicht oder produktiv installiert.**
 Verbindliche Reihenfolge aus dem [neuesten Auftrag in PR #3](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/3#issuecomment-6494748299):
 reale automatische GENETIC-Abnahme → Issue #1 schließen → PR #3 prüfen/mergen →
-stabiler Release → erst dann Implementierung von Issue #5. Bisherige lokale Tests
+stabiler Release → Issue #5 → Savings Dashboard #6. Bisherige lokale Tests
 ersetzen die reale Abnahme nicht. Vorher entsteht kein Wizard-/Skill-Branch oder PR.
 
 ## Schon real bestätigt
@@ -13,11 +13,16 @@ belegt PV (175 Viertelstunden/43,75 h, 110 Nachtfüllungen, Import rückgelesen)
 authentifizierten frischen evcc-e3dc-rscp-SoC und 96 korrekt rückgelesene Preise.
 Regulärer Sync: `mode=write`, keine Fehler. Bestehendes EOS: `PREDICTION`, 3600 s,
 `GENETIC`, 24 h, `adapter.provider=null`, `ems.notify_url=null`.
-Letzter bestätigter Eventstatus: `waiting-publication`. **Noch kein automatisch
-berechneter, inhaltlich geprüfter GENETIC-Plan belegt.** Issues #2/#4 sind nach
-Betreiberabnahme geschlossen; #1 bleibt dafür offen.
+**Aktualisierung nach Veröffentlichung:** Der Betreiber bestätigt den automatischen
+Übergang `waiting-publication → succeeded` für den Liefertag 30.10., 96 Intervalle,
+Version `46d32bd047bc983219b9a85b1b6d3a1f8e4eaded90c2d0a9aee6fc42c88c5484`.
+Die bestehende Lösung wurde anschließend per GET unabhängig mit der Doctor-
+Lösungsvalidierung und dem installierten OpenAPI-Schema geprüft: 24 h ab 13:00 MEZ,
+11 h gedeckter Tail, `result.total_costs=2.687513895312027` €.
+[Belege und Prüfumfang](GENETIC_ABNAHME.md). Damit ist die reale Abnahme von #1
+erfüllt. Merge und stabiler Release sind davon getrennte Schritte.
 
-## Abschließende Abnahme ausschließlich lesend
+## Abnahme wiederholen ausschließlich lesend
 
 Der bereits vom Betreiber freigegebene reguläre Sync darf nach Veröffentlichung
 des vollständigen morgigen Liefertags selbst reagieren. Nicht manuell nachhelfen:
@@ -79,14 +84,23 @@ Freigabe zum Dispatch. Erst danach Issue #1 mit diesen Belegen schließen.
    [Lizenzinventar und Grenzen](../THIRD_PARTY_NOTICES.md). CI stellt das tatsächlich
    installierte Inventar als Artefakt bereit. Ungeprüfte native Bibliotheken und
    deren Quellpflichten sind ein Release-Blocker, kein automatisch grüner Haken.
-3. `GENETIC_ACCEPTANCE.json` erst mit echtem, anonymisiertem Doctor-Beleg,
+3. `GENETIC_ACCEPTANCE.json` unterscheidet die jetzt bestätigte GENETIC-Abnahme von
+   der noch ausstehenden Release-Freigabe. Der dortige `doctor` bleibt ausdrücklich
+   `null`: Die privaten Sync-Artefakte waren über SMB nicht lesbar; es wurde kein
+   vollständiger Live-Doctor-Exitcode 0 behauptet. [Lösungsprüfung](GENETIC_RESULT_VERIFIED.json)
+   und Betreiberbestätigung belegen den Abschluss von #1. Für das unverändert
+   strenge Release-Gate einen konsistenten privaten Artefaktexport bzw. echten
+   vollständigen Doctor-Beleg ergänzen; keine Hashes/Flags nachbilden.
+   Erst mit echtem, anonymisiertem Doctor-Beleg,
    Abnahmekommentaren, akzeptiertem Runtime-Commit sowie expliziter Betreiber- und
-   kandidatenspezifischer Lizenzfreigabe ergänzen. `pending` ist absichtlich rot.
+   kandidatenspezifischer Lizenzfreigabe ergänzen. Der aktuelle Status
+   `genetic-accepted-release-pending` gibt ausdrücklich noch keinen Release frei.
    Den SHA256-Hash der **exakten `inventory.json`-Datei** übernehmen, nicht ihres
    neu serialisierten JSON-Inhalts. Keine privaten Daten/Secrets übernehmen.
-4. Erst danach Draft entfernen und PR #3 nach `main` mergen. Angeforderte
-   Merge-/Release-Freigabe auf den konkreten grünen Commit beziehen. Aktuell wird
-   dieser Schritt nur vorbereitet, nicht ausgeführt.
+4. Nach erfüllter #1-Abnahme und grüner CI PR #3 aus Draft nehmen und für Review
+   bereitstellen. Merge nach `main` erst mit abschließender Betreiberfreigabe für
+   den konkreten grünen Commit. Offene Lizenz-/Release-Gates klar ausweisen; das
+   Bereitstellen für Review ist keine Freigabe zum Taggen oder Veröffentlichen.
 5. SemVer: erster stabiler Stand `v0.1.0` (Projektversion 0.1.0); spätere Bugfixes
    PATCH, kompatible Funktionen MINOR, Vertragsbrüche MAJOR. Keine stabilen Tags auf
    Vorschau-Branches, keine Wiederverwendung einer Version mit anderem Digest.
@@ -121,9 +135,11 @@ EOS, evcc, HA und E3/DC bleiben unverändert.
 
 ## Noch offen
 
-- Reale automatische GENETIC-Lösung plus nachvollziehbarer Doctor-/Artefaktbeleg.
+- Reale GENETIC-Abnahme ist erfüllt; ein vollständiger privater Live-Doctor-
+  Snapshot für das strengere Release-Gate fehlt noch. Kein produktives Update nötig.
 - Kandidatenspezifische Prüfung aller Fremdlizenz-/Quellpflichten und Betreiberfreigabe.
   Konkret offen: passende GCC-/libquadmath-Quellen der mit SciPy gebündelten
   Bibliothek; das SciPy-sdist allein genügt hierfür nicht.
-- Danach Issue #1 schließen, Review/Draft/Merge und tatsächlicher stabiler Release.
+- Review und ausdrückliche Mergefreigabe, danach tatsächlicher stabiler Release.
 - **Erst danach** Issue #5: [konkreter Umsetzungsplan](ISSUE_5_PLAN.md).
+- Anschließend Issue #6: [verständlicher und fairer Kostenvergleich](ROADMAP.md).

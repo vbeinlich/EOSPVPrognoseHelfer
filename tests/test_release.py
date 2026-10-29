@@ -17,7 +17,7 @@ def script(name):
     return module
 
 
-def test_pending_real_acceptance_blocks_release():
+def test_genetic_acceptance_alone_does_not_authorize_release():
     gate = script("release_gate")
     with pytest.raises(ValueError, match="approval"):
         gate.validate(json.loads((ROOT / "docs/GENETIC_ACCEPTANCE.json").read_text()))

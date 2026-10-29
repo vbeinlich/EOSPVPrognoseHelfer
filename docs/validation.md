@@ -1,5 +1,9 @@
 # Validierung — 28.10.2026
 
+Aktueller Abschlussstand vom 29.10.: [216 Tests und Release-Vorbereitung](RELEASE_VALIDATION.md),
+[reale automatische GENETIC-Abnahme](GENETIC_ABNAHME.md). Die nachfolgenden älteren
+Zählstände und damaligen offenen Abnahmepunkte bleiben historisch erhalten.
+
 ## Findings-Korrekturen — 29.10.2026
 
 Aktueller Umfang: 168 Tests mit gepinntem EOS; ohne EOS 164 Tests und zwei explizit

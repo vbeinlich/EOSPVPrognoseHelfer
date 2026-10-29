@@ -1,11 +1,18 @@
 # Issue #1: PV-Horizont, automatische Aktualisierung, Preise und SoC
 
+**Abschlussstand:** Die Betreiberabnahme einschließlich des automatischen GENETIC-
+Plans ist inzwischen erfüllt und unabhängig lesend abgeglichen:
+[endgültiger Beleg](GENETIC_ABNAHME.md). Die folgende ursprüngliche Findings-/
+Wiederholungsanleitung bewahrt ihren historischen Stand; dortige offene Tests und
+401-Befunde sind keine Aufforderung zu erneuten produktiven Schreibtests. Aktuelle
+Reihenfolge und Freigaben stehen in der [Release-Checkliste](RELEASE_CHECKLIST.md).
+
 Stand: 29.10.2026. Umsetzung im bestehenden PR #3. Produktionssysteme wurden nur per GET
 gelesen. Keine Änderungen an EOS, evcc, Home Assistant oder E3/DC; keine produktiven
 Imports oder Optimierungsläufe. Die unten beschriebenen Schreibtests liefen ausschließlich
 mit synthetischen Daten gegen einen isolierten EOS-Prozess ohne externes Netzwerk.
 
-## Ergebnis und Grenzen
+## Ursprüngliche Ergebnisse und damalige Abnahmegrenzen
 
 | Finding | Umsetzung | Verbleibende Abnahme |
 | --- | --- | --- |

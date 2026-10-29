@@ -7,14 +7,16 @@ Forecast.Solar-Client: verwendet wird der originale EOS-Provider `PVForecastFore
 **Standard: Dry-run und Cache-only.** Ein externer Abruf braucht zwei ausdrückliche
 Opt-ins. EOS-Schreibzugriffe benötigen `DRY_RUN=false`, Konfigurationsfreigaben und
 `--write-eos`. Die reale Unraid-Abnahme von PV-, SoC- und Preisimport ist bestätigt;
-der erste automatische GENETIC-Plan steht noch aus.
-[Issue #1](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/1) bleibt dafür offen.
+auch der erste automatische GENETIC-Plan wurde am 29.10.2026 bestätigt und dessen
+vorhandene Lösung unabhängig lesend validiert. [Abnahmebeleg](docs/GENETIC_ABNAHME.md).
 
 Der rein lesende `doctor` prüft vorhandene Abnahme-Artefakte ohne HTTP oder
 Schreibzugriffe. [GENETIC-Abnahme, Merge und MIT-Release](docs/RELEASE_CHECKLIST.md)
 beschreiben die konkreten Schritte und verbleibenden Gates.
 Eigener Code: [MIT](LICENSE); [Fremdlizenzen und Image-Inventar](THIRD_PARTY_NOTICES.md)
-gelten unabhängig davon. Issue #5 ist bis zur Abnahme nur [geplant](docs/ISSUE_5_PLAN.md).
+gelten unabhängig davon. Nächste Reihenfolge: Merge/stabiler Release →
+[Setup-Wizard und Skill #5](docs/ISSUE_5_PLAN.md) →
+[Savings Dashboard #6](docs/ROADMAP.md). Der produktive Helfer bleibt unverändert.
 
 Die [aktuellen Findings und der erneute Unraid-Test](docs/FINDINGS_ISSUE_1.md) dokumentieren
 den dynamischen 24..48-h-Horizont, periodische native Aktualisierung, historische
@@ -214,4 +216,5 @@ Prüfungen ist eine Freigabe oder ein Nachweis für das bestehende Unraid-/EOS-S
 Vor Schließen von Issue #1 müssen reale Rohdaten, Auflösung und Horizont geprüft,
 Unraid-Dry-run und ausdrücklich freigegebener PV-Import zurückgelesen sowie ein separat
 freigegebener Optimierungslauf mit genau dieser Prognose erfolgreich dokumentiert sein.
-Ein PR-Merge schließt das Issue nicht automatisch.
+Diese Voraussetzungen sind nun [belegt](docs/GENETIC_ABNAHME.md). Merge und stabiler
+Release bleiben gesonderte Freigabeschritte; daraus folgt noch kein Sparnachweis.

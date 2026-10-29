@@ -1,5 +1,11 @@
 # Issue #5 – freigabebereiter Plan, noch keine Implementierung
 
+Aktualisierung: Die reale automatische GENETIC-Abnahme von #1 ist nun belegt und
+lesend abgeglichen ([Beleg](GENETIC_ABNAHME.md)). Weiterhin zuerst PR #3 mergen und
+stabil veröffentlichen, dann #5 implementieren, anschließend #6. Die gemeinsame
+Weboberfläche/Doctor-Engine ist auch Grundlage des [Savings Dashboard](ROADMAP.md);
+kein paralleles zweites UI und keine vorgezogene Implementierung.
+
 Grundlage: alle zum 29.10.2026 vorhandenen Kommentare in Issues #1, #4, #5 und
 PR #3, insbesondere die [verbindliche Reihenfolge](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/3#issuecomment-6494748299).
 Vor realer GENETIC-Abnahme, Abschluss #1, Merge #3 und stabilem Release entstehen

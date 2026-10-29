@@ -3,6 +3,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -264,6 +265,57 @@ def test_missing_price_publication_is_waiting_not_failed(sync_case):
     report = tick(sync_case)
     assert report["errors"] == {}
     assert report["event"]["status"] == "waiting-publication"
+
+
+def test_cached_today_prices_then_publication_dispatch_once_and_persist_across_restart(
+    sync_case, monkeypatch
+):
+    """Regression for the real operator-observed publication on 2026-10-29.
+
+    All data/HTTP here are synthetic. An upstream evcc tariff cache can still
+    expose today's delivery day after another service already shows tomorrow.
+    """
+    from eos_pv_helper.doctor import acceptance
+
+    monkeypatch.setenv("DRY_RUN", "false")
+    configure_verified_evcc(sync_case)
+    sync_case["now"] = sync_case["now"].replace(minute=5, second=0)
+    complete = copy.deepcopy(sync_case["evcc"]["forecast"]["grid"])
+    local = sync_case["now"].astimezone(ZoneInfo("Europe/Berlin"))
+    cutoff = (local.replace(hour=0, minute=0, second=0) + timedelta(days=1)).timestamp()
+    sync_case["evcc"]["forecast"]["grid"] = [row for row in complete if row[0] < cutoff]
+    output = Path(sync_case["config"]["output"]["directory"])
+
+    for _ in range(2):
+        waiting = tick(sync_case, write_eos=True)
+        assert waiting["event"]["status"] == "waiting-publication"
+        assert waiting["errors"] == {}
+        assert not writes(sync_case, "POST")
+        assert json.loads((output / "sync-state.json").read_text())["events"] == {}
+        assert acceptance(sync_case["config"], now=sync_case["now"])[1] == 2
+        sync_case["now"] += timedelta(minutes=1)
+
+    # The normal next tick sees newly published prices; no manual dispatch path.
+    sync_case["evcc"]["forecast"]["grid"] = complete
+    success = tick(sync_case, write_eos=True)
+    version = success["event"]["version"]
+    assert success["event"]["status"] == "succeeded" and success["errors"] == {}
+    assert len(writes(sync_case, "POST")) == 1
+    state = json.loads((output / "sync-state.json").read_text())
+    solution = (output / ("solution-" + version + ".json")).read_bytes()
+    assert state["events"][version]["status"] == "succeeded"
+    assert acceptance(sync_case["config"], now=sync_case["now"])[1] == 0
+
+    # A fresh invocation reads only the durable state. Identical tomorrow prices
+    # must not consume a second POST or replace the persisted solution.
+    sync_case["config"] = copy.deepcopy(sync_case["config"])
+    sync_case["now"] += timedelta(minutes=1)
+    restarted = tick(sync_case, write_eos=True)
+    assert restarted["event"]["version"] == version
+    assert restarted["event"]["status"] == "succeeded"
+    assert len(writes(sync_case, "POST")) == 1
+    assert json.loads((output / "sync-state.json").read_text())["events"] == state["events"]
+    assert (output / ("solution-" + version + ".json")).read_bytes() == solution
 
 
 def test_gap_in_cached_load_blocks_dispatch(sync_case, monkeypatch):

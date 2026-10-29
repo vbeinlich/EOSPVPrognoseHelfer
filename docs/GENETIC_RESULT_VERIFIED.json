@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-10-29T13:18:30.596075+00:00",
+  "method": "GET",
+  "endpoint_path": "/v1/energy-management/optimization/solution/GENETIC",
+  "eos_version": "v0.3.0.dev2602241646141478",
+  "openapi_schema_valid": true,
+  "doctor_solution_validator_passed": true,
+  "expected_plan": {
+    "start_utc": "2026-10-29T12:00:00+00:00",
+    "control_hours": 24,
+    "interval_seconds": 3600
+  },
+  "solution_start": "2026-10-29T13:00:00+01:00",
+  "control_arrays": {
+    "ac_charge": 24,
+    "dc_charge": 24,
+    "discharge_allowed": 24
+  },
+  "hourly_results": {
+    "load_wh_per_hour": 24,
+    "grid_consumption_wh_per_hour": 24,
+    "grid_feed_in_wh_per_hour": 24,
+    "losses_per_hour": 24,
+    "battery_soc_per_hour": 24,
+    "electricity_price": 24,
+    "costs_per_hour": 24
+  },
+  "result_total_costs_eur": 2.687513895312027,
+  "result_total_losses_wh": 2373.7471929170215,
+  "terminal_control_hours": 24,
+  "effective_tail_hours": 11,
+  "terminal_battery_energy_wh": 9145.803773224492,
+  "terminal_credited_euro": 0.7381608151121515,
+  "fitness_history_present": true,
+  "response_sha256": "9d2acc2ca585f915784cbd891100fc551cab8b194b2b065a01e0bff1ba5fe284",
+  "canonical_solution_sha256": "a9eb07226fa8b66ab0e4d315c4872a0a7895f540e07f8ac48ecd89cd3c8a15cc",
+  "full_private_sync_artifacts_readable": false,
+  "scope": "Existing EOS solution validated; persistence and automatic origin attested by operator. Not a full live Doctor acceptance or a savings measurement."
+}

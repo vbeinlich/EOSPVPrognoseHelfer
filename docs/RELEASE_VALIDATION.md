@@ -6,7 +6,7 @@ Optimierungsläufe, externe Prognoseabrufe oder Änderungen bestehender Containe
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Vollständige pytest-Suite einschließlich gepinntem nativen EOS | **215 bestanden** |
+| Vollständige pytest-Suite einschließlich gepinntem nativen EOS | **216 bestanden** |
 | Ruff für `src`, `tests`, `scripts` | bestanden |
 | Actionlint 1.7.12 | bestanden |
 | `docker compose config --no-path-resolution --quiet` | bestanden |
@@ -15,8 +15,8 @@ Optimierungsläufe, externe Prognoseabrufe oder Änderungen bestehender Containe
 | `scripts/unraid_smoke.py --image eos-pv-helper:release-prep` | bestanden, `network=none`, 192 synthetische Viertelstunden |
 | Paket-/Image-Lizenztest | eigenes Wheel `License-Expression=MIT` samt LICENSE; EOS-NOTICE/Apache-Text und Inventar im Image vorhanden |
 | Tatsächliches Inventar des lokalen Vollimages | 110 Python-Komponenten, 105 OS-Copyright-Nachweise; Quellenarchive DEAP, moocore, SciPy, loguru, dnspython |
-| Reale automatische GENETIC-Abnahme | **offen**, zuletzt vom Betreiber `waiting-publication`; kein Erfolg erfunden |
-| Stable-Release-Gate mit ausstehender Abnahme | wird erwartungsgemäß abgewiesen |
+| Reale automatische GENETIC-Abnahme | **bestätigt**: Betreiberbeleg, gespeicherte Datei und unabhängiger lesender Schema-/Doctor-Lösungscheck; [Beleg](GENETIC_ABNAHME.md) |
+| Stable-Release-Gate bei alleiniger GENETIC-Abnahme | wird erwartungsgemäß abgewiesen: vollständiger Live-Doctor-Beleg, Lizenzreview und ausdrückliche Release-Freigabe bleiben getrennt |
 
 Neue Tests belegen insbesondere:
 
@@ -26,6 +26,11 @@ Neue Tests belegen insbesondere:
   Versionspfad, veraltete Reports und falsche SoC-Belege werden abgelehnt.
 - `waiting-publication` wird von tatsächlicher Abnahme getrennt; auch ein
   vorhandenes Lösungsfile ersetzt keinen bestätigten `succeeded`-Claim.
+- Neuer Regressionstest bildet den Betreiberfall ab: evcc liefert trotz extern
+  schon bekannter Preise zunächst nur den aktuellen Tag; mehrere reguläre Ticks
+  warten ohne POST. Nach tatsächlicher Veröffentlichung löst ein normaler Tick
+  genau einen Lauf aus. Persistierter Claim und unveränderte Lösung verhindern
+  nach erneuter Instanziierung einen zweiten POST; der Doctor bestätigt den Verlauf.
 - Beim SoC-Mismatch erfolgt höchstens ein frischer gemeinsamer State-GET;
   ursprünglicher Gerätebeleg, 300-s-Grenze und Auswahl einer einzelnen Batterie
   bleiben erhalten. Kein zweiter Geräte-Getter. Verbleibende Abweichung, Timeout,

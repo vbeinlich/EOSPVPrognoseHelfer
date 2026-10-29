@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 ARG EOS_REF=8a8cd43a1915668927eda5504b7de039c2e762b4
 ENV EOS_DIR=/tmp/eos-test EOS_CONFIG_DIR=/tmp/eos-test \
     OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MPLBACKEND=Agg \
@@ -15,6 +15,10 @@ ENV PYTHONPATH=/opt/eos/src
 COPY pyproject.toml ./
 COPY src ./src
 COPY tests ./tests
+COPY templates ./templates
+COPY scripts ./scripts
+COPY config.example.toml ./
+COPY .github/workflows ./.github/workflows
 RUN pip install --no-cache-dir '.[test]'
 ENTRYPOINT ["pytest"]
 CMD ["-q", "tests"]

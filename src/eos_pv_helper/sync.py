@@ -143,7 +143,8 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
             def sync_soc():
                 base = eos_base({"url": soc["url"]})
                 value = soc_sample(http(base + "/api/states/sensor.evcc_battery_soc",
-                                       token_env=soc.get("bearer_token_env")), clock(),
+                                       token_env=soc.get("bearer_token_env"),
+                                       token_file=soc.get("bearer_token_file")), clock(),
                                    soc.get("max_age_seconds", 300))
                 report["soc"] = value
                 atomic_json(output / "soc.json", value)

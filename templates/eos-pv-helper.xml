@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Container version="2">
+  <Name>eos-pv-helper</Name>
+  <Repository>ghcr.io/vbeinlich/eospvprognosehelfer:pr-3</Repository>
+  <Registry>https://github.com/users/vbeinlich/packages/container/package/eospvprognosehelfer</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/4</Support>
+  <Project>https://github.com/vbeinlich/EOSPVPrognoseHelfer</Project>
+  <ReadMe>https://github.com/vbeinlich/EOSPVPrognoseHelfer/blob/feat/issue-1-pv-normalization/docs/UNRAID_SETUP.md</ReadMe>
+  <Overview>Validiert Forecast.Solar-PV-Daten mit dem nativen EOS-Provider und ergaenzt nur fehlende Nachtintervalle. Standard: Dry-run, Cache-only, keine EOS-Schreibzugriffe und keine Geraetebefehle. Private config.toml vor dem Start anlegen. Ein leerer Cache ist beim Erststart erwartbar und erfordert einen separat freigegebenen Abruf. Optional: HA-SoC, evcc-Endkundenpreise und gesondert freizugebende EOS-Simulation. Kein Webserver und keine Portfreigabe. Anleitung und tatsaechlich gepruefte Image-Pins im Repository lesen.</Overview>
+  <Category>HomeAutomation: Tools:</Category>
+  <WebUI/>
+  <Icon/>
+  <TemplateURL>https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/feat/issue-1-pv-normalization/templates/eos-pv-helper.xml</TemplateURL>
+  <ExtraParams>--read-only --cap-drop=ALL --security-opt=no-new-privileges --tmpfs=/tmp:rw,nosuid,nodev,size=16m --memory=512m --cpus=0.25 --pids-limit 128 --user=10001:10001</ExtraParams>
+  <PostArgs>run --config /app/config.toml</PostArgs>
+  <Config Name="Private TOML (Datei zuerst anlegen)" Target="/app/config.toml" Default="/mnt/user/appdata/eos-pv-helper/config.toml" Mode="ro" Description="Private lokale EOS-URL und alle Freigaben nur in dieser Datei pflegen; keine vorhandenen EOS-Verzeichnisse einbinden." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/eos-pv-helper/config.toml</Config>
+  <Config Name="Vorhandene Eingabedateien" Target="/input" Default="/mnt/user/appdata/eos-pv-helper/input" Mode="ro" Description="Nur eigenes Eingabeverzeichnis; optional fuer Datei-Importe." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/eos-pv-helper/input</Config>
+  <Config Name="Persistenter Cache und Status" Target="/output" Default="/mnt/user/appdata/eos-pv-helper/output" Mode="rw" Description="Nur dieses eigene Verzeichnis muss UID/GID 10001 schreiben duerfen. Cache, Health, Preisversionen und Idempotenz nach Neustarts erhalten." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/eos-pv-helper/output</Config>
+  <Config Name="DRY_RUN" Target="DRY_RUN" Default="true|false" Mode="" Description="true beibehalten. EOS-Schreiben braucht zusaetzlich TOML-Freigaben und --write-eos. Externer Forecast-Abruf hat eigene Freigaben." Type="Variable" Display="always" Required="true" Mask="false">true</Config>
+  <Config Name="HA_TOKEN (optional; Secret-Datei bevorzugt)" Target="HA_TOKEN" Default="" Mode="" Description="Leer lassen solange HA deaktiviert ist. Maskierung schuetzt nicht docker inspect, Unraid-XML oder Flash-Backups. Alternative: private Secret-Datei und bearer_token_file, siehe Anleitung." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="HA Secret-Datei (optional)" Target="/run/secrets/ha_token" Default="" Mode="ro" Description="Optionalen Host-Dateipfad erst nach Anlegen der privaten Token-Datei eintragen. In TOML bearer_token_env entfernen und bearer_token_file aktivieren." Type="Path" Display="advanced" Required="false" Mask="false"/>
+</Container>

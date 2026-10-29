@@ -30,6 +30,8 @@ write_enabled = false # Never enable before explicit operator approval.
 enabled = false
 url = "http://homeassistant:8123"
 bearer_token_env = "HA_TOKEN" # Supply privately to the NEW helper only, never in Git.
+# Alternatively REMOVE bearer_token_env and use a read-only secret file:
+# bearer_token_file = "/run/secrets/ha_token"
 max_age_seconds = 300
 write_enabled = false
 

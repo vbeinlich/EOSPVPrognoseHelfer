@@ -48,15 +48,28 @@ def validate_url(url, local_only=True):
     return url
 
 
-def request_json(url, *, method="GET", payload=None, token_env=None, timeout=10):
+def request_json(url, *, method="GET", payload=None, token_env=None, token_file=None, timeout=10):
     # Callers construct the limited writable EOS paths internally.
     if method not in ("GET", "PUT", "POST"):
         raise ForecastError("Unsupported HTTP method")
     headers = {"Accept": "application/json"}
-    if token_env:
-        token = os.environ.get(token_env)
+    if token_env and token_file:
+        raise ForecastError("Choose either bearer_token_env or bearer_token_file")
+    if token_env or token_file:
+        if token_file:
+            try:
+                path = Path(token_file)
+                if not path.is_file() or path.stat().st_size > 8192:
+                    raise OSError("Invalid secret file")
+                token = path.read_text(encoding="utf-8").strip()
+            except OSError:
+                raise ForecastError("Bearer secret file is absent, unreadable or too large") from None
+        else:
+            token = os.environ.get(token_env)
         if not token:
-            raise ForecastError("Configured bearer-token environment variable is absent")
+            raise ForecastError("Configured bearer token is absent")
+        if any(character.isspace() for character in token):
+            raise ForecastError("Bearer token contains whitespace")
         headers["Authorization"] = "Bearer " + token
     body = None
     if payload is not None:
@@ -116,7 +129,8 @@ def read_source(config):
         return json.loads(path.read_text(encoding="utf-8"))
     if kind == "http":
         url = validate_url(config["url"])
-        return request_json(url, token_env=config.get("bearer_token_env"))
+        return request_json(url, token_env=config.get("bearer_token_env"),
+                            token_file=config.get("bearer_token_file"))
     raise ForecastError("Source kind must be file or http; no remote forecast APIs are called")
 
 
@@ -225,8 +239,12 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
-        with open(args.config, "rb") as handle:
-            config = tomllib.load(handle)
+        try:
+            with open(args.config, "rb") as handle:
+                config = tomllib.load(handle)
+        except (FileNotFoundError, IsADirectoryError):
+            raise ForecastError("Private config.toml missing or a directory; create the file first "
+                                "and mount it read-only at /app/config.toml") from None
         interval = config.get("poll_seconds", 300)
         if isinstance(interval, bool) or not isinstance(interval, int) or not 30 <= interval <= 3600:
             raise ForecastError("poll_seconds must be an integer between 30 and 3600")
@@ -263,7 +281,8 @@ def main():
             stop.wait(interval)
         return 0
     except Exception as exc:
-        LOG.error("startup_failed %s", type(exc).__name__)
+        detail = str(exc) if isinstance(exc, ForecastError) else type(exc).__name__
+        LOG.error("startup_failed %s", detail)
         return 1
 
 

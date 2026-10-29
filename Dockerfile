@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bookworm AS runtime
+FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1 DRY_RUN=true
 WORKDIR /app
 COPY pyproject.toml ./
@@ -15,6 +15,10 @@ FROM runtime AS test
 USER root
 RUN pip install --no-cache-dir '.[test]'
 COPY tests ./tests
+COPY templates ./templates
+COPY scripts ./scripts
+COPY config.example.toml ./
+COPY .github/workflows ./.github/workflows
 HEALTHCHECK NONE
 ENTRYPOINT ["pytest"]
 CMD ["-q", "/app/tests"]

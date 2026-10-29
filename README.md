@@ -57,7 +57,22 @@ ist vor Produktivbetrieb gegen `source.interval_seconds` zu prüfen.
 Client zu pflegen. Das Ziel `normalizer` ist schlank (Python, Astral, tzdata) und kann
 bereits exportierte Datei-/lokale HTTP-Prognosen verarbeiten. Es kann selbst nicht abrufen.
 
-## Unraid-Installation
+## Unraid: Docker → Add Container
+
+Die [öffentliche Schritt-für-Schritt-Anleitung](docs/UNRAID_SETUP.md) beschreibt die
+Installation mit dem [Unraid-XML-Template](templates/eos-pv-helper.xml), GHCR-Image,
+privater TOML, Dateirechten und Bridge-Netzwerk. **Kein Compose-Plugin erforderlich.**
+Aktualisieren, Rollback, Image-Digest-Pinning, Secret-Dateien und getrennte Freigaben
+sind dort vollständig beschrieben. Die reale Unraid-GUI-Abnahme aus
+[Issue #4](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/4) steht noch aus.
+
+Das vollständige Image wird als `ghcr.io/vbeinlich/eospvprognosehelfer` veröffentlicht.
+Veröffentlichte Tags/Digests und anonyme Pullbarkeit anhand des erfolgreichen
+Push-Workflows und dessen `image-publication-<SHA>`-Artefakt prüfen. `pr-3` ist eine
+bewegliche Vorschau; Release-Tags werden erst bei einem entsprechenden Release-Push
+erzeugt. Die Projektversion ist kein Nachweis eines bereits veröffentlichten Tags.
+
+## Alternative für Entwickler: lokaler Build und Compose
 
 Voraussetzung: Docker; für Compose zusätzlich Compose-Manager oder Docker Compose.
 Nur ein neues Helferverzeichnis anlegen, keine bestehenden Container/Dateirechte ändern:

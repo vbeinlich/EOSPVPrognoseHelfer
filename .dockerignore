@@ -4,3 +4,11 @@
 !src/**
 !tests/
 !tests/**
+!templates/
+!templates/**
+!scripts/
+!scripts/**
+!config.example.toml
+!.github/
+!.github/workflows/
+!.github/workflows/**

@@ -16,6 +16,10 @@ STEP = timedelta(minutes=15)
 class ForecastError(ValueError):
     """The forecast cannot safely be used for optimization."""
 
+    def __init__(self, message, *, report=None):
+        super().__init__(message)
+        self.report = report
+
 
 def timestamp(value, source_timezone=None):
     """Resolve a timestamp without guessing ambiguous/nonexistent local instants."""
@@ -133,8 +137,8 @@ class SolarNight:
         return True
 
 
-def normalize(values, start, hours, night, source_interval_seconds=900):
-    """Normalize an explicit elapsed-time horizon; never interpolate source values."""
+def normalize(values, start, hours, night, source_interval_seconds=900, *, minimum_hours=None):
+    """Validate a fixed horizon or the longest contiguous prefix >= minimum_hours."""
     if start.tzinfo is None:
         raise ForecastError("Horizon start must have a UTC offset")
     start = start.astimezone(UTC)
@@ -142,12 +146,17 @@ def normalize(values, start, hours, night, source_interval_seconds=900):
         raise ForecastError("Horizon start must be aligned to a quarter hour")
     if isinstance(hours, bool) or not isinstance(hours, int) or not 1 <= hours <= 168:
         raise ForecastError("Horizon must be an integer between 1 and 168 elapsed hours")
+    if minimum_hours is not None and (
+        isinstance(minimum_hours, bool) or not isinstance(minimum_hours, int)
+        or not 24 <= minimum_hours <= hours
+    ):
+        raise ForecastError("Dynamic minimum_hours must be an integer >=24 and <= maximum hours")
     if not values:
         raise ForecastError("Empty forecasts cannot be repaired")
     if source_interval_seconds not in (900, 1800, 3600):
         raise ForecastError("Source interval must explicitly be 900, 1800 or 3600 seconds")
     data, filled, missing, interpolated = {}, [], [], []
-    known = dict(values)
+    known = {dt: numeric_power(value) for dt, value in values.items()}
     if source_interval_seconds > 900:
         # Forecast.Solar publishes power support points, not interval energies.
         # Add only proven whole-night zero anchors, never a daylight zero anchor.
@@ -174,23 +183,39 @@ def normalize(values, start, hours, night, source_interval_seconds=900):
                     interpolated.append(dt.isoformat())
                 else:
                     missing.append(dt.isoformat())
+                    if minimum_hours is not None:
+                        break
                     continue
             else:
                 missing.append(dt.isoformat())
+                if minimum_hours is not None:
+                    break
                 continue
         data[dt.isoformat()] = {"pvforecast_ac_power": power}
-    if missing:
-        raise ForecastError(f"Missing {len(missing)} daylight intervals; first: {missing[0]}")
-    if not any(start <= dt < start + timedelta(hours=hours) for dt in values):
-        raise ForecastError("Source does not overlap the requested forecast horizon")
-    return {"data": data, "tz": "UTC"}, {
+    report = {
         "start_utc": start.isoformat(),
-        "end_exclusive_utc": (start + timedelta(hours=hours)).isoformat(),
+        "end_exclusive_utc": (start + len(data) * STEP).isoformat(),
         "interval_seconds": 900,
         "count": len(data),
         "source_count": len(data) - len(filled) - len(interpolated),
+        "original_timestamps": [key for key in data if timestamp(key) in values],
         "interpolated_count": len(interpolated),
+        "interpolated_timestamps": interpolated,
         "source_interval_seconds": source_interval_seconds,
         "filled_night_count": len(filled),
         "filled_night_timestamps": filled,
+        "requested_max_hours": hours,
+        "validated_hours": len(data) / 4,
+        "minimum_hours": minimum_hours if minimum_hours is not None else hours,
+        "first_uncovered_daylight_interval": missing[0] if missing else None,
+        "stop_reason": "missing_daylight_interval" if missing else "maximum_reached",
+        "tail_available_hours": max(0, len(data) / 4 - (minimum_hours or hours)),
     }
+    if missing and (minimum_hours is None or len(data) < minimum_hours * 4):
+        if minimum_hours is not None:
+            raise ForecastError(f"PV horizon below minimum {minimum_hours} h: only {len(data)/4:g} h; "
+                                f"first uncovered daylight interval: {missing[0]}", report=report)
+        raise ForecastError(f"Missing {len(missing)} daylight intervals; first: {missing[0]}")
+    if not any(start <= dt < start + len(data) * STEP for dt in values):
+        raise ForecastError("Source does not overlap the requested forecast horizon")
+    return {"data": data, "tz": "UTC"}, report

@@ -41,7 +41,9 @@ def soc_sample(state, now, max_age=300):
     if not 0 <= age <= min(max_age, 300):
         raise ForecastError("HA SoC is stale or dated in the future")
     return {"key": SOC_KEY, "source_timestamp": observed.isoformat(),
-            "percent": value, "factor": value / 100, "age_seconds": age}
+            "percent": value, "factor": value / 100, "age_seconds": age,
+            "source": "homeassistant", "last_reported": state.get("last_reported"),
+            "last_updated": state.get("last_updated")}
 
 
 def retail_prices(state):
@@ -94,6 +96,8 @@ def day_ahead_version(frame, now, timezone="Europe/Berlin"):
 
 
 def raw_series(response):
+    if not isinstance(response, dict):
+        raise ForecastError("EOS raw series response must be an object")
     data = response.get("data", {})
     if not isinstance(data, dict) or not data:
         raise ForecastError("EOS raw series is empty")
@@ -104,6 +108,27 @@ def raw_series(response):
             raise ForecastError("Duplicate raw-series timestamp")
         result[dt] = None if value is None else number(value)
     return result
+
+
+def verify_price_readback(expected, observed, reference):
+    """History may be retained differently; every ongoing/future source slot is mandatory."""
+    expected = {timestamp(key): number(value) for key, value in expected.items()}
+    history, future, differences = [], [], []
+    for dt, value in sorted(expected.items()):
+        if dt not in observed:
+            (history if dt + timedelta(minutes=15) <= reference else future).append(dt.isoformat())
+        elif observed[dt] is None or not math.isclose(value, observed[dt], rel_tol=1e-9, abs_tol=1e-12):
+            differences.append(dt.isoformat())
+    report = {"reference_utc": reference.isoformat(), "price_unit": "EUR/Wh",
+              "relative_tolerance": 1e-9, "absolute_tolerance": 1e-12,
+              "historical_missing_intervals": history, "future_missing_intervals": future,
+              "mismatched_intervals": differences,
+              "verified_interval_count": len(expected) - len(history) - len(future) - len(differences),
+              "extra_eos_intervals": len(set(observed) - set(expected))}
+    if future or differences:
+        raise ForecastError(f"EOS price readback failed: {len(future)} missing ongoing/future slots, "
+                            f"{len(differences)} mismatched prices", report=report)
+    return report
 
 
 def interval_averages(values, start, slots, seconds):
@@ -131,7 +156,7 @@ def interval_averages(values, start, slots, seconds):
     return result
 
 
-def coverage(settings, series, now):
+def genetic_window(settings, now):
     genetic = settings.get("optimization", {}).get("genetic", {})
     seconds = genetic.get("interval_sec")
     control = genetic.get("horizon_hours")
@@ -147,9 +172,28 @@ def coverage(settings, series, now):
     start = midnight + timedelta(seconds=int((now - midnight).total_seconds() // seconds) * seconds)
     control_slots = control * 3600 // seconds
     budget_tail = min(tail, prediction - control)
+    return start, seconds, control_slots, prediction, control, tail, budget_tail
+
+
+def price_coverage(settings, values, now):
+    start, seconds, slots, prediction, control, _, _ = genetic_window(settings, now)
+    array = interval_averages(values, start, prediction * 3600 // seconds, seconds)
+    first = next((i for i, value in enumerate(array) if value is None), len(array))
+    return {"start_utc": start.isoformat(), "required_control_hours": control,
+            "available_contiguous_hours": first * seconds / 3600,
+            "control_complete": first >= slots,
+            "first_uncovered_interval": (start + timedelta(seconds=first * seconds)).isoformat()
+            if first < len(array) else None}
+
+
+def coverage(settings, series, now, *, end_limits=None):
+    start, seconds, control_slots, prediction, control, tail, budget_tail = genetic_window(settings, now)
     arrays = {}
     for key in ("pvforecast_ac_power", "loadforecast_power_w", PRICE_KEY, "feed_in_tariff_wh"):
         array = interval_averages(series[key], start, prediction * 3600 // seconds, seconds)
+        if end_limits and key in end_limits:
+            array = [value if start + timedelta(seconds=(i + 1) * seconds) <= end_limits[key]
+                     else None for i, value in enumerate(array)]
         if any(value is None for value in array[:control_slots]):
             raise ForecastError("Incomplete GENETIC control horizon: " + key)
         if key in ("pvforecast_ac_power", "loadforecast_power_w") and any(
@@ -165,3 +209,25 @@ def coverage(settings, series, now):
     return {"start_utc": start.isoformat(), "control_hours": control,
             "interval_seconds": seconds, "requested_tail_hours": tail,
             "budgeted_tail_hours": budget_tail, "effective_tail_hours": effective / 3600}
+
+
+def native_price_runtime(settings, values, plan, now):
+    """Bound EOS' common runtime array length using only real evcc prices.
+
+    Native runtime arrays begin at local midnight. Price history comes from the
+    same snapshot, never invented PV/daytime padding. The finite price-array end
+    prevents older PV records retained in EOS from extending the validated tail.
+    """
+    general = settings["general"]
+    zone = ZoneInfo(general.get("timezone") or general.get("timezone_override") or "Europe/Berlin")
+    origin = now.astimezone(zone).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
+    end = timestamp(plan["start_utc"]) + timedelta(
+        hours=plan["control_hours"] + plan["effective_tail_hours"])
+    seconds = plan["interval_seconds"]
+    slots = int((end - origin).total_seconds() / seconds)
+    array = interval_averages(values, origin, slots, seconds)
+    missing = next((i for i, value in enumerate(array) if value is None), None)
+    if missing is not None:
+        raise ForecastError("Native EOS runtime needs real evcc prices from local midnight; missing: "
+                            + (origin + timedelta(seconds=missing * seconds)).isoformat())
+    return array

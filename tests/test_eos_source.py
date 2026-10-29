@@ -77,3 +77,105 @@ def test_missing_hourly_day_support_point_is_not_interpolated():
     source = {start: 1000, start + timedelta(hours=2): 2000}
     with pytest.raises(ForecastError, match="daylight"):
         normalize(source, start, 2, lambda *_: False, source_interval_seconds=3600)
+
+
+def test_periodic_cache_refresh_is_ttl_bound_and_failure_does_not_renew_cache(tmp_path, native_settings):
+    import json
+
+    now = datetime(2026, 6, 20, tzinfo=UTC)
+    source = {"cache_file": str(tmp_path / "source.json"), "refresh_enabled": True,
+              "max_age_seconds": 3600, "retry_seconds": 300}
+    calls = []
+
+    def fetcher(*args):
+        calls.append(True)
+        return {"timezone": "UTC", "watts": {now.isoformat(): 1000}}
+
+    for seconds in (0, 300, 3599, 3600):
+        _, _, _, report = load_forecast(source, native_settings, now=now + timedelta(seconds=seconds),
+                                        refresh=True, fetcher=fetcher)
+    assert len(calls) == 2
+    assert report["source_fetched_at_utc"] == (now + timedelta(hours=1)).isoformat()
+    previous = json.loads((tmp_path / "source.json").read_text())
+    failed_calls = []
+
+    def failed(*args):
+        failed_calls.append(True)
+        raise OSError("synthetic network failure")
+
+    for seconds in (7200, 7201, 7499):
+        with pytest.raises(ForecastError):
+            load_forecast(source, native_settings, now=now + timedelta(seconds=seconds),
+                          refresh=True, fetcher=failed)
+    assert len(failed_calls) == 1
+    assert json.loads((tmp_path / "source.json").read_text()) == previous
+    load_forecast(source, native_settings, now=now + timedelta(seconds=7500), refresh=True, fetcher=fetcher)
+    assert len(calls) == 3
+
+
+def test_simultaneous_native_consumers_fetch_only_once(tmp_path, native_settings):
+    import multiprocessing
+    import time
+
+    context = multiprocessing.get_context("fork")
+    queue = context.Queue()
+    source = {"cache_file": str(tmp_path / "source.json"), "refresh_enabled": True}
+
+    def fetcher(*args):
+        queue.put("fetch")
+        time.sleep(.15)  # Second consumer must wait, then read the new cache and clock.
+        return {"timezone": "UTC", "watts": {"2026-06-20T12:00:00Z": 1000}}
+
+    def worker():
+        result = load_forecast(source, native_settings, refresh=True, fetcher=fetcher)
+        queue.put(result[3]["source_status"])
+
+    processes = [context.Process(target=worker) for _ in range(2)]
+    try:
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join(10)
+            assert process.exitcode == 0
+        messages = sorted(queue.get(timeout=2) for _ in range(3))
+        assert messages == ["fetch", "fresh", "fresh"]
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+                process.join(2)
+        queue.close()
+
+
+def test_periodic_app_cycles_reuse_native_source_without_eos_writes(
+    tmp_path, native_settings, schema, monkeypatch
+):
+    import eos_pv_helper.eos_source as native
+    from eos_pv_helper.app import run_once
+
+    now = datetime(2026, 6, 20, tzinfo=UTC)
+    calls = []
+
+    def fetch(*args):
+        calls.append(True)
+        return {"timezone": "UTC", "watts": {
+            (now + timedelta(minutes=15*i)).isoformat(): 1000 for i in range(288)}}
+
+    original = native.load_forecast
+    monkeypatch.setattr(native, "load_forecast", lambda *a, **kw: original(*a, **kw, fetcher=fetch))
+    config = {"source": {"kind": "eos-forecastsolar", "cache_file": str(tmp_path / "source.json"),
+                         "refresh_enabled": True, "max_age_seconds": 3600},
+              "eos": {"url": "http://127.0.0.1:8503", "write_enabled": False},
+              "output": {"directory": str(tmp_path)}, "horizon": {
+                  "mode": "dynamic", "minimum_hours": 24, "max_hours": 48}}
+
+    def http(url, **kwargs):
+        assert kwargs.get("method", "GET") == "GET"
+        return schema if url.endswith("/openapi.json") else native_settings
+
+    for seconds in (0, 300, 3599, 3600):
+        payload, report = run_once(config, now=now + timedelta(seconds=seconds),
+                                   refresh_source=True, http=http)
+        assert len(payload["data"]) == 192 and report["mode"] == "dry-run"
+    assert len(calls) == 2
+    assert report["source_fetched_at_utc"] == (now + timedelta(hours=1)).isoformat()

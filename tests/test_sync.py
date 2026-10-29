@@ -17,7 +17,7 @@ def sync_case(config, monkeypatch):
     now = datetime.now(UTC).replace(microsecond=0)
     # Start before the current hour; cover complete tomorrow and the control horizon.
     start = now.replace(hour=0, minute=0, second=0) - timedelta(hours=3)
-    config.update({"soc": {"enabled": True, "url": "http://127.0.0.1:8123",
+    config.update({"soc": {"enabled": True, "source": "homeassistant", "url": "http://127.0.0.1:8123",
                            "write_enabled": True, "bearer_token_env": "HA_TOKEN"},
                    "prices": {"enabled": True, "url": "http://127.0.0.1:7070",
                               "write_enabled": True, "retail_prices_confirmed": True},
@@ -70,7 +70,8 @@ def sync_case(config, monkeypatch):
             assert query["processing"] == ["raw"]
             return {"data": shared["series"].get(query["key"][0], {})}
         if parts.path == "/v1/optimize":
-            assert method == "POST" and kwargs["payload"] == {"soc": {"e3dc_s10e_pro": 55}}
+            assert method == "POST" and kwargs["payload"]["soc"] == {"e3dc_s10e_pro": 55}
+            assert kwargs["payload"]["forecasts"]["electricity_price_per_wh"]
             if shared.get("timeout"):
                 raise TimeoutError("ambiguous")
             result_start = now.replace(minute=0, second=0)
@@ -339,3 +340,74 @@ def test_soc_expiring_during_preflight_blocks_post(sync_case, monkeypatch):
     report = tick(sync_case, write_eos=True, clock=lambda: instant[0])
     assert "expired" in report["errors"]["event"]
     assert not writes(sync_case, "POST")
+
+
+def configure_verified_evcc(case):
+    case["config"]["soc"].update(source="evcc", device_name="db:7", freshness="e3dc-rscp-status")
+    case["config"]["evcc"] = {"url": case["config"]["prices"]["url"]}
+    case["evcc"].update(version="0.318.1", error=None, battery={"soc": 99, "devices": [
+        {"name": "db:7", "soc": 55.5, "power": 354}, {"name": "db:8", "soc": 87, "power": 100}]})
+    original = case["http"]
+
+    def http(url, **kwargs):
+        if "/api/config/devices/meter/" in url:
+            case["calls"].append((kwargs.get("method", "GET"), url, kwargs))
+            if url.endswith("/status"):
+                return {"soc": {"value": 55.5, "error": case.get("soc_error", "")},
+                        "power": {"value": 400, "error": ""}}
+            return {"name": "db:7", "type": "template", "config": {
+                "template": "e3dc-rscp", "usage": "battery"}}
+        return original(url, **kwargs)
+    case["http"] = http
+
+
+def test_evcc_soc_prices_share_snapshot_and_stale_ha_does_not_block_verified_soc(sync_case):
+    configure_verified_evcc(sync_case)
+    sync_case["config"]["soc"]["ha"] = {"enabled": True, "url": "http://127.0.0.1:8123"}
+    sync_case["ha"]["last_updated"] = (sync_case["now"] - timedelta(seconds=520)).isoformat()
+    report = tick(sync_case)
+    assert report["errors"] == {}
+    assert report["soc"]["source"] == "evcc" and report["soc"]["factor"] == .555
+    assert report["ha_comparison"]["fresh"] is False
+    assert len([url for _, url, _ in sync_case["calls"] if url.endswith("/api/state")]) == 1
+
+
+def test_evcc_error_does_not_fall_back_to_fresh_ha_or_import_soc(sync_case, monkeypatch):
+    monkeypatch.setenv("DRY_RUN", "false")
+    configure_verified_evcc(sync_case)
+    sync_case["soc_error"] = "poller stopped"
+    report = tick(sync_case, write_eos=True)
+    assert "soc" in report["errors"]
+    assert report["soc"]["freshness_verified"] is False
+    assert all("measurement/value" not in url for _, url, _ in writes(sync_case))
+    assert not writes(sync_case, "POST")
+
+
+def test_documented_price_history_cut_passes_but_keeps_separate_control_check(sync_case, monkeypatch):
+    monkeypatch.setenv("DRY_RUN", "false")
+    original = sync_case["http"]
+
+    def trimmed(url, **kwargs):
+        result = original(url, **kwargs)
+        if "/v1/prediction/series" in url and "key=" + PRICE_KEY in url:
+            result = {"data": {key: value for key, value in result["data"].items()
+                               if datetime.fromisoformat(key) >= sync_case["now"].replace(minute=0, second=0)}}
+        return result
+    sync_case["http"] = trimmed
+    report = tick(sync_case, write_eos=True)
+    assert report["prices"]["import_verified"]
+    assert report["prices"]["readback"]["historical_missing_intervals"]
+    assert report["prices"]["control_coverage"]["control_complete"]
+    assert report["event"]["status"] == "succeeded"
+
+
+def test_dynamic_pv_bound_prevents_old_eos_tail_from_leaking_into_plan(sync_case):
+    tick(sync_case)
+    state_path = Path(sync_case["config"]["output"]["directory"]) / "sync-state.json"
+    state = json.loads(state_path.read_text())
+    # Cached EOS still has 72 h, but the current validated source ends after 30 h.
+    end = sync_case["now"].replace(minute=0, second=0) + timedelta(hours=30)
+    state["pv_report"] = {"end_exclusive_utc": end.isoformat()}
+    state_path.write_text(json.dumps(state))
+    report = tick(sync_case)
+    assert report["event"]["effective_tail_hours"] == 6

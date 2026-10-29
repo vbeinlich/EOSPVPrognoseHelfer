@@ -5,6 +5,11 @@ manuell gestarteter `docker run` sind nicht erforderlich. Zielsystem: Unraid 7.3
 das Image wird als `linux/amd64` gebaut. Eine Installation auf dem tatsächlichen Server
 steht zur Abnahme noch aus; Source-Prüfung und isolierte Containertests ersetzen sie nicht.
 
+Für den inzwischen vorhandenen Helfer gelten die [aktuellen Findings mit konkretem
+erneutem Dry-run-Test](FINDINGS_ISSUE_1.md). Sie behandeln dynamischen PV-Horizont,
+TTL-Aktualisierung, korrigierte Preis-Rücklesung und evcc als bevorzugte SoC-Quelle.
+Eine zweite Helferinstanz ist dafür nicht erforderlich.
+
 **Vorab:** Bestehende EOS-, evcc- und HA-Container bleiben unverändert. Existiert bereits ein
 Helfercontainer, nicht einfach eine zweite Instanz starten oder einen gleichen Namen in
 „Add Container“ verwenden: das könnte eine bestehende Installation ersetzen. Eine Migration
@@ -149,6 +154,7 @@ wählen. Gegebenenfalls die Seite neu laden. **Advanced View** aktivieren und pr
 | DRY_RUN | `true` |
 | HA_TOKEN | leer |
 | optionale HA Secret-Datei | leer |
+| EVCC_TOKEN / optionale evcc Secret-Datei | zunächst leer; später nur vorhandenen privaten Key verwenden |
 | WebUI / Ports | keine |
 
 **Post Arguments** überschreibt das Image-CMD und wird an den vorhandenen Entrypoint
@@ -235,8 +241,11 @@ Eine Image-Installation ist keine Freigabe zum Abruf, EOS-Import oder Optimieren
    Roh-Rücklesung und Bericht prüfen, anschließend `eos.write_enabled=false` zurücksetzen,
    falls nur ein einzelner Import freigegeben war. Keine fremden Provider umkonfigurieren.
 
-3. **SoC und Preise zunächst nur lesend:** die privaten HA-/evcc-Adressen eintragen,
-   jeweils `enabled=true`, alle Schreibfreigaben weiter `false`. Im GUI ausschließlich
+3. **SoC und Preise zunächst nur lesend:** die private gemeinsame `[evcc].url` eintragen,
+   Preise mit `enabled=true`, alle Schreibfreigaben weiter `false`. Für evcc-SoC zusätzlich
+   die genaue eigene Gerätekennung und den geprüften RSCP-Frischenachweis samt vorhandenem
+   API-Key konfigurieren; ohne erfolgreichen Nachweis bleibt SoC gesperrt. HA ist optionaler
+   Vergleich unter `[soc.ha]`. Im GUI ausschließlich
    beim Helfer **Post Arguments** auf `sync --config /app/config.toml` setzen und Apply.
    Dies erstellt nur diesen Helfer neu. SoC wird nach Quellzeitstempel/Alter geprüft;
    `soc.json`, `prices.json`, `prices-source.json` und `sync-report.json` kontrollieren.
@@ -245,8 +254,8 @@ Eine Image-Installation ist keine Freigabe zum Abruf, EOS-Import oder Optimieren
    `write_enabled=true`, `eos.write_enabled=true`, GUI `DRY_RUN=false` und zusätzlich
    `--write-eos` in Post Arguments. Ein aktiver `sync`-Schreibmodus umfasst auch PV-Import;
    nur nach entsprechender PV-Freigabe einschalten. evcc-Endpreise zunächst gegen LUOX
-   vergleichen. EOS bleibt bis zu separat genehmigter manueller Umstellung auf
-   `ElecPriceImport` beim vorhandenen `ElecPriceEnergyCharts`; der Helfer ändert ihn nicht.
+   vergleichen. EOS muss bereits separat freigegeben `ElecPriceImport` verwenden;
+   `ElecPriceEnergyCharts` wird weiterhin abgelehnt. Der Helfer stellt den Provider nie um.
    Ein EOS-Schreibmodus bedeutet keine dauerhafte externe Forecast-Abruffreigabe.
 
 5. **GENETIC-Simulation:** erst nach eigenständiger Freigabe
@@ -267,7 +276,9 @@ Bevorzugt eine neue private Datei unter dem eigenen Helferverzeichnis anlegen, e
 Per Editor eingeben, nicht in Shell-Befehle oder die Shell-History kopieren. Verzeichnis
 UID/GID 10001 und Modus 750, Datei UID/GID 10001 und Modus 600 geben; nur diese neu angelegten
 Pfade ändern. Im Advanced-Formular **HA Secret-Datei** den vollständigen Host-Dateipfad
-eintragen. Er wird read-only nach `/run/secrets/ha_token` eingebunden. In `[soc]`:
+eintragen. Er wird read-only nach `/run/secrets/ha_token` eingebunden. Für den optionalen
+Vergleich im bestehenden `[soc.ha]`-Block (bei ausdrücklich gewählter Legacy-HA-Quelle
+stattdessen im `[soc]`-Block):
 
 ```toml
 # bearer_token_env entfernen, nicht beide Quellen gleichzeitig konfigurieren:
@@ -280,6 +291,14 @@ gespeicherten Unraid-XML, Supportexporten und Flash-Backups stehen. Auch eine Se
 ist vor ungeschützten Appdata-Backups zu schützen. Keine privaten XML-/TOML-/Token-Dateien
 in Issues, Git oder Screenshots veröffentlichen. Ein leerer optionaler Tokenpfad erzeugt
 keine Mounts; eine verwendete Token-Datei muss vor Apply existieren.
+
+Für den bevorzugten evcc-SoC die optionale **evcc Secret-Datei** verwenden: eine bereits
+vorhandene private API-Key-Datei read-only nach `/run/secrets/evcc_token` einbinden und
+in `[evcc]` `token_file="/run/secrets/evcc_token"` setzen. Alternative ist das maskierte
+Feld `EVCC_TOKEN` mit `token_env="EVCC_TOKEN"`; dieselben Inspect-/XML-/Backup-Risiken gelten.
+Der Helfer erstellt oder rotiert keine API-Keys. Auf der aktuell ohne Key geprüften Anlage
+liefern die geschützten Geräte-GETs HTTP 401; das ist eine echte SoC-Sperre. Ein neuer Key
+oder Änderungen an evcc sind nicht Bestandteil dieser Implementierung.
 
 ## 8. Aktualisieren, zurückrollen und Version festhalten
 

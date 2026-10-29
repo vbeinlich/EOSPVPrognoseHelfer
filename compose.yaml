@@ -7,6 +7,7 @@ services:
     environment:
       DRY_RUN: "${DRY_RUN:-true}"
       HA_TOKEN: "${HA_TOKEN:-}"
+      EVCC_TOKEN: "${EVCC_TOKEN:-}"
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]

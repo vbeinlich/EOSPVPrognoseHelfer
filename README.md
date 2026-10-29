@@ -9,6 +9,11 @@ Opt-ins. EOS-Schreibzugriffe benötigen `DRY_RUN=false`, Konfigurationsfreigaben
 `--write-eos`. Unraid-/Produktionsabnahme steht
 noch aus. [Issue #1](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/1) bleibt offen.
 
+Die [aktuellen Findings und der erneute Unraid-Test](docs/FINDINGS_ISSUE_1.md) dokumentieren
+den dynamischen 24..48-h-Horizont, periodische native Aktualisierung, historische
+Preisschnitte und den eng geprüften evcc-SoC-Frischenachweis. Geschützte evcc-GETs benötigen
+einen vorhandenen privaten API-Key; ohne erfolgreichen Nachweis bleibt SoC gesperrt.
+
 ## Recherche zuerst
 
 Die [Recherche und Entscheidung](docs/research.md) erklärt, warum `PVForecastImport`
@@ -18,8 +23,10 @@ Ein nativer direkter Import bleibt vorzuziehen, wenn die Quelle bereits vollstä
 
 ## Datenvertrag
 
-- 48 verstrichene Stunden ergeben 192 UTC-Intervalle à 15 Minuten, auch bei DST-Wechseln.
-  Der Horizont ist konfigurierbar. Ein zu kurzer Quellhorizont führt zum Fehler.
+- Dynamisch werden mindestens 24 h und darüber alle lückenlos validierten Viertelstunden
+  bis zum konfigurierten Maximum (Standard 48 h, zusätzlich durch EOS begrenzt) exportiert.
+  Eine Lücke vor 24 h sperrt; eine spätere Tageslücke begrenzt den Horizont. 48 verstrichene
+  Stunden ergeben 192 UTC-Intervalle, auch über DST-Wechsel.
 - Nur **vollständig nächtliche** fehlende Intervalle werden mit 0 W ergänzt. Astral
   berechnet Sonnenaufgang/-untergang lokal; keine festen Nachtuhrzeiten.
 - Vorhandene Werte auf dem Zielraster einschließlich Tages-0-W bleiben unverändert.
@@ -28,10 +35,10 @@ Ein nativer direkter Import bleibt vorzuziehen, wenn die Quelle bereits vollstä
   werden zusätzliche Viertelstunden linear zwischen benachbarten Stützstellen berechnet.
   Die Originalwerte bleiben im Rohcache erhalten; vorhandene Rasterpunkte bleiben exakt.
   **Abstände über die deklarierte Quellkadenz werden tagsüber nicht interpoliert.**
-- Rein viertelstündliche Datei-/HTTP-Quellen sind strikt: jeder fehlende Tagespunkt ist
-  ein Fehler. Es gibt weder pauschales ffill noch Nullfüllung tagsüber.
+- Rein viertelstündliche Datei-/HTTP-Quellen sind strikt: jeder fehlende Tagespunkt begrenzt
+  den nutzbaren Präfix bzw. sperrt vor dem Minimum. Kein ffill und keine Nullfüllung tagsüber.
 - Eine Prognose mit 26 Stundenwerten belegt keine 48 Stunden. Ein fehlender Tageshorizont
-  wird nicht erfunden; ggf. muss der Betreiber einen kürzeren geprüften Horizont wählen.
+  wird nicht erfunden; der tatsächlich zusammenhängende Horizont wird ausgewiesen.
 - `source.json` ist der zentrale native Rohcache, `forecast.json` die EOS-kompatible Reihe,
   `report.json` der Qualitätsnachweis. Später kann EMHASS diese Dateien mitbenutzen und
   muss Forecast.Solar nicht erneut abrufen.
@@ -44,7 +51,7 @@ PV-Flächen, Neigung, Azimut, kWp und ggf. API-Key werden daraus übernommen, ni
 gepinnten EOS-Commits in einem **lokalen Helferprozess** auf. Die EOS-Instanz auf dem Server
 wird nicht umkonfiguriert. Andere Provider und EMS-Läufe werden nicht gestartet.
 
-Der persistente Rohcache ist an die EOS-Parameter gebunden, maximal eine Stunde gültig
+Der persistente Rohcache ist an die EOS-Parameter gebunden, standardmäßig eine Stunde gültig
 und mit einem Dateilock gegen parallele Abrufe geschützt. Solange er gültig ist, wird
 auch mit Abruffreigabe kein weiterer Abruf ausgelöst. Mehrere PV-Flächen erfordern gemäß
 EOS je einen Request pro Fläche; nicht einen zusätzlichen Client pro Verbraucher.
@@ -126,6 +133,9 @@ getrennten Freigaben, Eingabeprüfungen und Betriebsgrenzen.
 
 - HA `sensor.evcc_battery_soc`: Prozent → Faktor, Quellzeitstempel erhalten,
   maximal 300 Sekunden alt; bestätigtes EOS-API `/v1/measurement/value` mit Roh-Rücklesung.
+- Bevorzugt evcc: ein gemeinsamer `/api/state`-Snapshot für Preise und genau das konfigurierte
+  Batteriegerät. Übernahme nur nach geprüftem ungecachtem E3/DC-RSCP-Statusabruf in evcc
+  0.318.1; HTTP-/Wertänderungen allein reichen nicht. Kein automatischer HA-Fallback.
 - evcc `forecast.grid`: vollständiger EUR/kWh-Endkundenpreis → EUR/Wh durch 1.000;
   keine zusätzlichen LUOX-, USt- oder Netzgebühren. Negative Preise bleiben gültig.
 - Nur eine neue vollständige Day-Ahead-Preisversion kann einen separat freigegebenen

@@ -3,6 +3,11 @@
 Stand: 29.10.2026. Diese Datei unterscheidet isolierte Tests von einem echten
 Unraid-GUI-Test. Bestehende Container wurden nicht verändert.
 
+Aktueller Fix-Stand und erneuter Test: [Findings aus Issue #1](FINDINGS_ISSUE_1.md).
+Die zwischenzeitliche reale PV-Abnahme wurde vom Betreiber in Issue #1 beschrieben;
+die folgenden ursprünglichen GUI-/Image-Nachweise sind davon getrennt. Nach den Fixes
+steht insbesondere die authentifizierte evcc-SoC-Abnahme noch aus.
+
 | Kriterium | Nachweis / Stand |
 | --- | --- |
 | Unraid-XML Version 2 | Geparst und auf Pflichtfelder, sichere Defaults, optionale leere Pfade sowie Path/Variable-Typen getestet |

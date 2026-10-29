@@ -107,15 +107,20 @@ def test_reuse_native_eos_forecastsolar_without_any_real_http(tmp_path, monkeypa
         return Response()
 
     monkeypatch.setattr(native.requests, "get", get)
-    result = native_forecast({
+    source_settings = {
         "general": {"latitude": 52.52, "longitude": 13.405,
                     "timezone_override": "Europe/Berlin"},
         "pvforecast": {"planes": [{"surface_tilt": 30, "surface_azimuth": 180,
                                     "peakpower": 11}], "forecastsolar": {}},
-    }, tmp_path)
+    }
+    result = native_forecast(source_settings, tmp_path)
     assert result["watts"]["2026-06-20 12:00:00"] == 1234
     assert len(calls) == 1
     assert calls[0].endswith("/52.52/13.405/30.0/0.0/11.0")
+    # A due refresh must reach the request implementation, even inside its native
+    # 1-hour cache TTL. Shared helper TTL/locking is tested separately.
+    native_forecast(source_settings, tmp_path)
+    assert len(calls) == 2
 
 
 def test_real_soc_retail_import_with_fees_and_optimize_endpoint(tmp_path, monkeypatch):

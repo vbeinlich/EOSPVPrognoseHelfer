@@ -1,5 +1,32 @@
 # Validierung — 28.10.2026
 
+## Findings-Korrekturen — 29.10.2026
+
+Aktueller Umfang: 168 Tests mit gepinntem EOS; ohne EOS 164 Tests und zwei explizit
+übersprungene Integrationstestdateien. Neue Prüffälle und verbleibende Abnahme sind in
+[FINDINGS_ISSUE_1.md](FINDINGS_ISSUE_1.md) dokumentiert. Die folgenden Abschnitte bewahren
+die ursprünglichen Ergebnisse; deren Zählstände und damalige Providerkonfiguration sind
+historisch und keine Behauptung über den heutigen Anlagenstand.
+
+- Dynamische PV-Präfixe, Mindestlücke bei 23 h, Grenze bei 24/30,25/37/47,75 h,
+  vollständige Solar-Nachtintervalle, Sommer-/Winterzeit und 15/30/60-Minuten-Quellkadenzen.
+- Cache-TTL, parallel wartende native Leser, fehlgeschlagene Abrufe und Neustart-Cooldown;
+  wiederholte App-Zyklen ohne EOS-Schreiben; nativer innerer EOS-Cache wird nur bei fälligem
+  gesperrtem Helferabruf umgangen. Langsamer Abruf über eine Viertelstundengrenze richtet
+  den zukünftigen Horizont danach neu aus.
+- Reale EOS-API-Importe im isolierten Test: 37-h-PV-Präfix, historisch begrenzter Preis-GET
+  und explizit vollständig rückgelesene 192 Preise; fehlende Zukunft bleibt Fehler.
+- evcc-HTTP-Testserver mit selektiertem Batterie-Gerät, konservativ belegtem ungecachtem
+  Geräte-Lesefenster und fehlgeschlagenem Folgelesen; frischer unveränderter SoC, mehrere
+  Geräte, unbekannte Treiber/Versionen, Cacheantwort, Fehler, fehlende Werte und Neustart.
+- Native GENETIC-Auflösung und Optimierung mit 24 h Kontrolle plus tatsächlich gedecktem
+  Tail; ältere gespeicherte PV-Tailpunkte werden durch echte begrenzte Runtime-Preise
+  ausgeschlossen. Keine historischen PV-Platzhalter.
+- Lesende Produktionsprüfung: EOS PREDICTION/PVForecastImport/ElecPriceImport,
+  48 h Prognose, 24 h Kontrolle; evcc 0.318.1. Geschützte Geräte-GETs ohne vorhandenen
+  Key HTTP 401; neuer Adapter bestätigt `accepted=false`, `source_timestamp=null`.
+  Kein produktiver Import, keine Optimierung, kein echter Forecast.Solar-Abruf.
+
 ## Erweiterungen aus Issue #1
 
 - 98 Tests mit gepinntem EOS-Quellbaum erfolgreich; ohne EOS 95 Tests und eine explizit

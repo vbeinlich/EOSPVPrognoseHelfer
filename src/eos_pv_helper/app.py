@@ -9,17 +9,17 @@ import os
 import signal
 import socket
 import sys
-import tempfile
 import threading
 import time
 import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .normalize import ForecastError, SolarNight, normalize, records_from_json, timestamp
+from .storage import atomic_json
 
 LOG = logging.getLogger("eos-pv-helper")
 IMPORT_PATH = "/v1/prediction/import/PVForecastImport"
@@ -48,11 +48,14 @@ def validate_url(url, local_only=True):
     return url
 
 
-def request_json(url, *, method="GET", payload=None, token_env=None, token_file=None, timeout=10):
+def request_json(url, *, method="GET", payload=None, token_env=None, token_file=None, timeout=10,
+                 uncached=False):
     # Callers construct the limited writable EOS paths internally.
     if method not in ("GET", "PUT", "POST"):
         raise ForecastError("Unsupported HTTP method")
     headers = {"Accept": "application/json"}
+    if uncached:
+        headers.update({"Cache-Control": "no-cache, no-store", "Pragma": "no-cache"})
     if token_env and token_file:
         raise ForecastError("Choose either bearer_token_env or bearer_token_file")
     if token_env or token_file:
@@ -79,6 +82,8 @@ def request_json(url, *, method="GET", payload=None, token_env=None, token_file=
         with build_opener(NoRedirect()).open(
             Request(url, data=body, headers=headers, method=method), timeout=timeout
         ) as response:
+            if uncached and response.headers.get("Age") is not None:
+                raise ForecastError("Cached HTTP response is not a device-read freshness proof")
             content = response.read(MAX_BYTES + 1)
             if len(content) > MAX_BYTES:
                 raise ForecastError("HTTP response exceeds size limit")
@@ -134,59 +139,62 @@ def read_source(config):
     raise ForecastError("Source kind must be file or http; no remote forecast APIs are called")
 
 
-def atomic_json(path, data):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                         delete=False) as handle:
-            temporary = Path(handle.name)
-            handle.write(json.dumps(data, indent=2, allow_nan=False) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-        if os.name == "posix":
-            descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
-    finally:
-        if temporary and temporary.exists():
-            temporary.unlink()
-
-
 def run_once(config, *, write_eos=False, refresh_source=False, now=None,
-             source_reader=read_source, http=request_json):
+             source_reader=read_source, http=request_json, clock=None):
     output = Path(config.get("output", {}).get("directory", "/output"))
-    now = now or datetime.now(UTC)
+    clock = clock or ((lambda: now) if now is not None else lambda: datetime.now(UTC))
+    now = now or clock()
     horizon = config.get("horizon", {})
     start = (timestamp(horizon["start"]) if horizon.get("start") else
              now.astimezone(UTC).replace(minute=now.minute // 15 * 15, second=0, microsecond=0))
     source = config["source"]
     provenance = {}
+    maximum = horizon.get("max_hours", horizon.get("hours", 48))
+    mode = horizon.get("mode", "dynamic")
+    minimum = horizon.get("minimum_hours", 24) if mode == "dynamic" else None
+    if mode not in ("dynamic", "fixed"):
+        raise ForecastError("horizon.mode must be dynamic or fixed")
+    if isinstance(maximum, bool) or not isinstance(maximum, int) or not 24 <= maximum <= 168:
+        raise ForecastError("PV maximum hours must be an integer in 24..168")
+    if minimum is not None and (isinstance(minimum, bool) or not isinstance(minimum, int)
+                                or not 24 <= minimum <= maximum):
+        raise ForecastError("Dynamic minimum_hours must be >=24 and <= maximum hours")
     if source.get("kind") == "eos-forecastsolar":
-        import fcntl
-
         from .eos_source import load_forecast
 
         origin = eos_base(config["eos"])
         settings = http(origin + "/v1/config")
-        lock_path = Path(source["cache_file"]).with_suffix(".lock")
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-        with lock_path.open("w") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            raw, site, source, provenance = load_forecast(
-                source, settings, refresh=refresh_source, now=now
-            )
+        requested = maximum
+        eos_hours = settings.get("prediction", {}).get("hours", maximum)
+        if isinstance(eos_hours, bool) or not isinstance(eos_hours, int):
+            raise ForecastError("EOS prediction.hours must be an integer")
+        if isinstance(maximum, bool) or not isinstance(maximum, int):
+            raise ForecastError("PV maximum hours must be an integer")
+        maximum = min(maximum, eos_hours)
+        if minimum is not None and maximum < minimum:
+            raise ForecastError("EOS prediction horizon is below the required PV minimum")
+        raw, site, source, provenance = load_forecast(
+            source, settings, refresh=refresh_source, clock=clock
+        )
+        provenance["configured_max_hours"] = requested
         values = records_from_json(raw, source)
     else:
         values = records_from_json(source_reader(source), source)
         site = config["location"]
+    if not horizon.get("start"):
+        aligned_now = clock().astimezone(UTC)
+        start = aligned_now.replace(minute=aligned_now.minute // 15 * 15, second=0, microsecond=0)
     night = SolarNight(site["latitude"], site["longitude"], site.get("timezone", "Europe/Berlin"))
-    payload, report = normalize(values, start, horizon.get("hours", 48), night,
-                                source.get("interval_seconds", 900))
+    try:
+        payload, report = normalize(values, start, maximum, night,
+                                    source.get("interval_seconds", 900),
+                                    minimum_hours=minimum)
+    except ForecastError as exc:
+        failure = {**(exc.report or {}), **provenance, "ok": False,
+                   "checked_at_utc": clock().isoformat(), "reason": str(exc)}
+        atomic_json(output / "forecast-error.json", failure)
+        atomic_json(output / "health.json", {"ok": False, "checked_at": time.time()})
+        raise
     report.update(provenance)
     eos = config.get("eos", {})
     if write_eos and eos.get("write_enabled") is not True:
@@ -209,13 +217,15 @@ def run_once(config, *, write_eos=False, refresh_source=False, now=None,
     elif write_eos:
         raise ForecastError("An EOS URL is required for writing")
     report.update(contract)
-    report.update({"checked_at_utc": now.isoformat(), "mode": "write" if write_eos else "dry-run"})
+    report.update({"checked_at_utc": clock().isoformat(), "mode": "write" if write_eos else "dry-run"})
     atomic_json(output / "forecast.json", payload)
     atomic_json(output / "report.json", report)
     if write_eos:
         # Exactly one scoped write. No updates, optimization, configuration, or device commands.
         http(base + IMPORT_PATH, method="PUT", payload=payload)
-        returned = http(base + "/v1/prediction/series?key=pvforecast_ac_power")
+        returned = http(base + "/v1/prediction/series?" + urlencode({
+            "key": "pvforecast_ac_power", "processing": "raw", "dropna": "false",
+            "start_datetime": report["start_utc"], "end_datetime": report["end_exclusive_utc"]}))
         observed = {timestamp(k): v for k, v in returned.get("data", {}).items()}
         for key, value in payload["data"].items():
             if observed.get(timestamp(key)) != value["pvforecast_ac_power"]:
@@ -271,6 +281,9 @@ def main():
                     run_once(config, write_eos=args.write_eos, refresh_source=args.refresh_source)
             except Exception as exc:
                 atomic_json(output / "health.json", {"ok": False, "checked_at": time.time()})
+                if isinstance(exc, ForecastError) and exc.report:
+                    atomic_json(output / "forecast-error.json", {**exc.report, "ok": False,
+                                "checked_at_utc": datetime.now(UTC).isoformat(), "reason": str(exc)})
                 # Whitelist our own safe diagnostics; do not dump source bodies, URLs or secrets.
                 detail = str(exc) if isinstance(exc, ForecastError) else type(exc).__name__
                 LOG.error("forecast_invalid %s; cycle stopped, no further writes", detail)

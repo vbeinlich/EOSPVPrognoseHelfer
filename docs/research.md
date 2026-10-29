@@ -147,6 +147,14 @@ validierte externe Eingaben, gemeinsame Cachedateien und eine persistente Verarb
 neuer vollständiger Preisveröffentlichungen. Ein neuer Scheduler, Preisclient,
 Tarifmodell oder Hardwareadapter ist nicht erforderlich. Abläufe und bewusste
 Grenzen der Idempotenz stehen in [synchronisation.md](synchronisation.md).
+
+## Nachträgliche Findings der realen Unraid-Abnahme
+
+Die [Ergebnisse und Codebelege vom 29.10.2026](FINDINGS_ISSUE_1.md) ergänzen diese Recherche:
+dynamische PV-Präfixe statt einer starren 48-h-Pflicht, der belegte GET-Zeitfensterschnitt
+bei Preis-Rücklesung und ein streng begrenzter ungecachter evcc-E3/DC-RSCP-Frischenachweis.
+Die Anlage verwendet inzwischen `ElecPriceImport`; der Helfer hat diese Änderung nicht
+vorgenommen. Die reale erfolgreiche SoC-Abnahme ist wegen geschützter evcc-GETs noch offen.
 Issue #1 bleibt offen; keine automatische Schließreferenz im PR.
 
 ## Quellen

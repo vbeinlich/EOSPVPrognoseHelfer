@@ -1,23 +1,28 @@
 """Input synchronization and an opt-in event consumer, not a periodic optimizer."""
 
+import hashlib
 import json
 import logging
 import os
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 
 from .app import atomic_json, eos_base, request_json, run_once, verify_contract
+from .evcc_source import evcc_soc_sample, ha_diagnostics
 from .inputs import (
     PRICE_KEY,
     SOC_KEY,
     coverage,
     day_ahead_version,
+    native_price_runtime,
     number,
+    price_coverage,
     raw_series,
     retail_prices,
     soc_sample,
+    verify_price_readback,
 )
 from .normalize import ForecastError, timestamp
 
@@ -71,8 +76,12 @@ def simulation_safe(settings):
         raise ForecastError("Battery SoC measurement mapping differs from the validated source")
 
 
-def readback(http, origin, path, expected):
-    observed = raw_series(http(origin + path))
+def readback(http, origin, path, expected, *, prices_at=None):
+    response = http(origin + path)
+    observed = {} if (prices_at is not None and isinstance(response, dict)
+                      and response.get("data") == {}) else raw_series(response)
+    if prices_at is not None:
+        return verify_price_readback(expected, observed, prices_at)
     for key, value in expected.items():
         if observed.get(timestamp(key)) != value:
             raise ForecastError("EOS import raw readback differs")
@@ -124,29 +133,72 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
             except Exception as exc:
                 detail = str(exc) if isinstance(exc, ForecastError) else type(exc).__name__
                 report["errors"][name] = detail
+                if isinstance(exc, ForecastError) and exc.report:
+                    if name == "prices":
+                        report.setdefault("prices", {})["readback"] = exc.report
+                    else:
+                        report[name] = exc.report
                 LOG.warning("sync_blocked component=%s reason=%s", name, detail)
                 return None
 
         # PV keeps its own cadence; a failed PV refresh must not suppress independent SoC reads.
+        pv_signature = hashlib.sha256(json.dumps({"contract": "dynamic-pv-v2",
+            **{key: config.get(key) for key in ("source", "horizon", "location")}},
+            sort_keys=True).encode()).hexdigest()
         if (now.timestamp() - state.get("pv_checked_at", 0) >= config.get("poll_seconds", 300)
-                or (write and not state.get("pv_import_verified"))):
+                or (write and not state.get("pv_import_verified"))
+                or state.get("pv_signature") != pv_signature):
             state["pv_checked_at"] = now.timestamp()
             pv = attempt("pv", lambda: pv_runner(config, write_eos=write,
-                         refresh_source=refresh_source, now=now, http=http))
+                         refresh_source=refresh_source, now=now, http=http, clock=clock))
             state["pv_ok"] = pv is not None
             state["pv_import_verified"] = bool(pv and pv[1].get("import_verified"))
+            state["pv_report"] = pv[1] if pv else report.get("pv", {})
+            state["pv_signature"] = pv_signature
+        report["pv"] = state.get("pv_report", {})
         if not state.get("pv_ok"):
             report["errors"].setdefault("pv", "Last PV validation failed")
 
-        sample, frame = None, None
+        sample, frame, evcc_state, evcc_origin = None, None, None, None
+        evcc_config = config.get("evcc", {})
+        soc_source = soc.get("source", "evcc")
+        evcc_auth = {key: evcc_config[key] for key in ("token_env", "token_file") if evcc_config.get(key)}
+        if prices.get("enabled") is True or (soc.get("enabled") is True and soc_source == "evcc"):
+            def snapshot():
+                nonlocal evcc_origin
+                url = evcc_config.get("url") or prices.get("url")
+                if not url:
+                    raise ForecastError("Configure the shared evcc.url")
+                evcc_origin = eos_base({"url": url})
+                if prices.get("url") and eos_base({"url": prices["url"]}) != evcc_origin:
+                    raise ForecastError("evcc/prices URLs differ; SoC and prices need one shared snapshot")
+                raw = http(evcc_origin + "/api/state", **evcc_auth)
+                fetched = clock().isoformat()
+                report["evcc"] = {"snapshot_fetched_at_utc": fetched, "version": raw.get("version"),
+                                  "http_time_is_measurement_time": False}
+                battery = raw.get("battery") or {}
+                saved = {"version": raw.get("version"), "fetched_at_utc": fetched,
+                         "currency": raw.get("currency"), "forecast": raw.get("forecast"),
+                         "error": raw.get("error"), "battery": battery}
+                atomic_json(output / "evcc-snapshot.json", saved)
+                return raw
+            evcc_state = attempt("evcc", snapshot)
         if soc.get("enabled") is True:
             def sync_soc():
-                base = eos_base({"url": soc["url"]})
-                value = soc_sample(http(base + "/api/states/sensor.evcc_battery_soc",
-                                       token_env=soc.get("bearer_token_env"),
-                                       token_file=soc.get("bearer_token_file")), clock(),
-                                   soc.get("max_age_seconds", 300))
+                if soc_source == "evcc":
+                    if evcc_state is None:
+                        raise ForecastError("No shared evcc snapshot; no implicit HA fallback")
+                    value = evcc_soc_sample(evcc_state, soc, evcc_origin, http, clock, auth=evcc_auth)
+                elif soc_source == "homeassistant":
+                    base = eos_base({"url": soc["url"]})
+                    ha = http(base + "/api/states/sensor.evcc_battery_soc",
+                              token_env=soc.get("bearer_token_env"), token_file=soc.get("bearer_token_file"))
+                    report["soc"] = {"source": "homeassistant", **ha_diagnostics(ha, clock())}
+                    value = soc_sample(ha, clock(), soc.get("max_age_seconds", 300))
+                else:
+                    raise ForecastError("soc.source must explicitly be evcc or homeassistant")
                 report["soc"] = value
+                value["usable"] = True
                 atomic_json(output / "soc.json", value)
                 if write and soc.get("write_enabled") is True:
                     query = urlencode({"datetime": value["source_timestamp"], "key": SOC_KEY,
@@ -158,24 +210,46 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                     report["soc"]["import_verified"] = True
                 return value
             sample = attempt("soc", sync_soc)
+            if sample is None:
+                invalid = {**report.get("soc", {}), "source": soc_source, "usable": False,
+                           "blocked_reason": report["errors"].get("soc")}
+                report["soc"] = invalid
+                atomic_json(output / "soc.json", invalid)
+            ha_config = soc.get("ha", {})
+            if soc_source == "evcc" and ha_config.get("enabled") is True:
+                try:
+                    base = eos_base({"url": ha_config["url"]})
+                    ha = http(base + "/api/states/sensor.evcc_battery_soc",
+                              token_env=ha_config.get("bearer_token_env"),
+                              token_file=ha_config.get("bearer_token_file"))
+                    report["ha_comparison"] = ha_diagnostics(ha, clock())
+                except Exception:
+                    report["ha_comparison"] = {"fresh": False, "reason": "HA diagnostic unavailable"}
         if prices.get("enabled") is True:
             def sync_prices():
-                base = eos_base({"url": prices["url"]})
-                raw = http(base + "/api/state")
+                raw = evcc_state
+                if raw is None:
+                    raise ForecastError("No shared evcc price snapshot")
                 value = retail_prices(raw)
                 atomic_json(output / "prices-source.json", {"fetched_at_utc": now.isoformat(),
                             "currency": raw["currency"], "grid": raw["forecast"]["grid"]})
                 atomic_json(output / "prices.json", value)
                 report["prices"] = {"count": len(value["data"]), "unit": "EUR/Wh",
-                                    "fees_added": False}
+                                    "fees_added": False, "control_coverage": price_coverage(
+                                        settings, {timestamp(k): v[PRICE_KEY] for k, v in value["data"].items()},
+                                        clock())}
                 # Dry-run reports provider blockers but still exports the central cache.
                 attempt("price_provider", lambda: price_provider_ready(settings, prices))
                 if write and prices.get("write_enabled") is True:
                     price_provider_ready(settings, prices)
+                    reference = clock()  # Slots cannot age out of verification during the PUT/GET.
                     http(origin + "/v1/prediction/import/ElecPriceImport", method="PUT", payload=value)
-                    readback(http, origin, "/v1/prediction/series?" + urlencode(
-                        {"key": PRICE_KEY, "processing": "raw", "dropna": "false"}),
-                        {key: row[PRICE_KEY] for key, row in value["data"].items()})
+                    expected = {key: row[PRICE_KEY] for key, row in value["data"].items()}
+                    bounds = {"key": PRICE_KEY, "processing": "raw", "dropna": "false",
+                              "start_datetime": min(expected),
+                              "end_datetime": (timestamp(max(expected)) + timedelta(minutes=15)).isoformat()}
+                    report["prices"]["readback"] = readback(http, origin,
+                        "/v1/prediction/series?" + urlencode(bounds), expected, prices_at=reference)
                     report["prices"]["import_verified"] = True
                 return value
             frame = attempt("prices", sync_prices)
@@ -188,6 +262,11 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                     raise ForecastError("Simulation request timeout must be 10..1800 seconds")
                 if sample is None or frame is None or not state.get("pv_ok"):
                     raise ForecastError("Event needs valid fresh SoC, prices and PV")
+                pv_report = state.get("pv_report", {})
+                if pv_report.get("source_fetched_at_utc") and not 0 <= (
+                    clock() - timestamp(pv_report["source_fetched_at_utc"])
+                ).total_seconds() < pv_report["source_max_age_seconds"]:
+                    raise ForecastError("Native PV cache expired before simulation dispatch")
                 pv_config = settings.get("pvforecast", {})
                 pv_import = pv_config.get("pvforecastimport") or {}
                 if (pv_config.get("provider") != "PVForecastImport"
@@ -211,8 +290,16 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 for key in ("pvforecast_ac_power", "loadforecast_power_w", "feed_in_tariff_wh"):
                     series[key] = raw_series(http(origin + "/v1/prediction/series?" + urlencode(
                         {"key": key, "processing": "raw", "dropna": "false"})))
-                plan = coverage(settings, series, clock())
+                if pv_report.get("end_exclusive_utc"):
+                    end = timestamp(pv_report["end_exclusive_utc"])
+                    series["pvforecast_ac_power"] = {dt: v for dt, v in series["pvforecast_ac_power"].items()
+                                                     if dt < end}
+                limits = {"pvforecast_ac_power": timestamp(pv_report["end_exclusive_utc"])} if (
+                    pv_report.get("end_exclusive_utc")) else None
+                plan = coverage(settings, series, clock(), end_limits=limits)
                 report["event"].update(plan, status="ready-dry-run")
+                runtime_prices = native_price_runtime(settings, series[PRICE_KEY], plan, clock())
+                report["event"]["native_price_slots_from_midnight"] = len(runtime_prices)
                 LOG.info("simulation_ready mode=%s delivery_day=%s version=%s tail_hours=%s",
                          report["mode"], version["delivery_day"], version["version"],
                          plan["effective_tail_hours"])
@@ -239,7 +326,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                     "measurement_max_age_seconds", 300)):
                     raise ForecastError("SoC expired before simulation dispatch")
                 # Do not dispatch using coverage validated for the preceding slot.
-                final_plan = coverage(settings, series, clock())
+                final_plan = coverage(settings, series, clock(), end_limits=limits)
                 if final_plan["start_utc"] != plan["start_utc"]:
                     raise ForecastError("GENETIC slot changed; revalidate on the next input tick")
                 claim = {**version, **plan, "status": "uncertain", "claimed_at_utc": now.isoformat()}
@@ -248,7 +335,8 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 report["event"]["status"] = "uncertain"
                 # EOS itself quantizes initial SoC to integer percent. Explicitly pass the
                 # validated value so a queued request cannot silently fall back to assumed 0%.
-                body = {"soc": {SOC_KEY.removesuffix("-soc-factor"): int(sample["percent"])}}
+                body = {"soc": {SOC_KEY.removesuffix("-soc-factor"): int(sample["percent"])},
+                        "forecasts": {"electricity_price_per_wh": runtime_prices}}
                 result = http(origin + "/v1/optimize", method="POST", payload=body, timeout=timeout)
                 verify_solution(result, plan)
                 atomic_json(output / ("solution-" + version["version"] + ".json"), result)

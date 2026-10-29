@@ -129,3 +129,16 @@ def test_invalid_secret_file_never_makes_http_request(tmp_path, monkeypatch, con
 def test_ambiguous_secret_source_rejected_before_http():
     with pytest.raises(ForecastError, match="either"):
         request_json("http://127.0.0.1/state", token_env="HA_TOKEN", token_file="/unused")
+
+
+def test_cached_http_reply_is_never_a_device_read_proof(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    class Opener:
+        def open(self, request, timeout):
+            assert request.get_header("Cache-control") == "no-cache, no-store"
+            return nullcontext(SimpleNamespace(headers={"Age": "0"}))
+    monkeypatch.setattr("eos_pv_helper.app.build_opener", lambda *args: Opener())
+    with pytest.raises(ForecastError, match="Cached HTTP response"):
+        request_json("http://127.0.0.1/status", uncached=True)

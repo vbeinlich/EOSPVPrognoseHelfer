@@ -125,3 +125,31 @@ def test_interval_averages_preserve_gaps_and_integrate_quarters():
     values.pop(NOW + timedelta(minutes=75))
     assert interval_averages(values, NOW, 2, 3600) == [1.5, None]
     assert interval_averages({NOW: 0}, NOW, 2, 3600) == [0, None]
+
+
+@pytest.mark.parametrize("instant,count", [("2026-10-25T02:30:00+02:00", 26),
+                                           ("2026-10-25T02:30:00+01:00", 27),
+                                           ("2026-03-29T03:30:00+02:00", 26)])
+def test_native_price_prefix_uses_elapsed_dst_slots(instant, count):
+    from eos_pv_helper.inputs import genetic_window, native_price_runtime
+    from eos_pv_helper.normalize import timestamp
+
+    now = timestamp(instant)
+    origin = now.astimezone(ZoneInfo("Europe/Berlin")).replace(
+        hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
+    values = {origin + timedelta(minutes=i*15): .0003 for i in range(300)}
+    start, _, _, _, _, _, _ = genetic_window(settings(), now)
+    plan = {"start_utc": start.isoformat(), "control_hours": 24,
+            "effective_tail_hours": 0, "interval_seconds": 3600}
+    assert len(native_price_runtime(settings(), values, plan, now)) == count
+
+
+def test_native_price_prefix_never_invents_missing_history():
+    from eos_pv_helper.inputs import genetic_window, native_price_runtime
+
+    start, _, _, _, _, _, _ = genetic_window(settings(), NOW)
+    values = {NOW + timedelta(minutes=15*i): .0003 for i in range(192)}
+    plan = {"start_utc": start.isoformat(), "control_hours": 24,
+            "effective_tail_hours": 0, "interval_seconds": 3600}
+    with pytest.raises(ForecastError, match="real evcc prices from local midnight"):
+        native_price_runtime(settings(), values, plan, NOW)

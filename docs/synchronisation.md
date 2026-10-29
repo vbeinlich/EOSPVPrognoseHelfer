@@ -5,15 +5,20 @@ Diese Erweiterung setzt die drei Ergänzungen in
 Der Standard bleibt PV-only, Cache-only und `DRY_RUN=true`. Es wurden keine bestehenden
 Container verändert und keine produktiven EOS-Schreibzugriffe ausgeführt.
 
+Die [nachträglichen Findings und ihre Korrekturen](FINDINGS_ISSUE_1.md) enthalten den
+aktuellen PV-Horizont, evcc-Quellwahl, historische Preis-Rücklesung und erneute
+Unraid-Abnahme. Die ursprüngliche HA-Quelle ist nur noch explizit wählbarer Legacy-Modus.
+
 ## Einrichtung auf Unraid
 
 1. Zunächst den PV-Dry-run aus der README fertig einrichten. Der Helfer benötigt seine
    eigene beschreibbare `output`-Ablage, dieselbe bleibt nach Containerneustarts erhalten.
    Nur eine Helferinstanz pro EOS verwenden. Dateilocks schützen parallel gestartete
    Instanzen mit derselben Ablage; getrennte Ablagen bieten diese Garantie nicht.
-2. In der privaten `config.toml` `[soc].enabled=true` und `[prices].enabled=true` setzen.
-   Die tatsächlichen lokalen HA-/evcc-Adressen verwenden. HA-Lesezugriff über ein
-   ausschließlich privat bereitgestelltes `HA_TOKEN`; keine Zugangsdaten einchecken.
+2. In der privaten `config.toml` die gemeinsame `[evcc].url` eintragen. Preise unabhängig
+   mit `[prices].enabled=true` aktivieren. SoC benötigt zusätzlich die genaue Gerätekennung,
+   den geprüften RSCP-Treiber und einen vorhandenen privaten evcc-Key für geschützte
+   lesende GETs. Optionaler HA-Vergleich benötigt privat bereitgestelltes `HA_TOKEN`.
    Compose übernimmt die Umgebungsvariable in den neuen Helfercontainer. Die bestehende
    HA-, evcc- und EOS-Konfiguration wird nicht geändert.
 3. In der Compose-Datei des **neuen Helfers** optional ergänzen:
@@ -30,9 +35,9 @@ Container verändert und keine produktiven EOS-Schreibzugriffe ausgeführt.
    `sync-report.json` dokumentiert Quellzeitstempel, Alter, Preisversion, Qualitätsfehler,
    Kontrollhorizont und nutzbaren Tail. Ausstehende morgige Preise melden
    `waiting-publication`; sie sind kein technischer Fehler.
-5. Erwartete Produktionssperre: EOS nutzt derzeit `ElecPriceEnergyCharts`. Der Helfer
-   exportiert den evcc-Cache trotzdem, meldet aber `price_provider` und schreibt keine
-   Preise. Die Umstellung auf `ElecPriceImport` erfordert **separate Freigabe** und erfolgt
+5. EOS muss für Preisimporte bereits `ElecPriceImport` verwenden; die beschriebene Anlage
+   wurde inzwischen vom Betreiber so umgestellt. Bei `ElecPriceEnergyCharts` bleibt der
+   Import gesperrt. Jede Umstellung erfordert **separate Freigabe** und erfolgt
    außerhalb dieses Helfers. Er nimmt keine automatische Konfigurationsänderung vor.
    Vorher einzelne evcc-Preisintervalle mit LUOX vergleichen; erst dann
    `prices.retail_prices_confirmed=true` setzen.
@@ -52,6 +57,12 @@ Rohdaten werden über `/v1/measurement/series?key=...&processing=raw&dropna=fals
 in ganzzahligen Prozent: der Simulationsaufruf erhält nach erneuter Frischeprüfung 55 %,
 genau wie EOS selbst quantisieren würde. So wird EOS' sonst möglicher stiller Rückfall
 auf angenommenen 0-%-SoC verhindert.
+
+Neue Installationen bevorzugen `soc.source="evcc"`. Normale evcc-Zustandswerte enthalten
+keinen Frischezeitstempel; der neue RSCP-Statuspfad und dessen Grenzen stehen im
+Finding-Bericht. HA wird niemals stillschweigend als Ersatz verwendet. Eine absichtlich
+gewählte alte HA-Quelle benötigt jetzt ausdrücklich `source="homeassistant"` und ihre
+URL/Token-Felder im `[soc]`-Block; ihre 300-s-Prüfung bleibt unverändert.
 
 `retail_prices()` verlangt explizit EUR, lückenlose Unix-Intervalle von genau 900 Sekunden,
 keine Duplikate und endliche Werte. Negative Preise und echte Nullpreise sind gültig.
@@ -130,3 +141,8 @@ einen später ausdrücklich genehmigten Lauf nicht.
 Veralteter SoC, PV-Lücken, fehlende Preisabdeckung und gesperrte Provider werden in
 `sync-report.json`, Logs und Healthcheck sichtbar. Ein vor Versand ungültiger Input
 verbraucht die Preisversion nicht; eine spätere gültige Eingabe darf sie neu prüfen.
+
+Bei dynamischem PV-Ende wird der echte Mitternachts-Preispräfix als begrenzter nativer
+Runtime-Array übergeben. So kann die EOS-Auflösung keine gespeicherten älteren
+PV-Tailpunkte wieder anhängen. Fehlender Preispräfix wird ausdrücklich gemeldet, nicht
+mit erfundenen historischen Werten gepolstert.

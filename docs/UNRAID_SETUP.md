@@ -19,6 +19,19 @@ Die Pipeline baut ausdrücklich das Dockerfile-Ziel `eos-source` einschließlich
 EOS-Forecast.Solar-Providers. `ENTRYPOINT` ist `python -m eos_pv_helper`, `CMD` ist `run`.
 Die Codeversion in `pyproject.toml` ist **kein Nachweis eines veröffentlichten Image-Tags**.
 
+**Tatsächlich veröffentlicht und anonym geprüft am 29.10.2026:**
+
+```text
+ghcr.io/vbeinlich/eospvprognosehelfer@sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde
+```
+
+Dieser Vorschau-Build stammt aus Commit
+[`8f18d6c26a7c46367db152dff23b4224bef840b5`](https://github.com/vbeinlich/EOSPVPrognoseHelfer/commit/8f18d6c26a7c46367db152dff23b4224bef840b5).
+[Erfolgreicher Build/Pull/Test](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40829029860),
+[maschinenlesbarer Nachweis](IMAGE_PUBLICATION.json). Das XML ist auf genau diesen Digest
+gepinnt. Es wurde noch kein gemeinsamer stabiler Release erstellt. Der obige Textblock
+ist ein Repository-Feldwert für die GUI, kein Shell-Befehl.
+
 - Die [Actions-Läufe](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions) veröffentlichen
   nach erfolgreichen Tests einen `sha-<vollständiger Commit-SHA>`-Tag.
 - Der PR-Branch veröffentlicht zusätzlich den beweglichen Vorschau-Tag `pr-3`.
@@ -34,7 +47,8 @@ ein `@sha256:...`-Digest bezeichnet exakt das geprüfte Image. Der bewegliche `p
 ist eine Vorschau und kein stabiles Release-Versprechen.
 
 Ein grüner Veröffentlichungsjob umfasst einen Pull **ohne Docker-Anmeldedaten** und einen
-Test genau dieses Registry-Images ohne Netzwerk. GHCR erzeugt neue Pakete zunächst privat.
+Test genau dieses Registry-Images ohne Netzwerk. Beim ersten Publizieren kann eine
+separate Package-Sichtbarkeitseinstellung erforderlich sein.
 Falls der Job beim anonymen Pull scheitert, muss der Eigentümer in den
 [Package settings](https://github.com/users/vbeinlich/packages/container/package/eospvprognosehelfer/settings)
 die Sichtbarkeit auf **Public** setzen und den fehlgeschlagenen Job erneut ausführen.
@@ -194,20 +208,24 @@ gezielt keine Tokens oder vollständigen Quellantworten.
 Eine Image-Installation ist keine Freigabe zum Abruf, EOS-Import oder Optimieren.
 
 1. **Einmaliger Forecast.Solar-Abruf:** nach Freigabe in der privaten TOML nur
-   `source.refresh_enabled=true` setzen. In der Console des neuen Helfers einmal:
+   `source.refresh_enabled=true` setzen. Nur den neuen Helfer stoppen/starten, damit auch
+   ein vom Editor ersetzter Datei-Inode neu eingebunden wird. Post Arguments unverändert
+   **ohne** `--refresh-source` lassen; dadurch bleibt der Hintergrundprozess Cache-only.
+   In der Console des neuen Helfers einmal:
 
    ```sh
    DRY_RUN=true python -m eos_pv_helper run --config /app/config.toml --once --refresh-source
    ```
 
-   Danach `source.refresh_enabled=false` zurücksetzen. Der Hintergrundprozess hat
-   weiterhin seine vorherige Cache-only-Konfiguration. Der einmalige Prozess verwendet
+   Danach `source.refresh_enabled=false` zurücksetzen und nur den Helfer neu starten.
+   Der einmalige Prozess verwendet
    den nativen EOS-Provider und einen gemeinsamen Dateilock. Ein Abruf kann pro PV-Fläche
    einen Request benötigen. Ein vorhandener gültiger Cache verhindert einen erneuten Abruf.
    26 Stundenwerte belegen keinen 48-h-Horizont; fehlende Tageswerte führen zum Fehler.
 
-2. **EOS-PV-Import:** separat genehmigen. In TOML `eos.write_enabled=true` setzen und in der
-   Console einmal mit bewusstem `DRY_RUN=false` und `--write-eos` starten. Das unveränderte
+2. **EOS-PV-Import:** separat genehmigen. In TOML `eos.write_enabled=true` setzen, nur den
+   Helfer neu starten und in der Console einmal mit bewusstem `DRY_RUN=false` und
+   `--write-eos` starten. Das unveränderte
    GUI-Feld `DRY_RUN=true` schützt weiterhin den normalen Hintergrundprozess:
 
    ```sh

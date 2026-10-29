@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Container version="2">
   <Name>eos-pv-helper</Name>
-  <Repository>ghcr.io/vbeinlich/eospvprognosehelfer:pr-3</Repository>
+  <Repository>ghcr.io/vbeinlich/eospvprognosehelfer@sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde</Repository>
   <Registry>https://github.com/users/vbeinlich/packages/container/package/eospvprognosehelfer</Registry>
   <Network>bridge</Network>
   <MyIP/>

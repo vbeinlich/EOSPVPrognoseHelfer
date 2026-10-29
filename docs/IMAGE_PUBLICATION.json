@@ -1,0 +1,21 @@
+{
+  "image": "ghcr.io/vbeinlich/eospvprognosehelfer",
+  "tags_at_publication": [
+    "sha-8f18d6c26a7c46367db152dff23b4224bef840b5",
+    "pr-3"
+  ],
+  "revision": "8f18d6c26a7c46367db152dff23b4224bef840b5",
+  "version": "preview",
+  "platform": "linux/amd64",
+  "digest": "sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde",
+  "pinned_image": "ghcr.io/vbeinlich/eospvprognosehelfer@sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde",
+  "verified_at_utc": "2026-10-29T06:30:08Z",
+  "workflow_run": "https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40829029860",
+  "artifact_id": 12878400145,
+  "checks": {
+    "anonymous_pull_with_empty_docker_config": true,
+    "registry_image_smoke_without_network": true,
+    "oci_revision_verified": true,
+    "unraid_gui_installation": false
+  }
+}

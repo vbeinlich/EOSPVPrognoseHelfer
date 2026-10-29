@@ -17,7 +17,7 @@ Unraid-GUI-Test. Bestehende Container wurden nicht verändert.
 | Release-/Preview-Tags | Commit-Tags, PR-Vorschau und spätere Versions-Tags separat getestet; unpassende Versionen/Fork-Refs abgelehnt |
 | Tests | 116 Tests mit gepinntem EOS erfolgreich; Ruff und Actionlint erfolgreich |
 | Lokales Vollimage | Ziel `eos-source` erfolgreich gebaut, `scripts/unraid_smoke.py` ohne Netzwerk bestanden |
-| GHCR | Veröffentlichung/anonymous Pull über den neuen Push-Workflow zu prüfen; erfolgreiche Metadaten folgen im Artefakt `image-publication-<SHA>` |
+| GHCR | Image tatsächlich veröffentlicht; [Push-Lauf 40829029860](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40829029860) vollständig grün, anonymer Pull und Smoke-Test des Registry-Digests erfolgreich; [Digest-/Source-Nachweis](IMAGE_PUBLICATION.json) |
 | Echte Unraid-GUI-Installation | Noch offen; keine tatsächliche Template-Auswahl/Installation auf dem privaten Server behauptet |
 
 ## Wiederholen
@@ -40,7 +40,8 @@ des Entwicklungsrechners bzw. des GitHub-Runners.
 
 ## Vor Schließen des Issues
 
-1. GHCR-Image mit erfolgreichem anonymem Pull und Source-Revision dokumentieren.
+1. GHCR-Image mit erfolgreichem anonymem Pull und Source-Revision ist dokumentiert;
+   Template und öffentliche Anleitung verwenden den geprüften Digest.
 2. Vorlage auf Unraid unter User Templates auswählen; ausschließlich neuen Helfer im
    Dry-run anlegen, Pfade, PostArgs, Netzwerk, Logs und Health nach Anleitung prüfen.
 3. Ergebnisse im Issue dokumentieren. Issue #4 bleibt bis zur echten Unraid-Abnahme offen.

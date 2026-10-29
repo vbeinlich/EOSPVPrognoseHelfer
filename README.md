@@ -71,6 +71,8 @@ Veröffentlichte Tags/Digests und anonyme Pullbarkeit anhand des erfolgreichen
 Push-Workflows und dessen `image-publication-<SHA>`-Artefakt prüfen. `pr-3` ist eine
 bewegliche Vorschau; Release-Tags werden erst bei einem entsprechenden Release-Push
 erzeugt. Die Projektversion ist kein Nachweis eines bereits veröffentlichten Tags.
+Der [geprüfte Veröffentlichungsnachweis](docs/IMAGE_PUBLICATION.json) enthält den
+tatsächlich anonym abrufbaren Digest, auf den das Unraid-Template gepinnt ist.
 
 ## Alternative für Entwickler: lokaler Build und Compose
 

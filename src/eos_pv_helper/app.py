@@ -240,7 +240,7 @@ def run_once(config, *, write_eos=False, refresh_source=False, now=None,
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", choices=("run", "sync", "health"), default="run")
+    parser.add_argument("command", nargs="?", choices=("run", "sync", "health", "doctor"), default="run")
     parser.add_argument("--config", default="/app/config.toml")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--write-eos", action="store_true", help="Requires prior operator approval")
@@ -255,6 +255,13 @@ def main():
         except (FileNotFoundError, IsADirectoryError):
             raise ForecastError("Private config.toml missing or a directory; create the file first "
                                 "and mount it read-only at /app/config.toml") from None
+        if args.command == "doctor":
+            from .doctor import acceptance
+            if args.write_eos or args.refresh_source:
+                raise ForecastError("Doctor is strictly read-only; write/refresh flags are forbidden")
+            evidence, status = acceptance(config)
+            print(json.dumps(evidence, indent=2, allow_nan=False))
+            return status
         interval = config.get("poll_seconds", 300)
         if isinstance(interval, bool) or not isinstance(interval, int) or not 30 <= interval <= 3600:
             raise ForecastError("poll_seconds must be an integer between 30 and 3600")

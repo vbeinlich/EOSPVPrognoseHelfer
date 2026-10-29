@@ -65,7 +65,8 @@ def test_preview_and_main_have_no_invented_release_or_latest_tag():
 
 def test_release_tag_matches_code_version():
     result = metadata_module.metadata("a" * 40, "refs/tags/v0.1.0", "0.1.0")
-    assert result["tags"][-2:] == [metadata_module.IMAGE + ":v0.1.0", metadata_module.IMAGE + ":latest"]
+    assert result["tags"] == [metadata_module.IMAGE + ":sha-" + "a" * 40]
+    assert result["promotion_tags"] == [metadata_module.IMAGE + ":v0.1.0", metadata_module.IMAGE + ":latest"]
 
 
 @pytest.mark.parametrize("sha,ref", [("a" * 7, "refs/heads/main"),

@@ -12,7 +12,9 @@ RUN mkdir -p /opt/eos && python -c \
     "import urllib.request; urllib.request.urlretrieve('https://github.com/Akkudoktor-EOS/EOS/archive/${EOS_REF}.tar.gz', '/tmp/eos.tar.gz')" \
     && tar -xzf /tmp/eos.tar.gz --strip-components=1 -C /opt/eos
 ENV PYTHONPATH=/opt/eos/src
-COPY pyproject.toml ./
+COPY pyproject.toml LICENSE README.md THIRD_PARTY_NOTICES.md ./
+COPY licenses ./licenses
+COPY docs/GENETIC_ACCEPTANCE.json ./docs/GENETIC_ACCEPTANCE.json
 COPY src ./src
 COPY tests ./tests
 COPY templates ./templates

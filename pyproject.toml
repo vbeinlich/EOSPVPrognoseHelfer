@@ -1,11 +1,14 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "eos-pv-helper"
 version = "0.1.0"
 description = "Validate existing PV forecasts and fill only missing solar-night intervals for EOS"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = ["astral==3.2", "tzdata==2025.2"]
 

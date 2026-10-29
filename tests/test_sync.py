@@ -383,6 +383,45 @@ def test_evcc_error_does_not_fall_back_to_fresh_ha_or_import_soc(sync_case, monk
     assert not writes(sync_case, "POST")
 
 
+def test_soc_mismatch_retries_only_shared_state_and_prices_use_the_new_snapshot(sync_case):
+    configure_verified_evcc(sync_case)
+    original = sync_case["http"]
+    state_calls = []
+
+    def http(url, **kwargs):
+        result = original(url, **kwargs)
+        if url.endswith("/api/state"):
+            state_calls.append(kwargs)
+            result = copy.deepcopy(result)
+            if len(state_calls) == 1:
+                result["battery"]["devices"][0]["soc"] = 54
+            else:
+                result["forecast"]["grid"][0][2] = .42
+        return result
+
+    sync_case["http"] = http
+    report = tick(sync_case)
+    assert report["errors"] == {}
+    assert report["soc"]["snapshot_retry_count"] == report["evcc"]["snapshot_retry_count"] == 1
+    assert len(state_calls) == 2 and state_calls[1]["uncached"] is True
+    assert state_calls[1]["timeout"] == 15
+    assert len([url for _, url, _ in sync_case["calls"] if url.endswith("/status")]) == 1
+    prices = json.loads((Path(sync_case["config"]["output"]["directory"]) / "prices.json").read_text())
+    assert next(iter(prices["data"].values()))[PRICE_KEY] == .00042
+
+
+def test_doctor_accepts_actual_sync_artifacts_and_never_dispatches(sync_case, monkeypatch):
+    from eos_pv_helper.doctor import acceptance
+    monkeypatch.setenv("DRY_RUN", "false")
+    configure_verified_evcc(sync_case)
+    assert tick(sync_case, write_eos=True)["event"]["status"] == "succeeded"
+    before = copy.deepcopy(sync_case["calls"])
+    evidence, status = acceptance(sync_case["config"], now=sync_case["now"])
+    assert status == 0, evidence
+    assert evidence["checks"]["solution_content_valid"]
+    assert sync_case["calls"] == before
+
+
 def test_documented_price_history_cut_passes_but_keeps_separate_control_check(sync_case, monkeypatch):
     monkeypatch.setenv("DRY_RUN", "false")
     original = sync_case["http"]

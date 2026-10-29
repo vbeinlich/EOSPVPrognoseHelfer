@@ -350,3 +350,11 @@ er bestätigt keine bereits erfolgte Installation auf dem privaten Unraid-Server
 - [Unraid 7.3.1: Add-Container-Vorlagenauswahl](https://github.com/unraid/webgui/blob/982b3c207599446989e521f13d707cf3809a4318/emhttp/plugins/dynamix.docker.manager/include/CreateDocker.php)
 - [GitHub: Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [GitHub: Package-Sichtbarkeit](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)
+
+## Abschluss der laufenden Abnahme
+
+PV-, evcc-SoC- und Preisimport wurden real bestätigt; der automatische GENETIC-Plan
+ist noch offen. Der [rein lesende Doctor und Release-Ablauf](RELEASE_CHECKLIST.md)
+prüft die vorhandenen Artefakte ohne erneuten Lauf. Kein Deployment oder Update
+durch Codex ohne ausdrückliche Freigabe. Wizard/Skill werden gemäß PR-Auftrag erst
+nach erfolgreichem Abschluss #1, Merge #3 und stabilem Release implementiert.

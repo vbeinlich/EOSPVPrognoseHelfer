@@ -21,12 +21,13 @@ def case():
             "calls": []}
 
 
-def sample(case, clock=lambda: NOW):
+def sample(case, clock=lambda: NOW, refresh_snapshot=None):
     def http(url, **kwargs):
         assert kwargs.get("method", "GET") == "GET"
         case["calls"].append(url)
         return case["status"] if url.endswith("/status") else case["meter"]
-    return evcc_soc_sample(case["state"], case["config"], "http://127.0.0.1:7070", http, clock)
+    return evcc_soc_sample(case["state"], case["config"], "http://127.0.0.1:7070", http, clock,
+                           refresh_snapshot=refresh_snapshot)
 
 
 def test_unchanged_soc_has_new_successful_uncached_read_proof_not_http_state_time(case):
@@ -93,3 +94,53 @@ def test_restarting_with_cached_state_cannot_reuse_old_proof(case):
     case["status"]["soc"]["error"] = "poller stopped"
     with pytest.raises(ForecastError):
         sample(case, clock=lambda: NOW + timedelta(seconds=301))
+
+
+def test_snapshot_retry_keeps_original_device_proof_and_never_repolls_hardware(case):
+    case["state"]["battery"]["devices"][0]["soc"] = 12
+    fresh = copy.deepcopy(case["state"])
+    fresh["battery"]["devices"][0]["soc"] = 13
+    retries = []
+    value = sample(case, refresh_snapshot=lambda: retries.append(1) or fresh)
+    assert retries == [1]
+    assert len(case["calls"]) == 2  # One configuration GET, one device status GET.
+    assert value["source_timestamp"] == NOW.isoformat()
+    assert value["freshness_evidence"]["live_soc_percent"] == value["percent"] == 13
+    assert value["snapshot_retry_count"] == 1
+
+
+@pytest.mark.parametrize("failure", ["mismatch", "version", "device", "duplicate", "error",
+                                     "power", "timeout", "expired", "future"])
+def test_retry_is_bounded_and_does_not_weaken_validation(case, failure):
+    case["state"]["battery"]["devices"][0]["soc"] = 12
+    fresh = copy.deepcopy(case["state"])
+    fresh["battery"]["devices"][0]["soc"] = 13
+    if failure == "mismatch":
+        fresh["battery"]["devices"][0]["soc"] = 14
+    elif failure == "version":
+        fresh["version"] = "other"
+    elif failure == "device":
+        fresh["battery"]["devices"][0]["name"] = "db:99"
+    elif failure == "duplicate":
+        fresh["battery"]["devices"].append(copy.deepcopy(fresh["battery"]["devices"][0]))
+    elif failure == "error":
+        fresh["error"] = "failed"
+    elif failure == "power":
+        fresh["battery"]["devices"][0]["power"] = 100001
+    calls = []
+
+    def retry():
+        calls.append(1)
+        if failure == "timeout":
+            raise ForecastError("HTTP request failed or timed out")
+        return fresh
+
+    times = iter([NOW, NOW, NOW + timedelta(seconds=301 if failure == "expired" else -1)])
+    with pytest.raises(ForecastError):
+        sample(case, clock=(lambda: next(times)) if failure in ("expired", "future") else lambda: NOW,
+               refresh_snapshot=retry)
+    assert calls == [1] and len(case["calls"]) == 2
+
+
+def test_matching_snapshot_never_uses_retry(case):
+    assert sample(case, refresh_snapshot=lambda: pytest.fail("Unnecessary GET"))["freshness_verified"]

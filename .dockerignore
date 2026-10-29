@@ -1,5 +1,12 @@
 *
 !pyproject.toml
+!LICENSE
+!README.md
+!THIRD_PARTY_NOTICES.md
+!licenses/
+!licenses/**
+!docs/
+!docs/GENETIC_ACCEPTANCE.json
 !src/
 !src/**
 !tests/

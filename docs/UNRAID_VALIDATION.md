@@ -22,7 +22,7 @@ ist noch nicht nachgewiesen.
 | Healthcheck | Nach erfolgreicher Normalisierung Exitcode 0; native EOS-Provider-Abhängigkeiten im Vollimage importierbar |
 | Secret-Datei | Datei/Env gegenseitig ausgeschlossen; fehlende, leere, zu große und ungültige Tokens vor HTTP abgelehnt; keine Token-Logs |
 | Release-/Preview-Tags | Commit-Tags, PR-Vorschau und spätere Versions-Tags separat getestet; unpassende Versionen/Fork-Refs abgelehnt |
-| Tests | 168 Tests mit gepinntem EOS einschließlich Findings aus Issue #1 erfolgreich; Ruff und Actionlint erfolgreich |
+| Tests | Ursprüngliche Findings: 168 Tests; Release-Vorbereitung mit Doctor, begrenztem Snapshot-Retry und Release-Gates: 215 Tests mit gepinntem EOS erfolgreich; Ruff und Actionlint erfolgreich |
 | Lokales Vollimage | Ziel `eos-source` erfolgreich gebaut, `scripts/unraid_smoke.py` ohne Netzwerk bestanden |
 | GHCR | Fix-Image tatsächlich veröffentlicht; [Push-Lauf 40845383381](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40845383381) vollständig grün, anonymer Pull und Smoke-Test des Registry-Digests erfolgreich; [Digest-/Source-Nachweis](IMAGE_PUBLICATION.json) |
 | Echte Unraid-GUI-Installation | **Vom Betreiber bestätigt:** vorhandenen Helfer über Docker → Edit → Apply auf geprüften GHCR-Digest aktualisiert; Docker-Inspect mit `sync --config /app/config.toml --refresh-source --write-eos`; separater evcc-Secret-Mount im GUI ergänzt. `<PostArgs>` war in Advanced View nicht sichtbar und musste im User-Template angepasst werden. |

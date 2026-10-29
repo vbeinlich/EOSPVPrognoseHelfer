@@ -81,6 +81,23 @@ write_enabled = false
         report = read_output("report.json")
         assert len(forecast["data"]) == 192 and report["mode"] == "dry-run"
         run(["health"])
+        # The distributed image and wheel must carry the claimed own-code license,
+        # original EOS notices and the actual installed-dependency inventory.
+        code = '''import importlib.metadata as m
+import json
+from pathlib import Path
+d = m.distribution("eos-pv-helper")
+assert d.metadata["License-Expression"] == "MIT"
+assert any(str(p).endswith("licenses/LICENSE") for p in d.files)
+root = Path("/usr/share/eos-pv-helper/licenses")
+inventory = json.loads((root / "inventory.json").read_text())
+assert inventory["python"] and inventory["system"]
+assert inventory["legal_review_required"] is True
+assert (root / "upstream-eos/NOTICE").is_file()
+assert (root / "texts/Apache-2.0.txt").is_file()
+'''
+        docker("run", "--rm", "--network", "none", "--read-only", "--cap-drop=ALL",
+               "--entrypoint", "python", image, "-c", code)
         # Package/entrypoint and full native EOS dependency check, without an external request.
         docker("run", "--rm", "--network", "none", "--read-only", "--cap-drop=ALL",
                "--tmpfs=/tmp:rw,size=16m", "--entrypoint", "python", image, "-c",

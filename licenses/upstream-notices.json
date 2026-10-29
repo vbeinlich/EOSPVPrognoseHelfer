@@ -1,0 +1,12 @@
+{
+  "loguru==0.7.3": {
+    "file": "loguru-0.7.3-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/Delgan/loguru/0.7.3/LICENSE",
+    "sha256": "b35d026cc7aca9d5859a02eb87ddf7a386a24c986838651bd1f283f94e003327"
+  },
+  "dnspython==2.9.0": {
+    "file": "dnspython-2.9.0-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/rthalley/dnspython/v2.9.0/LICENSE",
+    "sha256": "c3ea3ff5654b329c19d3bc5f7481af623c3dded4a6145585499f843ad3d741cd"
+  }
+}

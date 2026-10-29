@@ -11,7 +11,7 @@ from .inputs import SOC_KEY, number
 from .normalize import ForecastError
 
 
-def evcc_soc_sample(state, config, origin, http, clock, *, auth=None):
+def evcc_soc_sample(state, config, origin, http, clock, *, auth=None, refresh_snapshot=None):
     diagnostic = {"source": "evcc", "device_name": config.get("device_name"),
                   "source_timestamp": None, "device_timestamp_available": False,
                   "freshness_verified": False}
@@ -19,24 +19,29 @@ def evcc_soc_sample(state, config, origin, http, clock, *, auth=None):
         name = config.get("device_name", "")
         if not isinstance(name, str) or not re.fullmatch(r"db:[0-9]+", name):
             raise ForecastError("Configure the exact evcc E3/DC device_name (db:<id>)")
-        devices = (state.get("battery") or {}).get("devices")
-        if not isinstance(devices, list):
-            raise ForecastError("evcc battery devices are absent")
-        matches = [device for device in devices if isinstance(device, dict) and device.get("name") == name]
-        if len(matches) != 1:
-            raise ForecastError("Expected evcc battery device is missing or duplicated")
-        device = matches[0]
-        soc, power = number(device.get("soc")), number(device.get("power"))
-        diagnostic.update(percent=soc, factor=soc / 100, power_w=power)
         limit = number(config.get("max_abs_power_w", 20000))
-        if not 0 <= soc <= 100 or not 0 < limit <= 100000 or abs(power) > limit:
-            raise ForecastError("Invalid evcc device SoC or implausible battery power")
-        if state.get("error") is not None or device.get("error") is not None:
-            raise ForecastError("evcc reports an error; battery freshness is not accepted")
+
+        def snapshot_soc(raw):
+            if not isinstance(raw, dict) or raw.get("version") != "0.318.1":
+                raise ForecastError("evcc version differs from the audited uncached-device contract")
+            devices = (raw.get("battery") or {}).get("devices")
+            if not isinstance(devices, list):
+                raise ForecastError("evcc battery devices are absent")
+            matches = [d for d in devices if isinstance(d, dict) and d.get("name") == name]
+            if len(matches) != 1:
+                raise ForecastError("Expected evcc battery device is missing or duplicated")
+            device = matches[0]
+            soc, power = number(device.get("soc")), number(device.get("power"))
+            if not 0 <= soc <= 100 or not 0 < limit <= 100000 or abs(power) > limit:
+                raise ForecastError("Invalid evcc device SoC or implausible battery power")
+            if raw.get("error") is not None or device.get("error") is not None:
+                raise ForecastError("evcc reports an error; battery freshness is not accepted")
+            diagnostic.update(percent=soc, factor=soc / 100, power_w=power)
+            return soc
+
+        soc = snapshot_soc(state)
         if config.get("freshness") != "e3dc-rscp-status":
             raise ForecastError("evcc /api/state has no proven measurement freshness; select audited proof")
-        if state.get("version") != "0.318.1":
-            raise ForecastError("evcc version differs from the audited uncached-device contract")
         auth = auth or {}
         ident = name.removeprefix("db:")
         meter = http(origin + "/api/config/devices/meter/" + ident, uncached=True, **auth)
@@ -64,10 +69,15 @@ def evcc_soc_sample(state, config, origin, http, clock, *, auth=None):
             if not isinstance(row, dict) or row.get("error") != "" or row.get("asleep"):
                 raise ForecastError("Unsuccessful or absent live evcc device getter: " + key)
             values[key] = number(row.get("value"))
+        if not 0 <= values["soc"] <= 100 or abs(values["power"]) > limit:
+            raise ForecastError("Implausible power in live battery proof")
+        if values["soc"] != soc and refresh_snapshot is not None:
+            # Exactly one cache GET, never another hardware getter or a polling loop.
+            # The successful uncached read remains the sole freshness evidence.
+            diagnostic["snapshot_retry_count"] = 1
+            soc = snapshot_soc(refresh_snapshot())
         if values["soc"] != soc:
             raise ForecastError("Cached evcc SoC differs from live device read; wait for the next snapshot")
-        if abs(values["power"]) > limit:
-            raise ForecastError("Implausible power in live battery proof")
         age = (clock() - started).total_seconds()
         if not 0 <= age <= min(300, config.get("max_age_seconds", 300)):
             raise ForecastError("Verified device read is stale or dated in the future")

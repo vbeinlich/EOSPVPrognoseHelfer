@@ -98,7 +98,8 @@ def verify_solution(solution, plan):
         if not isinstance(values, list) or len(values) < count:
             raise ForecastError("Incomplete EOS solution")
         for value in values:
-            number(value)
+            if not 0 <= number(value) <= 1 or (key == "discharge_allowed" and value not in (0, 1)):
+                raise ForecastError("Invalid EOS solution control value")
     number(solution.get("result", {}).get("total_costs"))
 
 
@@ -164,7 +165,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
         soc_source = soc.get("source", "evcc")
         evcc_auth = {key: evcc_config[key] for key in ("token_env", "token_file") if evcc_config.get(key)}
         if prices.get("enabled") is True or (soc.get("enabled") is True and soc_source == "evcc"):
-            def snapshot():
+            def snapshot(*, uncached=False):
                 nonlocal evcc_origin
                 url = evcc_config.get("url") or prices.get("url")
                 if not url:
@@ -172,7 +173,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 evcc_origin = eos_base({"url": url})
                 if prices.get("url") and eos_base({"url": prices["url"]}) != evcc_origin:
                     raise ForecastError("evcc/prices URLs differ; SoC and prices need one shared snapshot")
-                raw = http(evcc_origin + "/api/state", **evcc_auth)
+                raw = http(evcc_origin + "/api/state", uncached=uncached, timeout=15, **evcc_auth)
                 fetched = clock().isoformat()
                 report["evcc"] = {"snapshot_fetched_at_utc": fetched, "version": raw.get("version"),
                                   "http_time_is_measurement_time": False}
@@ -185,10 +186,17 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
             evcc_state = attempt("evcc", snapshot)
         if soc.get("enabled") is True:
             def sync_soc():
+                nonlocal evcc_state
                 if soc_source == "evcc":
                     if evcc_state is None:
                         raise ForecastError("No shared evcc snapshot; no implicit HA fallback")
-                    value = evcc_soc_sample(evcc_state, soc, evcc_origin, http, clock, auth=evcc_auth)
+                    def refresh_snapshot():
+                        nonlocal evcc_state
+                        evcc_state = snapshot(uncached=True)
+                        report["evcc"]["snapshot_retry_count"] = 1
+                        return evcc_state
+                    value = evcc_soc_sample(evcc_state, soc, evcc_origin, http, clock,
+                                            auth=evcc_auth, refresh_snapshot=refresh_snapshot)
                 elif soc_source == "homeassistant":
                     base = eos_base({"url": soc["url"]})
                     ha = http(base + "/api/states/sensor.evcc_battery_soc",
@@ -329,7 +337,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 final_plan = coverage(settings, series, clock(), end_limits=limits)
                 if final_plan["start_utc"] != plan["start_utc"]:
                     raise ForecastError("GENETIC slot changed; revalidate on the next input tick")
-                claim = {**version, **plan, "status": "uncertain", "claimed_at_utc": now.isoformat()}
+                claim = {**version, **plan, "status": "uncertain", "claimed_at_utc": clock().isoformat()}
                 state["events"][version["version"]] = claim
                 atomic_json(state_path, state)  # Crash/network ambiguity: never automatically retry.
                 report["event"]["status"] = "uncertain"

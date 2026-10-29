@@ -167,9 +167,12 @@ evcc**, nicht einen zweiten externen Anbieter:
    E3/DC-RSCP-Getter sendet unter Mutex eine echte `EMS_REQ_BAT_SOC`-Anfrage und verwendet
    keinen Wertcache. Kein Batterie-Setter wird durch diesen Statuspfad aufgerufen.
    Die Abfrage ist auf 15 s begrenzt. HTTP-Caches werden nicht als Beleg akzeptiert.
-3. Der unmittelbar gelesene SoC muss zum gemeinsamen Snapshot passen; bei inzwischen
-   geändertem SoC wartet der Helfer auf den nächsten Zyklus. Die Leistung darf sich ändern,
-   ihre Änderung ist selbst kein Frischenachweis.
+3. Der unmittelbar gelesene SoC muss zum gemeinsamen Snapshot passen. Bei einer
+   Differenz erfolgt höchstens ein zusätzlicher, auf 15 s begrenzter ungecachter
+   `/api/state`-GET, ohne einen zweiten Geräte-Getter. Nur ein konsistentes Paar wird
+   akzeptiert; sonst bleibt der Zyklus gesperrt. Preise verwenden den aktualisierten
+   gemeinsamen Snapshot. Die ursprüngliche Geräte-Lesezeit und 300-s-Grenze bleiben
+   unverändert. Leistung darf sich ändern; ihre Änderung ist kein Frischenachweis.
 
 Für einen so bestätigten **ungecachten** Lesevorgang wird dessen Beginn als konservative
 zeitliche Untergrenze verwendet. `timestamp_kind=successful_uncached_device_read_lower_bound`
@@ -179,9 +182,10 @@ maximales Alter wird dadurch konservativ begrenzt. Ein HTTP-Abruf gecachter Wert
 keinen solchen Zeitstempel. Die 300-s-Grenze gilt beim Import und erneut unmittelbar vor
 einem später ausdrücklich genehmigten Simulationsaufruf.
 
-**Aktuelle Einschränkung:** Auf der realen Anlage liefern die geschützten Konfigurations-
-und Status-GETs ohne vorhandenen API-Key HTTP 401. Die native RSCP-Zuordnung und der echte
-Frischenachweis wurden dort noch nicht erfolgreich abgenommen. `e3dc`/Modbus oder andere
+**Reale Abnahme inzwischen bestätigt:** Der Betreiber hat den vorhandenen privaten
+evcc-API-Key read-only eingebunden und die geschützten Konfigurations-/Status-GETs
+mit `e3dc-rscp`, `freshness_verified=true` und etwa 0,1 s Alter erfolgreich geprüft.
+Ohne Key bleibt HTTP 401 weiterhin eine Sperre. `e3dc`/Modbus oder andere
 Treiber dürfen nicht mit diesem RSCP-Nachweis freigeschaltet werden. Dafür ist zunächst ein
 eigener geprüfter Getter-/Cachevertrag oder ein vom bestehenden Poller bereitgestellter
 letzter erfolgreicher SoC-Gerätezeitpunkt erforderlich; keine generische Timestamp-Override-

@@ -6,8 +6,15 @@ Forecast.Solar-Client: verwendet wird der originale EOS-Provider `PVForecastFore
 
 **Standard: Dry-run und Cache-only.** Ein externer Abruf braucht zwei ausdrückliche
 Opt-ins. EOS-Schreibzugriffe benötigen `DRY_RUN=false`, Konfigurationsfreigaben und
-`--write-eos`. Unraid-/Produktionsabnahme steht
-noch aus. [Issue #1](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/1) bleibt offen.
+`--write-eos`. Die reale Unraid-Abnahme von PV-, SoC- und Preisimport ist bestätigt;
+der erste automatische GENETIC-Plan steht noch aus.
+[Issue #1](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/1) bleibt dafür offen.
+
+Der rein lesende `doctor` prüft vorhandene Abnahme-Artefakte ohne HTTP oder
+Schreibzugriffe. [GENETIC-Abnahme, Merge und MIT-Release](docs/RELEASE_CHECKLIST.md)
+beschreiben die konkreten Schritte und verbleibenden Gates.
+Eigener Code: [MIT](LICENSE); [Fremdlizenzen und Image-Inventar](THIRD_PARTY_NOTICES.md)
+gelten unabhängig davon. Issue #5 ist bis zur Abnahme nur [geplant](docs/ISSUE_5_PLAN.md).
 
 Die [aktuellen Findings und der erneute Unraid-Test](docs/FINDINGS_ISSUE_1.md) dokumentieren
 den dynamischen 24..48-h-Horizont, periodische native Aktualisierung, historische
@@ -71,13 +78,14 @@ Installation mit dem [Unraid-XML-Template](templates/eos-pv-helper.xml), GHCR-Im
 privater TOML, Dateirechten und Bridge-Netzwerk. **Kein Compose-Plugin erforderlich.**
 Aktualisieren, Rollback, Image-Digest-Pinning, Secret-Dateien und getrennte Freigaben
 sind dort vollständig beschrieben. Die reale Unraid-GUI-Abnahme aus
-[Issue #4](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/4) steht noch aus.
+[Issue #4](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/4) ist bestätigt.
 
 Das vollständige Image wird als `ghcr.io/vbeinlich/eospvprognosehelfer` veröffentlicht.
 Veröffentlichte Tags/Digests und anonyme Pullbarkeit anhand des erfolgreichen
 Push-Workflows und dessen `image-publication-<SHA>`-Artefakt prüfen. `pr-3` ist eine
-bewegliche Vorschau; Release-Tags werden erst bei einem entsprechenden Release-Push
-erzeugt. Die Projektversion ist kein Nachweis eines bereits veröffentlichten Tags.
+bewegliche Vorschau; stabile Tags werden erst nach Abnahme, Merge, Lizenzprüfung,
+anonymem Pull und Smoke-Test desselben Digests freigegeben. Die Projektversion ist
+kein Nachweis eines bereits veröffentlichten Tags.
 Der [geprüfte Veröffentlichungsnachweis](docs/IMAGE_PUBLICATION.json) enthält den
 tatsächlich anonym abrufbaren Digest, auf den das Unraid-Template gepinnt ist.
 

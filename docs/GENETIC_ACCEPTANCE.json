@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "status": "pending",
+  "operator_approved": false,
+  "source_revision": null,
+  "acceptance_comment": null,
+  "issue_1_closed_comment": null,
+  "doctor": null,
+  "license_review": {
+    "approved": false,
+    "reviewer": null,
+    "reviewed_at_utc": null,
+    "inventory_sha256": null
+  }
+}

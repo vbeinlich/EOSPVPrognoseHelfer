@@ -20,10 +20,31 @@ jobs:
       - run: docker compose config --no-path-resolution
       - run: docker build --target eos-source -t eos-pv-helper:ci .
       - run: python scripts/unraid_smoke.py --image eos-pv-helper:ci
+      - name: Export candidate license inventory for review
+        run: |
+          docker run --rm --network none --entrypoint cat eos-pv-helper:ci /usr/share/eos-pv-helper/licenses/inventory.json > candidate-license-inventory.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-license-inventory-${{ github.sha }}
+          path: candidate-license-inventory.json
   eos-integration:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Require real acceptance and merged main history before a stable build
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          accepted_revision=$(python scripts/release_gate.py)
+          git merge-base --is-ancestor "$accepted_revision" HEAD
+          git merge-base --is-ancestor HEAD origin/main
+          test "$(gh api repos/vbeinlich/EOSPVPrognoseHelfer/issues/1 --jq .state)" = closed
       - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
       - run: docker run --rm --network none eos-pv-helper:eos-test
   publish:
@@ -91,6 +112,27 @@ jobs:
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           python scripts/unraid_smoke.py --image "ghcr.io/vbeinlich/eospvprognosehelfer@$IMAGE_DIGEST" --revision "$GITHUB_SHA"
+      - name: Promote only the verified registry digest to stable tags
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          PROMOTION_TAGS: ${{ steps.meta.outputs.promotion_tags }}
+        run: |
+          image="ghcr.io/vbeinlich/eospvprognosehelfer@$IMAGE_DIGEST"
+          docker run --rm --network none --entrypoint cat "$image" /usr/share/eos-pv-helper/licenses/inventory.json > release-license-inventory.json
+          python scripts/release_gate.py --inventory release-license-inventory.json
+          tags=()
+          for tag in $PROMOTION_TAGS; do tags+=(--tag "$tag"); done
+          # Version tags are immutable. Do not move an existing version to a new digest.
+          for tag in $PROMOTION_TAGS; do
+            if [[ "$tag" != *:latest ]] && docker buildx imagetools inspect "$tag" > /dev/null 2>&1; then
+              test "$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}')" = "$IMAGE_DIGEST"
+            fi
+          done
+          docker buildx imagetools create --prefer-index=false "${tags[@]}" "$image"
+          for tag in $PROMOTION_TAGS; do
+            test "$(docker buildx imagetools inspect "$tag" --format '{{.Manifest.Digest}}')" = "$IMAGE_DIGEST"
+          done
       - name: Save verifiable publication metadata (also on public-access failure)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -2,8 +2,10 @@
 
 Diese Anleitung verwendet die normale Unraid-Docker-Oberfläche. Compose und ein dauerhaft
 manuell gestarteter `docker run` sind nicht erforderlich. Zielsystem: Unraid 7.3.1 auf x86-64;
-das Image wird als `linux/amd64` gebaut. Eine Installation auf dem tatsächlichen Server
-steht zur Abnahme noch aus; Source-Prüfung und isolierte Containertests ersetzen sie nicht.
+das Image wird als `linux/amd64` gebaut. Die Erstfassung dieser Anleitung war vor der realen Abnahme entstanden;
+am 29.10.2026 hat der Betreiber Installation/Upgrade, Secret-Mounts und echte Datenimporte
+auf Unraid bestätigt. Details unter [UNRAID_VALIDATION.md](UNRAID_VALIDATION.md).
+Die automatisch erstellte GENETIC-Lösung ist weiterhin nicht abgenommen.
 
 Für den inzwischen vorhandenen Helfer gelten die [aktuellen Findings mit konkretem
 erneutem Dry-run-Test](FINDINGS_ISSUE_1.md). Sie behandeln dynamischen PV-Horizont,

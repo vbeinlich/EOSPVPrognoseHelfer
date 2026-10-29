@@ -27,12 +27,13 @@ Die Codeversion in `pyproject.toml` ist **kein Nachweis eines veröffentlichten 
 **Tatsächlich veröffentlicht und anonym geprüft am 29.10.2026:**
 
 ```text
-ghcr.io/vbeinlich/eospvprognosehelfer@sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde
+ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7
 ```
 
 Dieser Vorschau-Build stammt aus Commit
-[`8f18d6c26a7c46367db152dff23b4224bef840b5`](https://github.com/vbeinlich/EOSPVPrognoseHelfer/commit/8f18d6c26a7c46367db152dff23b4224bef840b5).
-[Erfolgreicher Build/Pull/Test](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40829029860),
+[`b648a61699854d325eceb5f823f6de999a989525`](https://github.com/vbeinlich/EOSPVPrognoseHelfer/commit/b648a61699854d325eceb5f823f6de999a989525)
+einschließlich der Findings-Korrekturen aus Issue #1.
+[Erfolgreicher Build/Pull/Test](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40845383381),
 [maschinenlesbarer Nachweis](IMAGE_PUBLICATION.json). Das XML ist auf genau diesen Digest
 gepinnt. Es wurde noch kein gemeinsamer stabiler Release erstellt. Der obige Textblock
 ist ein Repository-Feldwert für die GUI, kein Shell-Befehl.

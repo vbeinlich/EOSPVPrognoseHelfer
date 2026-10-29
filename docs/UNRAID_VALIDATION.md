@@ -20,9 +20,9 @@ steht insbesondere die authentifizierte evcc-SoC-Abnahme noch aus.
 | Healthcheck | Nach erfolgreicher Normalisierung Exitcode 0; native EOS-Provider-Abhängigkeiten im Vollimage importierbar |
 | Secret-Datei | Datei/Env gegenseitig ausgeschlossen; fehlende, leere, zu große und ungültige Tokens vor HTTP abgelehnt; keine Token-Logs |
 | Release-/Preview-Tags | Commit-Tags, PR-Vorschau und spätere Versions-Tags separat getestet; unpassende Versionen/Fork-Refs abgelehnt |
-| Tests | 116 Tests mit gepinntem EOS erfolgreich; Ruff und Actionlint erfolgreich |
+| Tests | 168 Tests mit gepinntem EOS einschließlich Findings aus Issue #1 erfolgreich; Ruff und Actionlint erfolgreich |
 | Lokales Vollimage | Ziel `eos-source` erfolgreich gebaut, `scripts/unraid_smoke.py` ohne Netzwerk bestanden |
-| GHCR | Image tatsächlich veröffentlicht; [Push-Lauf 40829029860](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40829029860) vollständig grün, anonymer Pull und Smoke-Test des Registry-Digests erfolgreich; [Digest-/Source-Nachweis](IMAGE_PUBLICATION.json) |
+| GHCR | Fix-Image tatsächlich veröffentlicht; [Push-Lauf 40845383381](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40845383381) vollständig grün, anonymer Pull und Smoke-Test des Registry-Digests erfolgreich; [Digest-/Source-Nachweis](IMAGE_PUBLICATION.json) |
 | Echte Unraid-GUI-Installation | Noch offen; keine tatsächliche Template-Auswahl/Installation auf dem privaten Server behauptet |
 
 ## Wiederholen

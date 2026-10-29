@@ -1,17 +1,17 @@
 {
   "image": "ghcr.io/vbeinlich/eospvprognosehelfer",
   "tags_at_publication": [
-    "sha-8f18d6c26a7c46367db152dff23b4224bef840b5",
+    "sha-b648a61699854d325eceb5f823f6de999a989525",
     "pr-3"
   ],
-  "revision": "8f18d6c26a7c46367db152dff23b4224bef840b5",
+  "revision": "b648a61699854d325eceb5f823f6de999a989525",
   "version": "preview",
   "platform": "linux/amd64",
-  "digest": "sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde",
-  "pinned_image": "ghcr.io/vbeinlich/eospvprognosehelfer@sha256:03714d518760a0bdb9e3752966b4f7df575b2f136c4f3f9894d1f64d83e83fde",
-  "verified_at_utc": "2026-10-29T06:30:08Z",
-  "workflow_run": "https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40829029860",
-  "artifact_id": 12878400145,
+  "digest": "sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7",
+  "pinned_image": "ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7",
+  "verified_at_utc": "2026-10-29T08:57:52Z",
+  "workflow_run": "https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/40845383381",
+  "artifact_id": 12884159796,
   "checks": {
     "anonymous_pull_with_empty_docker_config": true,
     "registry_image_smoke_without_network": true,

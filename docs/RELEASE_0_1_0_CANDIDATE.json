@@ -49,5 +49,13 @@
   "local_tests_passed": 302,
   "doctor_export_script_sha256": "56a950467d27482bf3361c0739f6cccab394dcbe04d3c0238255119d6bbc8ca5",
   "doctor_module_sha256": "737b3a9bb650e69f4a61c1a815d3fa324587c55f7858a6c8723ec065f25efbc3",
-  "note": "Private preparation only; no stable tag, public image/source asset or GitHub Release. Source commit must be merged unchanged before later release. A squash/rebase or rebuild requires new evidence."
+  "note": "Private preparation only; no stable tag, public image/source asset or GitHub Release. Source commit must be merged unchanged before later release. A squash/rebase or rebuild requires new evidence.",
+  "tests_in_exact_candidate": {
+    "passed": 302,
+    "network": "none",
+    "read_only": true,
+    "runtime_dependency_versions_preserved": true,
+    "test_framework_mounted_separately": true,
+    "installed_application_python_files_matching_git": 10
+  }
 }

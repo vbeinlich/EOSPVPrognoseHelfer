@@ -16,6 +16,10 @@ und [PR-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/410668
 am Quellcommit `47bd424...` erfolgreich. Letzter reiner Nachweis-Commit wird vor
 Reviewbereitschaft in [PR #8](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/8/checks)
 ebenfalls geprüft. Echte private Doctor-Abnahme und formale Freigaben bleiben offen.
+Zusätzlich die vollständigen **302 Tests im exakten neuen Kandidaten** ausgeführt:
+read-only, ohne Netzwerk und ohne Installation/Upgrade von Runtime-Abhängigkeiten.
+Nur das Testframework wurde separat read-only bereitgestellt; die Anwendungsdateien
+im installierten Wheel stimmen bytegenau mit dem Kandidaten-Quellcommit überein.
 Alle Tests verwenden synthetische Daten und isolierte lokale Container; kein
 produktiver Import, Forecast-Abruf oder zusätzlicher GENETIC-Lauf.
 

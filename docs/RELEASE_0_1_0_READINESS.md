@@ -76,6 +76,7 @@ Ein normaler Merge erhält den Kandidaten-Commit als Main-Vorfahren.
 | Prüfung | Stand |
 | --- | --- |
 | Unit-/native gepinnte EOS-Integration | 302 Tests lokal erfolgreich |
+| Gesamtsuite im exakten privaten Kandidaten | 302 bestanden, network=none/read-only; Testframework separat read-only ergänzt, Runtime-Abhängigkeiten unverändert verwendet; installierte Anwendungsdateien bytegenau gegen Source-Commit geprüft |
 | Ruff, Actionlint 1.7.12, Compose | erfolgreich |
 | Ungeprüfte Main-/Preview-/Tag-Veröffentlichung | Workflow-Policy sperrt automatische Publisher und zusätzlich mutation-getestet |
 | Fehlende Operator-/Lizenzfreigabe, falscher Digest/Inventar | automatisiert abgewiesen, keine Registry-Writes |
@@ -87,6 +88,12 @@ Ein normaler Merge erhält den Kandidaten-Commit als Main-Vorfahren.
 | Non-root/read-only Offline-Smoke | erfolgreich, 192 synthetische Viertelstunden; UID 10001, CapEff=0, NoNewPrivs=1, DRY_RUN=true |
 | CI am Kandidaten-Quellcommit | [Push](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41066776595) und [PR](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41066889174) erfolgreich, jeweils unit und eos-integration |
 | CI am nachfolgenden Nachweis-Commit | aktuelle Checks in [PR #8](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/8/checks); vor Reviewbereitschaft ebenfalls erfolgreich bestätigen |
+
+Der erste reine Nachweis-Commit `eafc8f28036c778fbaaa88f8c0b249b976520c55`
+ist ebenfalls grün: [Push](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41068926133),
+[PR](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41068935034).
+Die anschließende Ergänzung des direkten Kandidaten-Testergebnisses ändert nur
+Nachweisdokumente; ihre aktuellen Checks bleiben in PR #8 separat sichtbar.
 
 GitHub garantiert höchstens einen laufenden Workflow je Concurrency-Gruppe;
 Reihenfolge wartender Läufe wird nicht für die Sicherheit vorausgesetzt.

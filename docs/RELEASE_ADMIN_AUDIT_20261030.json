@@ -8,6 +8,8 @@
   "environments": [],
   "public_image_release_environment_exists": false,
   "publication_enabled_repository_variable": "absent (GET returned 404)",
+  "actions_variable_collection_readable": true,
+  "actions_variable_collection_count": 0,
   "default_workflow_permissions": "read",
   "actions_can_approve_pull_request_reviews": false,
   "github_releases": [],

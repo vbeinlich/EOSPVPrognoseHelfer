@@ -7,6 +7,15 @@ ist erfolgreich. Der neue Readiness-Stand ergänzt reale Download-/Archivprüfpf
 Workflow-Policy-Mutationstests und private OCI-/Runtime-/Quellenverifikation.
 **302 Tests** mit nativer EOS-Integration lokal bestanden; Ruff, Actionlint und
 Compose grün. Kandidaten-/CI-Belege und Freigabestatus stehen im Readiness-Bericht.
+Neuer privater Vollimage-Build erfolgreich, Offline-Smoke mit 192 Intervallen
+bestanden. UID 10001, CapEff=0, NoNewPrivs=1 und DRY_RUN=true bestätigt.
+Alle OCI-Blobs, Config/Rootfs, tatsächliches Inventar und vollständiges Quellen-
+archiv geprüft: [Kandidatennachweis](RELEASE_0_1_0_CANDIDATE.json).
+[Push-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41066776595)
+und [PR-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41066889174)
+am Quellcommit `47bd424...` erfolgreich. Letzter reiner Nachweis-Commit wird vor
+Reviewbereitschaft in [PR #8](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/8/checks)
+ebenfalls geprüft. Echte private Doctor-Abnahme und formale Freigaben bleiben offen.
 Alle Tests verwenden synthetische Daten und isolierte lokale Container; kein
 produktiver Import, Forecast-Abruf oder zusätzlicher GENETIC-Lauf.
 

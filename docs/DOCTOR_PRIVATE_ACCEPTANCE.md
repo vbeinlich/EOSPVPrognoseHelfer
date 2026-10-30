@@ -10,6 +10,9 @@ weiterhin kein vollständiger zusammengehöriger privater Artefaktsatz vor. Kein
 produktiven APIs wurden abgefragt, kein Export auf Unraid ausgeführt. Status
 **offen – Operatoraktion erforderlich**. Synthetische Tests sind kein Ersatzbeleg.
 [Freigabevorlage und Release-Status](RELEASE_0_1_0_READINESS.md).
+Geprüfter Skriptstand `47bd42468ffbf2876143ba950512e968825a5f53`, SHA256 von
+`scripts/doctor_snapshot.py`:
+`56a950467d27482bf3361c0739f6cccab394dcbe04d3c0238255119d6bbc8ca5`.
 
 ## Frische richtig unterscheiden
 

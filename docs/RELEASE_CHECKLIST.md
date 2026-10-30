@@ -1,6 +1,11 @@
 # Merge und erster stabiler MIT-Projektrelease
 
-Stand 30.10.2026. **Kein Merge, kein Release und keine neue Image-Veröffentlichung.**
+Stand 30.10.2026 nach Merge von PR #3. Merge-Commit
+`55e1bd801c7956b5141f2f41ccf9c1b7ab93e673`, Dateibaum identisch zum geprüften
+`eaf1439`; [Main-CI erfolgreich](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41063469358).
+**Kein Release-Tag, Release oder neues öffentliches Image durch diese Vorbereitung.**
+[Aktueller Readiness-Bericht](RELEASE_0_1_0_READINESS.md) ist maßgeblich;
+`RELEASE_BLOCKER_RESULTS.md` bleibt das historische PR-#3-Auditprotokoll.
 Reihenfolge: #1-Abnahme → PR #3 → stabiler Release → #5 → #6.
 Die [reale automatische GENETIC-Abnahme](GENETIC_ABNAHME.md) ist erfüllt und
 Issue #1 geschlossen. Sie ist von der Freigabe einer neuen Binärdistribution getrennt.
@@ -19,13 +24,12 @@ kein OCI-/Docker-Binärarchiv. `pr-3` wird nicht mehr automatisch aktualisiert.
 Die öffentliche Erstbereitstellung eines geprüften Digests ist ein späterer,
 gesondert freizugebender Schritt. Ein Versions-Tag alleine veröffentlicht nichts.
 
-## Merge-Checkliste
+## Merge- und Vorbereitungsstand
 
 - [x] Reale #1-Abnahme und Abschluss dokumentiert, Produktionshelfer unverändert.
-- [ ] Aktueller PR-Commit: Tests, native EOS-Integration, Ruff, Actionlint, Compose,
-  Docker-Build und Offline-Smoke grün; [Ergebnisprotokoll](RELEASE_BLOCKER_RESULTS.md).
-- [ ] Sicherheitsreview und ausdrückliche Mergefreigabe für den konkreten Commit.
-  Ein Merge ist keine Veröffentlichungserlaubnis.
+- [x] PR #3 gemergt, dessen 279 Tests und Main-CI erfolgreich; kein automatisches Publishing.
+- [ ] Separaten Readiness-PR nach Review durch den Betreiber mergen, nicht automatisch.
+  Aktuelle Nachweise: [Readiness](RELEASE_0_1_0_READINESS.md). Ein Merge ist keine Veröffentlichungserlaubnis.
 
 Offene Distribution-/Doctor-Gates dürfen nach Abschalten automatischer
 Veröffentlichungen getrennt vom Code-Merge bearbeitet werden; sie bleiben

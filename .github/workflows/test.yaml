@@ -1,7 +1,7 @@
 name: Tests and candidate inspection (no image publication)
 on:
   push:
-    branches: [main, feat/issue-1-pv-normalization]
+    branches: [main, 'release/**']
     tags: ['v*']
   pull_request:
 permissions:

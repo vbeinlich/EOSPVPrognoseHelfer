@@ -13,6 +13,18 @@ erneutem Dry-run-Test](FINDINGS_ISSUE_1.md). Sie behandeln dynamischen PV-Horizo
 TTL-Aktualisierung, korrigierte Preis-Rücklesung und evcc als bevorzugte SoC-Quelle.
 Eine zweite Helferinstanz ist dafür nicht erforderlich.
 
+**Stand nach Merge von PR #3:** v0.1.0 ist noch nicht öffentlich veröffentlicht.
+Neue private Kandidaten sind keine installierbaren GHCR-Releases. Für den
+Release-Nachweis und spätere ausdrücklich freigegebene Updates gilt
+[RELEASE_0_1_0_READINESS.md](RELEASE_0_1_0_READINESS.md). Diese Vorbereitung
+ändert keine produktiven Container, Post Arguments, Secrets oder Freigaben.
+Ein späteres Update darf erst nach Veröffentlichung des konkret geprüften
+Digests erfolgen. Vorher den tatsächlichen bisherigen Digest, Mounts und
+Startargumente privat sichern; bestehende Claims und Lösungen erhalten. Nicht
+mit Add Container eine zweite Instanz auf denselben Output setzen. Rollback
+bedeutet bewusste Rückkehr zum zuvor gesicherten Digest, keinen Claim-Reset und
+kein Verschieben eines unveränderlichen Versionstags. [Ablauf und Fehlerfälle](RELEASE_0_1_0_READINESS.md#8-rollback-und-fehlerfälle).
+
 **Vorab:** Bestehende EOS-, evcc- und HA-Container bleiben unverändert. Existiert bereits ein
 Helfercontainer, nicht einfach eine zweite Instanz starten oder einen gleichen Namen in
 „Add Container“ verwenden: das könnte eine bestehende Installation ersetzen. Eine Migration

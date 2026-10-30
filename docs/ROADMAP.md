@@ -4,8 +4,10 @@ Verbindliche Betreiberreihenfolge vom 29.10.2026:
 
 1. **Issue #1:** endgültige Abnahme und Abschluss. Reales automatisches GENETIC-
    Ergebnis liegt vor; [Belege und Doctor-Abgleich](GENETIC_ABNAHME.md).
-2. **PR #3:** Review, ausdrückliche abschließende Mergefreigabe, Merge nach `main`
-   und erster stabiler MIT-Release. [Gates](RELEASE_CHECKLIST.md) bleiben erhalten;
+2. **PR #3 ist gemergt** (`55e1bd8`). Nächster Schritt ist ausschließlich die
+   [v0.1.0-Release-Vorbereitung](RELEASE_0_1_0_READINESS.md) in eigenem Branch/PR,
+   danach gesonderte Betreiberfreigabe und erster stabiler MIT-Projektrelease.
+   [Gates](RELEASE_CHECKLIST.md) bleiben erhalten;
    weder ein grüner Test noch Issue-Abschluss ersetzt eine Releasefreigabe.
 3. **Issue #5:** gemeinsame deterministische Engine/JSON-CLI, abgesicherter lokaler
    Web-Wizard und plattformneutrale KI-Skill. [Konkreter Plan](ISSUE_5_PLAN.md).

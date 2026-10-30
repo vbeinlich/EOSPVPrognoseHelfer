@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -199,7 +200,7 @@ def main():
     try:
         result = promote(json.loads(Path(args.evidence).read_text()), args.version, args.digest,
                          DockerRegistry(), apply=args.apply)
-    except (OSError, ValueError, TypeError, KeyError, AttributeError, subprocess.SubprocessError):
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, tarfile.TarError, subprocess.SubprocessError):
         raise SystemExit("Publication blocked; approvals, candidate or registry require review") from None
     print(json.dumps(result, indent=2))
 

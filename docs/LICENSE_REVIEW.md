@@ -2,6 +2,14 @@
 
 Technischer Prüfstand 30.10.2026, `linux/amd64`, Dockerfile-Ziel `eos-source`.
 **Vorbereiteter Distributionsnachweis, keine erteilte Release-Freigabe.**
+Nach Merge von PR #3 gilt der [Readiness-Bericht](RELEASE_0_1_0_READINESS.md)
+mit dem neu geprüften Kandidaten und dessen eigenen Hashes. Die frühere private
+OCI-Datei wird separat erneut verifiziert und nicht mit einem neuen Build gleichgesetzt.
+Der neue Kandidat `47bd424...` enthält nach erneuter Inventarerhebung exakt
+dieselben 110 Python-Versionen, 105 OS-Pakete und zugeordneten nativen Payloads.
+Damit gelten die folgenden konkreten Komponenten-/Quellpflichten unverändert;
+Image- und Quellarchivhash sind dennoch neu. Quellenabdeckung aller 615 Payloads
+wurde vollständig gegen die enthaltenen Roh-Inventarbytes verifiziert.
 Die Prüfliste umfasst 110 Python-Distributionen und 105 OS-Pakete sowie außerhalb
 dieser Paketlisten enthaltenes CPython, native Wheel-Bibliotheken und Daten.
 Die folgenden Versionen stammen aus dem lokalen Prüfbau; der abschließende

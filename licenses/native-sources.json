@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "scope": "Linux amd64 wheel-bundled libquadmath; exact payload and original distributor sources",
+  "libraries": [
+    {
+      "bundled_sha256": "6ed5137f412781ad7863439fb543613f620b43c32b63292a0029246162f5bbc6",
+      "build_id": "549b4c82347785459571c79239872ad31509dcf4",
+      "original_sha256": "96973f995bad4e4b80eaa188b7bac60bd0df44b22ee67bd046b3aa4ecb9e34fd",
+      "binary_rpm_url": "https://vault.centos.org/7.9.2009/os/x86_64/Packages/libquadmath-4.8.5-44.el7.x86_64.rpm",
+      "binary_rpm_sha256": "72c210666a44092430a965f8319492faf4950959d56650067d0629ee71caa2ab",
+      "matching_section_sha256": {
+        ".text": "4dcdf3ba6ed0886a109161a4cdb6701252fb46496c77f1ac425951dfa6860458",
+        ".rodata": "e136180b0009974224ea550f3caadad87dfa57095c50427d0aa0d54e8be69d35",
+        ".eh_frame": "4817c8858fc0c63c86fed4884cc814bcc1edd42b9e926feafbfe5e25b5f818e8"
+      },
+      "source_id": "gcc-4.8.5-44.el7"
+    },
+    {
+      "bundled_sha256": "71bdc2ec57ab2fc939360597968f73230426b1c6764048e62a2cb6c8d8c3a1fd",
+      "build_id": "84f2ad8237013ef80f316c581f675e4dc1b483bd",
+      "original_sha256": "828275a760d4d5b1f55504b71f5d601a69af93c41b1aa02dbdf1761dc5491188",
+      "binary_rpm_url": "https://repo.almalinux.org/almalinux/8/BaseOS/x86_64/os/Packages/libquadmath-8.5.0-26.el8_10.alma.1.x86_64.rpm",
+      "binary_rpm_sha256": "5a6b5b2de6468fecd6da214981d5c36ed36424f8d1121e41b5c5f7ef58bba88a",
+      "matching_section_sha256": {
+        ".text": "4425e7ca4dfe60074f61032f0f97cff167434f95c213057b269580de2002f140",
+        ".rodata": "db684df2071208d9df9abb5a94a2ffd65a48fdc93a678792751ba1d5c18fe7b2",
+        ".eh_frame": "b271d4835ca05d14a8f6ea6dede040d73863495d42dad2f0a47eb2b18a0b6fa1"
+      },
+      "source_id": "gcc-8.5.0-26.el8_10.alma.1"
+    }
+  ],
+  "sources": {
+    "gcc-4.8.5-44.el7": {
+      "filename": "gcc-4.8.5-44.el7.src.rpm",
+      "url": "https://vault.centos.org/7.9.2009/os/Source/SPackages/gcc-4.8.5-44.el7.src.rpm",
+      "sha256": "642c4085f6af9565e39583e54a9d7a5d9e6b93dd8c8e9474aec8a892d6c7aa36",
+      "license": "LGPL-2.1-or-later (libquadmath); full GCC source, spec and distributor patches retained"
+    },
+    "gcc-8.5.0-26.el8_10.alma.1": {
+      "filename": "gcc-8.5.0-26.el8_10.alma.1.src.rpm",
+      "url": "https://repo.almalinux.org/vault/8.10/BaseOS/Source/Packages/gcc-8.5.0-26.el8_10.alma.1.src.rpm",
+      "sha256": "0911864c260a75ae030f3144616e7e5e1359e04ce1c9730ab83906486e3bc79f",
+      "license": "LGPL-2.1-or-later (libquadmath); full GCC source, spec and distributor patches retained"
+    }
+  }
+}

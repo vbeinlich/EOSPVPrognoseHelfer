@@ -1,0 +1,65 @@
+# Copy to config.toml (ignored by Git). Example coordinates are Berlin city centre,
+# NOT an installation location. Replace them with your own private configuration.
+poll_seconds = 300
+timezone = "Europe/Berlin"
+
+[source]
+kind = "eos-forecastsolar"
+cache_file = "/output/source.json"
+max_age_seconds = 3600
+retry_seconds = 300 # Shared retry cooldown after a failed native request.
+refresh_enabled = false # External retrieval requires this AND --refresh-source.
+interval_seconds = 3600 # Declared native support-point cadence; verify against source.
+# Coordinates, geometry, capacity and timezone are read from existing EOS via GET.
+
+[horizon]
+mode = "dynamic"
+minimum_hours = 24
+max_hours = 48 # Longest validated prefix, capped by EOS prediction.hours.
+# Legacy hours is accepted as a maximum; remove hours=24 to use the new upper target.
+# start = "2026-10-28T00:00:00+01:00" # Omit for rolling UTC-quarter-hour start.
+
+[output]
+directory = "/output"
+
+[eos]
+# Set the existing local EOS origin for read-only schema/provider checks.
+url = "http://eos:8503" # Replace with your actual existing local EOS origin.
+write_enabled = false # Never enable before explicit operator approval.
+
+# Optional command: eos-pv-helper sync --config /app/config.toml
+# Reads enabled sources every 60 s, PV remains on poll_seconds above.
+# DRY_RUN=true by default, including when --write-eos is accidentally supplied.
+[evcc]
+url = "http://evcc:7070" # One /api/state snapshot per 60-second sync cycle.
+# Protected, read-only device config/status GETs need an EXISTING private API key:
+# token_file = "/run/secrets/evcc_token"
+# token_env = "EVCC_TOKEN" # Alternative, never configure both.
+
+[soc]
+enabled = false
+source = "evcc" # No automatic fallback. Legacy HA needs explicit source="homeassistant".
+device_name = "" # Set the exact logical E3/DC db:<id> from your own evcc snapshot.
+freshness = "e3dc-rscp-status" # Audited only for evcc 0.318.1 + native e3dc-rscp.
+max_abs_power_w = 20000 # Broad sanity bound, NOT an asserted device power rating.
+max_age_seconds = 300
+write_enabled = false
+
+# Optional comparison only; stale/missing HA does not block proven evcc SoC.
+[soc.ha]
+enabled = false
+url = "http://homeassistant:8123"
+bearer_token_env = "HA_TOKEN"
+# Alternatively REMOVE bearer_token_env and use:
+# bearer_token_file = "/run/secrets/ha_token"
+
+[prices]
+enabled = false
+# Uses the shared evcc.url; no second state fetch.
+write_enabled = false
+retail_prices_confirmed = false # Compare sample intervals to LUOX before live import.
+
+[trigger]
+enabled = false # Observe/validate new complete next-day price publications.
+run_enabled = false # Separate approval required for POST /v1/optimize.
+request_timeout_seconds = 300 # Ambiguous/failed dispatch is never retried automatically.

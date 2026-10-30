@@ -1,0 +1,152 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Akkudoktor-EOS",
+    "version": "v0.3.0.dev2602241646141478"
+  },
+  "paths": {
+    "/v1/prediction/import/{provider_id}": {
+      "put": {
+        "tags": [
+          "prediction"
+        ],
+        "summary": "Fastapi Prediction Import Provider",
+        "description": "Import prediction for given provider ID.\n\nArgs:\n    provider_id: ID of provider to update.\n    data: Prediction data.\n    force_enable: Update data even if provider is disabled.\n        Defaults to False.",
+        "operationId": "fastapi_prediction_import_provider_v1_prediction_import__provider_id__put",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Provider ID.",
+              "title": "Provider Id"
+            },
+            "description": "Provider ID."
+          },
+          {
+            "name": "force_enable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Force Enable"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PydanticDateTimeDataFrame"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PydanticDateTimeData"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Data"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PydanticDateTimeDataFrame": {
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Data"
+          },
+          "dtypes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Dtypes"
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz",
+            "description": "Timezone for datetime values"
+          },
+          "datetime_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Datetime Columns",
+            "description": "Columns to be treated as datetime"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PydanticDateTimeDataFrame",
+        "description": "Pydantic model for validating pandas DataFrame data with datetime index."
+      },
+      "PydanticDateTimeData": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "type": "object",
+        "title": "PydanticDateTimeData",
+        "description": "Pydantic model for time series data with consistent value lengths.\n\nThis model validates a dictionary where:\n- Keys are strings representing data series names\n- Values are lists of numeric or string values\n- Special keys 'start_datetime' and 'interval' can contain string values\nfor time series indexing\n- All value lists must have the same length\n\nExample:\n    .. code-block:: python\n\n        {\n            \"start_datetime\": \"2024-01-01 00:00:00\",  # optional\n            \"interval\": \"1 hour\",                     # optional\n            \"loadforecast_power_w\": [20.5, 21.0, 22.1],\n            \"load_min\": [18.5, 19.0, 20.1]\n        }"
+      }
+    }
+  }
+}

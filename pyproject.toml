@@ -24,6 +24,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]
+markers = ["genetic_execution: executes a native optimizer; excluded from release-preparation runs"]
 
 [tool.ruff]
 line-length = 100

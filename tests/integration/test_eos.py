@@ -7,6 +7,7 @@ import pytest
 pytest.importorskip("akkudoktoreos", reason="Run the isolated EOS integration image")
 
 
+@pytest.mark.genetic_execution
 def test_real_eos_import_and_48_hour_optimization(config, forecast_case, tmp_path, monkeypatch):
     import asyncio
 
@@ -123,6 +124,7 @@ def test_reuse_native_eos_forecastsolar_without_any_real_http(tmp_path, monkeypa
     assert len(calls) == 2
 
 
+@pytest.mark.genetic_execution
 def test_real_soc_retail_import_with_fees_and_optimize_endpoint(tmp_path, monkeypatch):
     """Actual EOS HTTP contracts, gross-fee preservation and a fresh GENETIC result."""
     from datetime import UTC, datetime, timedelta

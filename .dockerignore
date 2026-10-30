@@ -7,6 +7,8 @@
 !licenses/**
 !docs/
 !docs/GENETIC_ACCEPTANCE.json
+!docs/release-admin/
+!docs/release-admin/**
 !src/
 !src/**
 !tests/

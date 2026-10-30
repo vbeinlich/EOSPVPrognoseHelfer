@@ -1,8 +1,10 @@
 # Merge und erster stabiler MIT-Projektrelease
 
-Stand 30.10.2026 nach Merge von PR #3. Merge-Commit
-`55e1bd801c7956b5141f2f41ccf9c1b7ab93e673`, Dateibaum identisch zum geprüften
-`eaf1439`; [Main-CI erfolgreich](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41063469358).
+Stand 30.10.2026 nach Merge von PR #3 und #8. Main-Merge-Commit
+`5688084ad3ea7bdc7cd603c09ade65293e8609c7`, Dateibaum identisch zum geprüften
+`34999e6`; [Main-CI erfolgreich](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41073069909).
+Aktuelle [Restarbeiten und Operatoraktionen](RELEASE_0_1_0_FINAL_GATES.md)
+ergänzen die eingefrorenen Kandidatennachweise und private Doctor-Abnahme.
 **Kein Release-Tag, Release oder neues öffentliches Image durch diese Vorbereitung.**
 [Aktueller Readiness-Bericht](RELEASE_0_1_0_READINESS.md) ist maßgeblich;
 `RELEASE_BLOCKER_RESULTS.md` bleibt das historische PR-#3-Auditprotokoll.
@@ -28,8 +30,13 @@ gesondert freizugebender Schritt. Ein Versions-Tag alleine veröffentlicht nicht
 
 - [x] Reale #1-Abnahme und Abschluss dokumentiert, Produktionshelfer unverändert.
 - [x] PR #3 gemergt, dessen 279 Tests und Main-CI erfolgreich; kein automatisches Publishing.
-- [ ] Separaten Readiness-PR nach Review durch den Betreiber mergen, nicht automatisch.
-  Aktuelle Nachweise: [Readiness](RELEASE_0_1_0_READINESS.md). Ein Merge ist keine Veröffentlichungserlaubnis.
+- [x] PR #8 ausdrücklich freigegeben normal gemergt; `47bd424...` bleibt Main-Vorfahre.
+- [ ] Neuen Restarbeiten-PR prüfen; kein automatischer Merge oder Freigabe.
+  Ein Merge ist keine Veröffentlichungserlaubnis.
+- [ ] [Adminplan](release-admin/ADMIN_SETUP.md) durch Betreiber freigeben und
+  Verantwortliche einrichten lassen; hier ausschließlich vorbereitet.
+- [ ] [Reviewer-Vorlage](release-admin/LICENSE_REVIEW_WORKSHEET.md) formell ausfüllen lassen.
+- [ ] Separaten echten [Doctor-Nachweis](release-admin/DOCTOR_EXPORT_RUNBOOK.md) abschließen.
 
 Offene Distribution-/Doctor-Gates dürfen nach Abschalten automatischer
 Veröffentlichungen getrennt vom Code-Merge bearbeitet werden; sie bleiben

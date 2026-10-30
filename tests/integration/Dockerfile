@@ -15,6 +15,7 @@ ENV PYTHONPATH=/opt/eos/src
 COPY pyproject.toml LICENSE README.md THIRD_PARTY_NOTICES.md ./
 COPY licenses ./licenses
 COPY docs/GENETIC_ACCEPTANCE.json ./docs/GENETIC_ACCEPTANCE.json
+COPY docs/release-admin ./docs/release-admin
 COPY src ./src
 COPY tests ./tests
 COPY templates ./templates

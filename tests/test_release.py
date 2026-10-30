@@ -19,8 +19,12 @@ def script(name):
 
 def test_genetic_acceptance_alone_does_not_authorize_release():
     gate = script("release_gate")
+    record = json.loads((ROOT / "docs/GENETIC_ACCEPTANCE.json").read_text())
+    # Test the incomplete state explicitly; do not prevent a later real approval
+    # from being committed after the operator's separate acceptance.
+    record.update(status="genetic-accepted-release-pending", operator_approved=False)
     with pytest.raises(ValueError, match="approval"):
-        gate.validate(json.loads((ROOT / "docs/GENETIC_ACCEPTANCE.json").read_text()))
+        gate.validate(record)
 
 
 def test_release_requires_complete_evidence_and_exact_candidate_inventory(tmp_path):

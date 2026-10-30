@@ -9,6 +9,9 @@ permissions:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    env:
+      # Explicit operator boundary: this preparation must not start GENETIC.
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates') && '-m "not genetic_execution"' || '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -29,6 +32,8 @@ jobs:
           path: candidate-license-inventory.json
   eos-integration:
     runs-on: ubuntu-latest
+    env:
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates') && '-m "not genetic_execution"' || '' }}
     permissions:
       contents: read
       issues: read
@@ -37,4 +42,4 @@ jobs:
         with:
           fetch-depth: 0
       - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
-      - run: docker run --rm --network none eos-pv-helper:eos-test
+      - run: docker run --rm --network none -e PYTEST_ADDOPTS eos-pv-helper:eos-test

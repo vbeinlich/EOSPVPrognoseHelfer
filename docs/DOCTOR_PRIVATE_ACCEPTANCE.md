@@ -1,5 +1,10 @@
 # Private Doctor-Abnahme ohne neuen Produktionslauf
 
+Für den geprüften Export-Wrapper mit zusätzlicher Privacy-/Integritätsprüfung
+gilt die [aktuelle Unraid-/Offline-Anleitung](release-admin/DOCTOR_EXPORT_RUNBOOK.md).
+Die private reale Abnahme erfolgt separat; synthetische Wrapper-Tests sind kein
+Operatorbeleg. Der eingefrorene Release-Kandidat und der Exporter bleiben unverändert.
+
 Stand 30.10.2026. Die reale GENETIC-Abnahme von #1 bleibt abgeschlossen.
 Für das strengere Release-Gate fehlt weiterhin der vollständige private Doctor-Beleg.
 Diese Anleitung bereitet ihn vor; sie wurde nicht auf dem produktiven Helfer ausgeführt.

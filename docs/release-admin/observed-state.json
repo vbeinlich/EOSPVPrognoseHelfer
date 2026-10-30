@@ -1,0 +1,16 @@
+{
+  "observed_at_utc": "2026-10-30T15:10:24Z",
+  "main_revision": "5688084ad3ea7bdc7cd603c09ade65293e8609c7",
+  "main_protected": false,
+  "rulesets": [],
+  "environments": [],
+  "required_environment_reviewer_configured": false,
+  "publication_enabled": "absent; readable variable collection has zero entries",
+  "default_workflow_permissions": "read",
+  "actions_can_approve_pull_request_reviews": false,
+  "verified_ci_app_id": 15368,
+  "ghcr_writer_access": "unknown; token lacks read:packages, HTTP 403",
+  "admin_changes_authorized": false,
+  "admin_changes_performed": false,
+  "production_access_performed": false
+}

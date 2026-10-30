@@ -5,6 +5,12 @@ Für das strengere Release-Gate fehlt weiterhin der vollständige private Doctor
 Diese Anleitung bereitet ihn vor; sie wurde nicht auf dem produktiven Helfer ausgeführt.
 Kein Update, kein Import und kein zusätzlicher Optimierungslauf sind dafür erforderlich.
 
+Nach Merge von PR #3: In den zugänglichen lokalen Diagnoseverzeichnissen liegt
+weiterhin kein vollständiger zusammengehöriger privater Artefaktsatz vor. Keine
+produktiven APIs wurden abgefragt, kein Export auf Unraid ausgeführt. Status
+**offen – Operatoraktion erforderlich**. Synthetische Tests sind kein Ersatzbeleg.
+[Freigabevorlage und Release-Status](RELEASE_0_1_0_READINESS.md).
+
 ## Frische richtig unterscheiden
 
 Der normale Befehl `python -m eos_pv_helper doctor --config /app/config.toml`
@@ -38,6 +44,10 @@ zurückdatiert werden. Hashes belegen Konsistenz, keine vertrauenswürdige Herku
    ```
 
    Keine PowerShell-5-Textumleitung für diesen binären ZIP-Stream verwenden.
+   Vorher die Skriptherkunft privat sichern: `git rev-parse HEAD` und
+   `sha256sum scripts/doctor_snapshot.py`. Den Export mit Exitcode 0 bestätigen
+   und `sha256sum /PRIVATE/doctor-NEW.zip` protokollieren. Bei Fehler ist eine
+   leere/partielle Zieldatei kein gültiger Export.
    Das Skript nimmt ein nicht blockierendes Shared-Lock auf die **vorhandene**
    `sync.lock`. Bei laufendem Writer oder fehlendem passenden Event bricht es ab.
    Dann später erneut einen neuen Dateinamen verwenden; keinen Prozess stoppen,
@@ -55,6 +65,27 @@ zurückdatiert werden. Hashes belegen Konsistenz, keine vertrauenswürdige Herku
    Kein produktives Docker-Socket oder Produktivverzeichnis mounten. Dieser Befehl
    braucht keine Live-Konfiguration, extrahiert keine Dateien, nutzt kein Netzwerk
    und akzeptiert weder `--write-eos` noch `--refresh-source`.
+
+   Alternativ mit dem lokal geladenen privaten Kandidaten auf dem Diagnose-Rechner:
+
+   ```sh
+   docker --context LOCAL_DEVELOPMENT run --rm --network none --read-only \
+     --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 \
+     --mount type=bind,source=/PRIVATE/doctor-NEW.zip,target=/private/snapshot.zip,readonly \
+     eos-pv-helper:v010-private doctor --snapshot /private/snapshot.zip \
+     > /PRIVATE/doctor-result-NEW.json
+   ```
+
+   Kein Docker-Socket oder produktives Datenverzeichnis mounten. Die einzelne
+   ZIP-Datei muss für UID 10001 lesbar sein; keine rekursiven Rechteänderungen
+   oder Änderungen an originalen Appdata-Dateien vornehmen. EOS und evcc müssen
+   für diese Prüfung nicht erreichbar sein.
+
+Der kanonische Preis-Snapshot ist `prices.json`. Sein Zeitbezug, die Preisversion
+und der Claim-/Plan-Hash werden gemeinsam geprüft. `prices-source.json`, weitere
+Lösungen und evcc-Rohantworten sind für diesen Nachweis nicht erforderlich und
+werden nicht mit exportiert. `solution-<version>.json` gehört genau zum Bericht,
+kein beliebig ausgewähltes altes File.
 
 ## Abnahme und Übernahme ins Release-Gate
 
@@ -74,3 +105,8 @@ keine Betreiberbestätigung. Ein heutiger Export kann einen alten Erfolg nur
 belegen, wenn seine Berichte schon zur tatsächlichen Erhebung frisch sind;
 andernfalls einen bereits damals konsistent erfassten Export verwenden oder
 das nächste ohnehin reguläre Event abwarten.
+
+Betreiber/autorisierten Reviewer die Erhebung und tatsächlichen Grenzen bestätigen
+lassen. Erst dann dürfen ein echter bereinigter Doctor-Beleg und gegebenenfalls
+`historical_snapshot_operator_approved=true` in einem reviewten Folge-PR aufgenommen
+werden. Kein Skript setzt Freigaben automatisch.

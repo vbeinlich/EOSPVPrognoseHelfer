@@ -1,0 +1,28 @@
+{
+  "observed_at_utc": "2026-10-30T13:43:56Z",
+  "repository": "vbeinlich/EOSPVPrognoseHelfer",
+  "read_only": true,
+  "main_revision": "55e1bd801c7956b5141f2f41ccf9c1b7ab93e673",
+  "main_protected": false,
+  "repository_rulesets_including_parents": [],
+  "environments": [],
+  "public_image_release_environment_exists": false,
+  "publication_enabled_repository_variable": "absent (GET returned 404)",
+  "default_workflow_permissions": "read",
+  "actions_can_approve_pull_request_reviews": false,
+  "github_releases": [],
+  "tag_refs": "none returned (GET git/refs/tags returned 404)",
+  "ghcr_access_control": "not verified; available CLI token lacks read:packages (403)",
+  "branch_protection_detail": "GitHub App cannot read administration endpoint (403); public branch snapshot explicitly protected=false",
+  "sources": [
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/branches/main",
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/rulesets?includes_parents=true",
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/environments",
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/actions/permissions/workflow",
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/actions/variables/PUBLICATION_ENABLED",
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/releases",
+    "GET /repos/vbeinlich/EOSPVPrognoseHelfer/git/refs/tags"
+  ],
+  "changes_performed": false,
+  "note": "Observation, not an administrative approval. No settings, tokens, variables, environments or permissions changed. Package writer rights still require an authorized administrator's inspection."
+}

@@ -1,4 +1,20 @@
-# Validierung der Release-Vorbereitung, 29.10.2026
+# Validierung für v0.1.0 nach dem Merge, 30.10.2026
+
+Aktueller Nachweis: [RELEASE_0_1_0_READINESS.md](RELEASE_0_1_0_READINESS.md).
+PR #3 wurde als `55e1bd8` gemergt; Main-CI
+[41063469358](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41063469358)
+ist erfolgreich. Der neue Readiness-Stand ergänzt reale Download-/Archivprüfpfade,
+Workflow-Policy-Mutationstests und private OCI-/Runtime-/Quellenverifikation.
+**302 Tests** mit nativer EOS-Integration lokal bestanden; Ruff, Actionlint und
+Compose grün. Kandidaten-/CI-Belege und Freigabestatus stehen im Readiness-Bericht.
+Alle Tests verwenden synthetische Daten und isolierte lokale Container; kein
+produktiver Import, Forecast-Abruf oder zusätzlicher GENETIC-Lauf.
+
+Die Prüfabdeckung umfasst Rechte, Dry-run, Read-only, Secrets im Repository,
+Workflow-Veröffentlichungspfade und Artefakthashes. Keine aktuelle CVE-Freiheit
+wird behauptet; es wurde keine externe Schwachstellen-API abgefragt.
+
+## Historischer Stand 29.10.2026
 
 **Historisches Protokoll.** Der Audit vom 30.10.2026 hat einen Veröffentlichungs-
 Bypass außerhalb des damaligen Stable-Gates gefunden. Maßgeblich sind jetzt die

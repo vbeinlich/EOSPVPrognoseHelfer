@@ -13,8 +13,11 @@ vorhandene Lösung unabhängig lesend validiert. [Abnahmebeleg](docs/GENETIC_ABN
 Der rein lesende `doctor` prüft vorhandene Abnahme-Artefakte ohne HTTP oder
 Schreibzugriffe. [GENETIC-Abnahme, Merge und MIT-Release](docs/RELEASE_CHECKLIST.md)
 beschreiben die konkreten Schritte und verbleibenden Gates.
+PR #3 ist nach `main` gemergt (`55e1bd8`); **v0.1.0 ist noch nicht veröffentlicht**.
+Der [Release-Readiness-Bericht](docs/RELEASE_0_1_0_READINESS.md) trennt technische
+Validierung, private Nachweise, formale Freigaben und tatsächliche Veröffentlichung.
 Eigener Code: [MIT](LICENSE); [Fremdlizenzen und Image-Inventar](THIRD_PARTY_NOTICES.md)
-gelten unabhängig davon. Nächste Reihenfolge: Merge/stabiler Release →
+gelten unabhängig davon. Nächste Reihenfolge: gesondert freigegebener stabiler Release →
 [Setup-Wizard und Skill #5](docs/ISSUE_5_PLAN.md) →
 [Savings Dashboard #6](docs/ROADMAP.md). Der produktive Helfer bleibt unverändert.
 

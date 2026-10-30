@@ -4,6 +4,7 @@ WORKDIR /app
 COPY pyproject.toml LICENSE README.md THIRD_PARTY_NOTICES.md ./
 COPY src ./src
 COPY scripts/license_inventory.py /app/scripts/license_inventory.py
+COPY scripts/native_sources.py /app/scripts/native_sources.py
 COPY licenses /app/licenses
 RUN pip install --no-cache-dir . && useradd --uid 10001 --create-home helper \
     && mkdir /output && chown helper:helper /output \
@@ -37,6 +38,7 @@ RUN pip install --no-cache-dir \
     && mkdir -p /opt/eos && python -c \
     "import urllib.request; urllib.request.urlretrieve('https://github.com/Akkudoktor-EOS/EOS/archive/${EOS_REF}.tar.gz', '/tmp/eos.tar.gz')" \
     && tar -xzf /tmp/eos.tar.gz --strip-components=1 -C /opt/eos
-RUN python scripts/license_inventory.py --output /usr/share/eos-pv-helper/licenses --eos /opt/eos
+RUN python scripts/native_sources.py --mapping-only --output /usr/share/eos-pv-helper/licenses/native \
+    && python scripts/license_inventory.py --output /usr/share/eos-pv-helper/licenses --eos /opt/eos
 ENV PYTHONPATH=/opt/eos/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 USER 10001:10001

@@ -95,6 +95,14 @@ assert inventory["python"] and inventory["system"]
 assert inventory["legal_review_required"] is True
 assert (root / "upstream-eos/NOTICE").is_file()
 assert (root / "texts/Apache-2.0.txt").is_file()
+assert (root / "texts/ODbL-1.0.txt").is_file()
+assert (root / "texts/Unicode-3.0.txt").is_file()
+assert inventory["debian_source_packages"] == 73
+assert len(inventory["native_sources"]["sources"]) == 2
+assert inventory["native_sources"]["archives_in_image"] is False
+assert inventory["data_sources"]["license"] == "ODbL-1.0"
+assert inventory["embedded_sources"]["libiconv_version"] == "1.18"
+assert any(p["name"] == "lxml" and p.get("source") for p in inventory["python"])
 '''
         docker("run", "--rm", "--network", "none", "--read-only", "--cap-drop=ALL",
                "--entrypoint", "python", image, "-c", code)

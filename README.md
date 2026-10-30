@@ -82,11 +82,12 @@ Aktualisieren, Rollback, Image-Digest-Pinning, Secret-Dateien und getrennte Frei
 sind dort vollständig beschrieben. Die reale Unraid-GUI-Abnahme aus
 [Issue #4](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/4) ist bestätigt.
 
-Das vollständige Image wird als `ghcr.io/vbeinlich/eospvprognosehelfer` veröffentlicht.
-Veröffentlichte Tags/Digests und anonyme Pullbarkeit anhand des erfolgreichen
-Push-Workflows und dessen `image-publication-<SHA>`-Artefakt prüfen. `pr-3` ist eine
-bewegliche Vorschau; stabile Tags werden erst nach Abnahme, Merge, Lizenzprüfung,
-anonymem Pull und Smoke-Test desselben Digests freigegeben. Die Projektversion ist
+Registry: `ghcr.io/vbeinlich/eospvprognosehelfer`. Seit dem Release-Audit vom
+30.10.2026 veröffentlichen Branch-/Main-Pushes und Versionstags **keine Images**;
+`pr-3` wird nicht automatisch aktualisiert. CI baut und testet nur lokal.
+Eine spätere manuelle Promotion benötigt konkrete Digest-/Inventar-/Quellmaterial-
+Freigabe, vollständigen Doctor-Beleg und ausdrückliche Betreiberfreigabe.
+[Verbindlicher Ablauf](docs/RELEASE_CHECKLIST.md). Die Projektversion ist
 kein Nachweis eines bereits veröffentlichten Tags.
 Der [geprüfte Veröffentlichungsnachweis](docs/IMAGE_PUBLICATION.json) enthält den
 tatsächlich anonym abrufbaren Digest, auf den das Unraid-Template gepinnt ist.

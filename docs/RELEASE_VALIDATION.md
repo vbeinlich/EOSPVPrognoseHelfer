@@ -1,5 +1,10 @@
 # Validierung der Release-Vorbereitung, 29.10.2026
 
+**Historisches Protokoll.** Der Audit vom 30.10.2026 hat einen Veröffentlichungs-
+Bypass außerhalb des damaligen Stable-Gates gefunden. Maßgeblich sind jetzt die
+[Korrekturen und aktuellen Nachweise](RELEASE_BLOCKER_RESULTS.md). Automatisches
+Image-Publishing wurde vollständig entfernt; siehe [neue Checkliste](RELEASE_CHECKLIST.md).
+
 Ergänzung zu den [realen Betreiberbelegen](UNRAID_VALIDATION.md). Die folgenden
 Tests liefen isoliert auf dem Entwicklungsrechner, ohne produktive Schreibzugriffe,
 Optimierungsläufe, externe Prognoseabrufe oder Änderungen bestehender Container.
@@ -42,11 +47,11 @@ Neue Tests belegen insbesondere:
 - Stabile Tags sind von Kandidaten getrennt; Promotion folgt erst Registry-Test
   und realem Abnahme-/Inventarbeleg. Ausstehende/abweichende Belege sperren.
 
-Noch kein vollständiger Fremdlizenz-Abschluss: Für das in SciPy und NumPy gebündelte
-`libquadmath` muss die zum tatsächlich ausgelieferten Build passende GCC-Quelle
-belegt werden. Das SciPy-sdist und die Lizenztexte allein sind kein solcher Beleg.
-[Einzelheiten](../THIRD_PARTY_NOTICES.md). Kein stabiler Tag, Merge oder Release
-wurde durch diese lokalen Prüfungen freigegeben.
+Am 30.10. wurde die exakte GCC/libquadmath-Zuordnung ergänzt, einschließlich
+Distributorpatches. Die erweiterte Prüfung deckt auch OS-Quellen, MPL-Zertifikate,
+ODbL-Daten und eingebettetes lxml/libiconv ab. [Aktuelle Lizenzprüfung](LICENSE_REVIEW.md).
+Veröffentlichtes Quellmaterial und konkrete Freigaben bleiben getrennte Gates.
+Kein stabiler Tag, Merge oder Release wurde durch lokale Prüfungen freigegeben.
 
 CI-Ergebnisse müssen sich auf den veröffentlichten aktuellen PR-Commit beziehen;
 ein älterer grüner Lauf ist kein Nachweis für diese Änderungen. Der unveränderte

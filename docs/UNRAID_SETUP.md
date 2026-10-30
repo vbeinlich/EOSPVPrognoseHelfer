@@ -41,23 +41,26 @@ einschließlich der Findings-Korrekturen aus Issue #1.
 gepinnt. Es wurde noch kein gemeinsamer stabiler Release erstellt. Der obige Textblock
 ist ein Repository-Feldwert für die GUI, kein Shell-Befehl.
 
-- Die [Actions-Läufe](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions) veröffentlichen
-  nach erfolgreichen Tests einen `sha-<vollständiger Commit-SHA>`-Tag.
-- Der PR-Branch veröffentlicht zusätzlich den beweglichen Vorschau-Tag `pr-3`.
-- Erst ein später tatsächlich gepushter Release-Tag `vMAJOR.MINOR.PATCH`, passend zur
-  Projektversion, erzeugt den gleichnamigen Image-Tag und `latest`. Diese Anleitung
-  behauptet nicht, dass schon ein gemeinsamer Release existiert.
-- Das Artefakt `image-publication-<SHA>` des **Push-Laufs** enthält `image-metadata.json`
-  mit Tags, Source-Revision, Digest und vollständigem `pinned_image`.
+- Seit dem Audit vom 30.10.2026 bauen und testen die
+  [Actions-Läufe](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions) nur lokal.
+  Main-/Branch-Pushes und Versionstags veröffentlichen keine Images.
+- `pr-3` wird nicht automatisch aktualisiert. Vorhandene Vorschau-Digests sind
+  historische Installationsbelege, keine Freigabe des neuesten Quellstands.
+- Stabile Images benötigen eine gesonderte Digest-/Inventar-/Quellmaterial-Freigabe
+  und manuelle Promotion. Ein Git-Tag erzeugt kein `latest`.
+  [Verbindliche Release-Gates](RELEASE_CHECKLIST.md).
+- Das neue CI-Artefakt `candidate-license-inventory-<SHA>` enthält nur das Inventar.
+  Ältere `image-publication-<SHA>`-Artefakte dokumentieren damalige Veröffentlichungen.
 
 Für eine unveränderliche Installation den vollständigen `pinned_image`-Wert als
 **Repository** in Unraid einsetzen. Tags können grundsätzlich verschoben werden;
 ein `@sha256:...`-Digest bezeichnet exakt das geprüfte Image. Der bewegliche `pr-3`-Tag
 ist eine Vorschau und kein stabiles Release-Versprechen.
 
-Ein grüner Veröffentlichungsjob umfasst einen Pull **ohne Docker-Anmeldedaten** und einen
-Test genau dieses Registry-Images ohne Netzwerk. Beim ersten Publizieren kann eine
-separate Package-Sichtbarkeitseinstellung erforderlich sein.
+Vor einem künftig freigegebenen Release muss genau dessen Digest **ohne Docker-
+Anmeldedaten** abrufbar sein und den netzlosen Smoke-Test bestehen. Package-Sichtbarkeit,
+geschütztes Release-Environment und ausschließliche Registry-Schreibrechte sind
+separat zu prüfen; ihre Konfiguration wird hier nicht als erfolgt behauptet.
 Falls der Job beim anonymen Pull scheitert, muss der Eigentümer in den
 [Package settings](https://github.com/users/vbeinlich/packages/container/package/eospvprognosehelfer/settings)
 die Sichtbarkeit auf **Public** setzen und den fehlgeschlagenen Job erneut ausführen.

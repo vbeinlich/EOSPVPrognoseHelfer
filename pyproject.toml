@@ -13,7 +13,7 @@ requires-python = ">=3.11"
 dependencies = ["astral==3.2", "tzdata==2025.2"]
 
 [project.optional-dependencies]
-test = ["pytest>=8,<10", "jsonschema>=4.23,<5", "ruff>=0.9,<1"]
+test = ["pytest>=8,<10", "jsonschema>=4.23,<5", "ruff>=0.9,<1", "PyYAML>=6,<7"]
 
 [project.scripts]
 eos-pv-helper = "eos_pv_helper.app:main"
@@ -23,7 +23,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 
 [tool.ruff]
 line-length = 100

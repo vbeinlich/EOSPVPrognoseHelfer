@@ -16,6 +16,7 @@
     "persisted_solution_read_by_operator": true
   },
   "doctor": null,
+  "historical_snapshot_operator_approved": false,
   "doctor_comparison": {
     "solution_validator_passed": true,
     "installed_openapi_schema_valid": true,
@@ -27,6 +28,12 @@
     "approved": false,
     "reviewer": null,
     "reviewed_at_utc": null,
-    "inventory_sha256": null
-  }
+    "inventory_sha256": null,
+    "image_digest": null,
+    "source_revision": null,
+    "version": null,
+    "source_material_url": null,
+    "source_material_sha256": null
+  },
+  "publication": {"enabled": false, "allow_initial_latest": false}
 }

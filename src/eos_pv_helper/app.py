@@ -243,12 +243,20 @@ def main():
     parser.add_argument("command", nargs="?", choices=("run", "sync", "health", "doctor"), default="run")
     parser.add_argument("--config", default="/app/config.toml")
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--snapshot", help="Doctor only: private historical ZIP, no live access")
     parser.add_argument("--write-eos", action="store_true", help="Requires prior operator approval")
     parser.add_argument("--refresh-source", action="store_true",
                         help="Permit the native EOS provider to fetch the existing source")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
+        if args.snapshot:
+            if args.command != "doctor" or args.write_eos or args.refresh_source:
+                raise ForecastError("Historical snapshots are read-only and only valid with doctor")
+            from .doctor import snapshot_acceptance
+            evidence, status = snapshot_acceptance(args.snapshot)
+            print(json.dumps(evidence, indent=2, allow_nan=False))
+            return status
         try:
             with open(args.config, "rb") as handle:
                 config = tomllib.load(handle)

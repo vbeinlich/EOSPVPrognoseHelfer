@@ -20,6 +20,25 @@ from urllib.request import urlopen
 MAX_SOURCE_BYTES = 100_000_000
 
 
+def validate_debian_coverage(status, index):
+    installed = set()
+    for paragraph in status.split("\n\n"):
+        fields = dict(line.split(": ", 1) for line in paragraph.splitlines()
+                      if line and not line.startswith(" ") and ": " in line)
+        if fields.get("Status") == "install ok installed":
+            installed.add((fields["Package"], fields["Version"], fields.get("Source", fields["Package"])))
+    expected = {(p["name"], p["version"], p["source"]) for p in index["binary_packages"]}
+    sources = set()
+    for _, version, source in installed:
+        match = re.fullmatch(r"([^ ]+)(?: \((.+)\))?", source)
+        if not match:
+            raise ValueError("Invalid Debian source identity")
+        sources.add((match[1], match[2] or version))
+    indexed = {(p["name"], p["version"]) for p in index["source_packages"]}
+    if installed != expected or sources != indexed or index.get("dsc_checksums_verified") is not True:
+        raise ValueError("Base OS/source coverage changed; review its exact source index")
+
+
 def notice_file(name):
     base = PurePosixPath(str(name).replace("\\", "/")).name.lower()
     return base.startswith(("license", "licence", "notice", "copying", "copyright", "authors")) and (
@@ -92,7 +111,8 @@ def collect(output, *, eos=None, distributions=None, system=Path("/usr/share/doc
                  "license_classifiers": [c for c in classifiers if c.startswith("License ::")],
                  "project_urls": dist.metadata.get_all("Project-URL") or [],
                  "directory": "python/" + safe, "notices": notices}
-        if not notices or "lgpl" in (expression + " ".join(classifiers)).lower():
+        if (not notices or "lgpl" in (expression + " ".join(classifiers)).lower()
+                or name.lower() in ("certifi", "tzfpy", "lxml")):
             entry["source"] = fetch_source(name, version, folder)
             if not notices and not entry["source"]["notices"]:
                 fallback = project / "licenses" / "upstream-notices.json"
@@ -133,6 +153,39 @@ def collect(output, *, eos=None, distributions=None, system=Path("/usr/share/doc
     result = {"schema_version": 1, "scope": "installed Python distributions and Debian copyright texts",
               "legal_review_required": True, "python": sorted(entries, key=lambda r: r["name"].lower()),
               "system": system_entries, "native_eos_source": "/opt/eos" if eos else None}
+    native = output / "native" / "sources.json"
+    if native.is_file():
+        result["native_sources"] = json.loads(native.read_text())
+        result["native_sources_manifest_sha256"] = hashlib.sha256(native.read_bytes()).hexdigest()
+    debian = project / "licenses/debian-sources.json"
+    if system.exists() and debian.is_file():
+        index = json.loads(debian.read_text())
+        validate_debian_coverage(Path("/var/lib/dpkg/status").read_text(), index)
+        result["debian_source_index_sha256"] = hashlib.sha256(debian.read_bytes()).hexdigest()
+        result["debian_source_packages"] = len(index["source_packages"])
+    eos_tar = Path("/tmp/eos.tar.gz")
+    if eos and eos_tar.is_file():
+        result["native_eos_source_archive_sha256"] = hashlib.sha256(eos_tar.read_bytes()).hexdigest()
+    data = project / "licenses/data-sources.json"
+    if eos and data.is_file():
+        mapping = json.loads(data.read_text())
+        dist = next(d for d in importlib.metadata.distributions()
+                    if d.metadata["Name"].lower() == mapping["distribution"])
+        binary = Path(dist.locate_file(mapping["binary"]))
+        if dist.version != mapping["version"] or hashlib.sha256(binary.read_bytes()).hexdigest() != mapping["binary_sha256"]:
+            raise ValueError("Timezone data artifact changed; source/license mapping needs review")
+        result["data_sources"] = mapping
+    embedded = project / "licenses/embedded-sources.json"
+    if eos and embedded.is_file():
+        mapping = json.loads(embedded.read_text())
+        dist = next(d for d in importlib.metadata.distributions()
+                    if d.metadata["Name"].lower() == mapping["distribution"])
+        if dist.version != mapping["version"] or any(
+            hashlib.sha256(Path(dist.locate_file("lxml/" + name)).read_bytes()).hexdigest() != digest
+            for name, digest in mapping["binaries"].items()
+        ):
+            raise ValueError("Embedded libiconv artifact changed; review its matching sources")
+        result["embedded_sources"] = mapping
     (output / "inventory.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 

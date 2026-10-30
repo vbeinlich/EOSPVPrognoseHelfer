@@ -33,19 +33,55 @@ hash-checked original notices from that exact upstream release (provenance in
 `texts/upstream-notices.json`) rather than guessing or silently omitting attribution. No forecast API is
 contacted by this build-time inventory step.
 
-Before a stable release, review the exact candidate inventory, nested/vendor
-notices and corresponding-source obligations, including bundled native runtimes
-and base-OS libraries. The inventory does not discharge those obligations by
-itself. Keep this a release gate; do not describe the entire container as MIT.
+Before any new public image distribution, review the exact candidate inventory,
+nested/vendor notices and corresponding-source obligations. Automatic main,
+preview and tag publishing has been disabled. The inventory is not distribution
+approval. [Review and coverage](docs/LICENSE_REVIEW.md),
+[publication gates](docs/RELEASE_CHECKLIST.md).
 In particular, SciPy's license identifies bundled GCC runtime libraries under
 GPL-3.0 with GCC Runtime Library Exception and **libquadmath under LGPL-2.1-or-later**.
 The SciPy source archive alone does not provide libquadmath's corresponding GCC
-source. Identifying/preserving the exact bundled build's corresponding source
-and satisfying its distribution terms remains an explicit stable-release blocker.
-Debian source versions are available from the recorded `dpkg-status`; the pinned
+source. The three bundled payloads have now been mapped by SHA256, ELF build-id
+and identical `.text`, `.rodata`, `.eh_frame` sections to CentOS GCC 4.8.5-44.el7
+and AlmaLinux GCC 8.5.0-26.el8_10.alma.1. The exact source RPMs include distributor
+patches and `gcc.spec`; [native-sources.json](licenses/native-sources.json) records
+the evidence and source hashes. Unknown replacement binaries fail the build.
+This mapping does not claim byte-reproducible upstream wheel builds. Wheel
+packaging renames/relocates the libraries; the compared executable sections are
+unchanged. Sources and rebuild scripts remain under their original licenses.
+
+All 105 installed Debian packages map to 73 exact source packages in
+[debian-sources.json](licenses/debian-sources.json). The 235 source files were
+downloaded from Debian Snapshot and verified against their `.dsc` SHA256 lists;
+this does not claim independently verified Debian signing keys. The pinned
 base-image source and rebuild instructions are in the Docker Official Images
 [`python` repository](https://github.com/docker-library/python). Do not strip the
 original installed notices when slimming an image.
+
+`certifi` (MPL-2.0) retains its exact PyPI source archive, including the editable
+certificate material, in addition to notices. `tzfpy` has MIT code **and** an
+ODbL-1.0 timezone database. For the audited 2.1.1 wheel/data 2026e,
+[data-sources.json](licenses/data-sources.json) identifies the unchanged `tzf-dist`
+database and matching `tzf-rs` reader/exporter. Attribution: timezone-boundary-builder
+and OpenStreetMap contributors. ODbL and Unicode-3.0 texts are retained in
+`licenses/` and the image, alongside the wheel's compiled dependency notices.
+
+`scripts/source_bundle.py` prepares a separate private, hash-indexed archive:
+Debian sources, exact GCC source RPMs, the timezone database/reader, Python source
+archives, EOS and project source/rebuild instructions. It verifies completeness
+against the exact image inventory. Before public distribution this same reviewed
+archive must be available anonymously as a versioned release asset; the promotion
+tool checks its SHA256 and contents. No source material or image was published
+by preparing this change. Do not publish binaries first and promise sources later.
+
+The audited lxml 6.1.3 wheel also embeds libiconv 1.18 (LGPL-2.1-or-later)
+inside its `etree` and `objectify` extensions. Their exact hashes and version
+symbol are in [embedded-sources.json](licenses/embedded-sources.json). The image
+retains lxml's complete source archive, including `buildlibxml.py` and the
+libxslt backport patch. The separate source archive includes exact libiconv,
+libxml2, libxslt and zlib build sources so recipients can rebuild/relink lxml
+with a modified libiconv. No restriction on this modification or debugging is
+imposed. [Rebuild procedure](docs/LICENSE_REVIEW.md#lxml-und-statisch-eingebettetes-libiconv).
 
 Primary license texts and requirements:
 [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0),

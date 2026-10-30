@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "distribution": "tzfpy",
+  "version": "2.1.1",
+  "binary": "tzfpy/tzfpy.abi3.so",
+  "binary_sha256": "80838e68f3b059e9a8efb44276fd38aaee881c3de777d54319f682dbb3d9a9ba",
+  "data_version": "2026e",
+  "license": "ODbL-1.0",
+  "attribution": "Time zone boundaries from timezone-boundary-builder, derived from OpenStreetMap; copyright OpenStreetMap contributors. tzf-dist supplies the unchanged lite database.",
+  "sources": [
+    {
+      "filename": "tzf-dist-0.0.2026-e.crate",
+      "url": "https://static.crates.io/crates/tzf-dist/tzf-dist-0.0.2026-e.crate",
+      "sha256": "bcbf869a5795bbc7b56c3430df4e153e1bb80d5f0dce43ae3965f4f8c0ad8b77",
+      "contents": "Exact unchanged lite.tzb, LICENSE_DATA (ODbL), README and format/source references"
+    },
+    {
+      "filename": "tzf-rs-2.1.3.crate",
+      "url": "https://static.crates.io/crates/tzf-rs/tzf-rs-2.1.3.crate",
+      "sha256": "623710aadc88c0c366a398c06714a896d177245c1978c65c8d0aa27682f3f4c0",
+      "contents": "MIT-licensed parser/GeoJSON exporter for the complete machine-readable lite database"
+    }
+  ]
+}

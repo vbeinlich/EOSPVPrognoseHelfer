@@ -1,0 +1,90 @@
+name: Approved stable image promotion
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Reviewed stable version, e.g. v0.1.0'
+        required: true
+        type: string
+      digest:
+        description: 'Exact already reviewed candidate sha256 digest; no rebuild'
+        required: true
+        type: string
+      apply:
+        description: 'Explicitly publish after review (default is read-only planning)'
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  # One slot shared by every version and ref; queued old versions recheck latest.
+  group: eos-pv-helper-stable-public-promotion
+  cancel-in-progress: false
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      packages: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Require reviewed approval, main history and exact version tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          python scripts/release_gate.py --version "$VERSION" --image-digest "$DIGEST"
+          python - <<'PY'
+          import json, os, subprocess
+          r = json.load(open('docs/GENETIC_ACCEPTANCE.json'))
+          revision = r['license_review']['source_revision']
+          from sys import path
+          path.insert(0, 'scripts')
+          from publication import validate_ci
+          runs = json.loads(subprocess.check_output(['gh', 'api', 'repos/vbeinlich/EOSPVPrognoseHelfer/actions/runs?head_sha=' + revision]))
+          validate_ci(runs['workflow_runs'], revision)
+          subprocess.run(['git', 'merge-base', '--is-ancestor', r['source_revision'], revision], check=True)
+          subprocess.run(['git', 'merge-base', '--is-ancestor', revision, 'origin/main'], check=True)
+          tagged = subprocess.check_output(['git', 'rev-parse', os.environ['VERSION'] + '^{commit}'], text=True).strip()
+          if tagged != revision:
+              raise SystemExit('Version tag differs from the reviewed candidate source')
+          PY
+          test "$(gh api repos/vbeinlich/EOSPVPrognoseHelfer/issues/1 --jq .state)" = closed
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Inspect the exact candidate and live registry without writing
+        env:
+          VERSION: ${{ inputs.version }}
+          DIGEST: ${{ inputs.digest }}
+        run: python scripts/publication.py --version "$VERSION" --digest "$DIGEST"
+  promote:
+    # This repository variable stays unset/false during implementation and CI.
+    if: inputs.apply && vars.PUBLICATION_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: public-image-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Recheck digest, inventory and current latest under the global lock
+        env:
+          VERSION: ${{ inputs.version }}
+          DIGEST: ${{ inputs.digest }}
+          PUBLICATION_ENABLED: ${{ vars.PUBLICATION_ENABLED }}
+        run: python scripts/publication.py --version "$VERSION" --digest "$DIGEST" --apply

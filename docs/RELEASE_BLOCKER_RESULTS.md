@@ -31,9 +31,31 @@ Optimierungslauf; bestehendes Unraid-Template und produktiver Digest unveränder
   exportiertes Versionssymbol `0x7e01` und XML-Parsing im neuen Wheel bestätigt;
   [Prüfumfang und Hash](LICENSE_REVIEW.md#lxml-und-statisch-eingebettetes-libiconv).
 
-Die endgültigen Commit-/CI- und privaten Kandidatenbelege werden nach dem
-Code-Commit ergänzt. Ein lokaler Build wird nicht als veröffentlichter Release
-ausgegeben; Lizenzfreigabe, Doctor und Betreiberfreigabe bleiben absichtlich offen.
+Code-Commit: `ace727721bee97c65e3a84fb626617ae5377c4e4`.
+[Push-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41043282811)
+und [PR-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41043291298)
+jeweils erfolgreich, Jobs `unit` und `eos-integration`; keine Publish-Jobs.
+Der nachfolgende Nachweis-Commit ändert ausschließlich diese Dokumentation und
+weiterhin gesperrte Freigabemetadaten. Dessen eigene CI bleibt ebenfalls erforderlich.
+
+## Exakt vorbereiteter privater Kandidat
+
+[Maschinenlesbare Hashes](PRIVATE_CANDIDATE_20261030.json), keine öffentlichen Binärassets:
+
+| Artefakt | Nachweis |
+| --- | --- |
+| OCI-Manifest | `sha256:0681796587a9a79c6af3c067b2004101351c8ebeae018216f199c967abf692d7` |
+| Roh-Inventar SHA256 | `222261b5a20a816a335fb2011fccdbb57c20fe34fc08b6f86c6b2e9fc3b6b93f` |
+| Privates Quellarchiv SHA256 | `5388ed86ab415765848e108fe105e828b0669b965a332cfc83165546c2210d7f` |
+| Quellarchiv | 510.610.853 Bytes, 615 vollständig hashgeprüfte Payloads; Source-/Notice-Abdeckung gegen exaktes Inventar verifiziert |
+| Privates OCI-Archiv | 323.190.272 Bytes, alle referenzierten Blobs hashgeprüft |
+| Smoke-Zuordnung | Config-Digest und sämtliche Rootfs-Diff-IDs zwischen OCI-Archiv und lokalem Docker-Export identisch; Revision und 192 Intervalle bestätigt |
+
+Die geplante Quellmaterial-URL in `GENETIC_ACCEPTANCE.json` ist ausdrücklich
+**noch nicht veröffentlicht**. `approved=false`, `operator_approved=false`,
+`doctor=null` und `publication.enabled=false` bleiben unverändert sperrend.
+Ein anderer Source-Commit oder Neubau erfordert neues Review; dieser Kandidat
+ist ein überprüfbares privates Arbeitsergebnis, keine erteilte Release-Freigabe.
 
 ## Verbleibende Gates
 

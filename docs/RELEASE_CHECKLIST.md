@@ -47,8 +47,12 @@ docker buildx build --builder LOCAL_BUILDER --platform linux/amd64 --target eos-
   --metadata-file /PRIVATE/candidate-metadata.json .
 ```
 
-Kein `--push`. Metadaten-Digest, OCI-Manifest, Source-Label und exakte Bytes der
-enthaltenen `inventory.json` sichern. Smoke am selben lokalen Image:
+Kein `--push`. Maßgeblich ist der Manifest-Digest im OCI-Archiv (`index.json` →
+`manifests[0].digest`), nicht ungeprüft der zuletzt ausgegebene Multi-Export-
+Metadatenwert: Docker- und OCI-Exporter können unterschiedliche Manifest-Medientypen
+und damit Digests erzeugen. Config-Digest und alle Rootfs-`diff_ids` zwischen
+OCI und geladenem Docker-Image abgleichen, alle OCI-Blobs hashprüfen. Source-Label
+und exakte Bytes der enthaltenen `inventory.json` sichern. Smoke am selben Image:
 `python scripts/unraid_smoke.py --image eos-pv-helper:private-candidate --revision FULL_COMMIT`.
 Dann bei sauberem, identischem Git-Checkout:
 

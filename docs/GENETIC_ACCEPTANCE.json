@@ -28,12 +28,13 @@
     "approved": false,
     "reviewer": null,
     "reviewed_at_utc": null,
-    "inventory_sha256": null,
-    "image_digest": null,
-    "source_revision": null,
-    "version": null,
-    "source_material_url": null,
-    "source_material_sha256": null
+    "inventory_sha256": "222261b5a20a816a335fb2011fccdbb57c20fe34fc08b6f86c6b2e9fc3b6b93f",
+    "image_digest": "sha256:0681796587a9a79c6af3c067b2004101351c8ebeae018216f199c967abf692d7",
+    "source_revision": "ace727721bee97c65e3a84fb626617ae5377c4e4",
+    "version": "v0.1.0",
+    "source_material_url": "https://github.com/vbeinlich/EOSPVPrognoseHelfer/releases/download/v0.1.0/eos-pv-helper-v0.1.0-sources.tar.gz",
+    "source_material_sha256": "5388ed86ab415765848e108fe105e828b0669b965a332cfc83165546c2210d7f"
   },
+  "prepared_candidate_record": "docs/PRIVATE_CANDIDATE_20261030.json",
   "publication": {"enabled": false, "allow_initial_latest": false}
 }

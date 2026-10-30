@@ -21,9 +21,9 @@ Keine Produktionszugriffe, Adminänderungen, Simulationen oder Veröffentlichung
 
 Geprüfter Wrapper-SHA256:
 `6aaa96f93a2bd166671003edc861b59f18d58a8e8fb717b9b789af1d62fc82ca`.
+Wrapper-Quellcommit: `0a8d70612d3ff82929c60a924ba346ff28f1a30d`.
 Der Wrapper nutzt weiterhin den unveränderten, separat hashgeprüften Exporter
-aus `47bd424...`. Aktuelle Wrapper-Commit-/CI-Links werden nach dem Push ergänzt;
-vorher keinen beweglichen Stand ungeprüft auf Unraid ausführen.
+aus `47bd424...`. Kein beweglicher Stand muss ungeprüft ausgeführt werden.
 
 ## Testergebnisse und Grenzen
 
@@ -42,8 +42,11 @@ Bindung der Reviewer-Vorlage an den unveränderten Kandidaten. Kein synthetische
 Test wird als reale Doctor-Abnahme ausgegeben.
 
 Ruff, Actionlint, Compose und diff-check sind erfolgreich. Bash-Syntax wird
-zusätzlich über die Wrapper-Prozesstests geprüft. Aktuelle CI am abschließenden
-PR-Head muss vor Reviewbereitschaft grün sein; Links folgen im PR und Bericht.
+zusätzlich über die Wrapper-Prozesstests geprüft. [Push-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41080516612)
+und [PR-CI](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/41080753173)
+am Quellcommit `0a8d706...` sind vollständig grün. Die nachfolgende reine
+Dokumentationsergänzung wird vor Reviewbereitschaft separat in
+[PR #9](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/9/checks) geprüft.
 Die CI baut nur isolierte Testimages/Inventarmetadaten, keine Registry-Images.
 
 ## Weiterhin zwingend offen

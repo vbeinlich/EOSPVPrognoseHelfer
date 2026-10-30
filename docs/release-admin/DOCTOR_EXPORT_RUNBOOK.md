@@ -38,10 +38,20 @@ Nur den nach Review ausgewählten Wrapper aus diesem PR privat nach Unraid
 nicht ungeprüft eine bewegliche Branch-URL ausführen. Die konkrete Wrapper-
 Revision und ihr Hash stehen im [Restarbeiten-Bericht](../RELEASE_0_1_0_FINAL_GATES.md).
 
-In der Unraid-Root-Konsole, mit dem tatsächlichen privaten Skriptpfad:
+Nach Review kann der exakt geprüfte Wrapper in der Unraid-Root-Konsole in einen
+neuen privaten Ordner geladen und hashgeprüft ausgeführt werden. Diese Befehle
+wurden hier **nicht auf Unraid ausgeführt**:
 
 ```sh
-bash /PRIVATE/unraid-doctor-export.sh
+umask 077
+set -eu
+set -C
+wrapper_dir=$(mktemp -d /tmp/eos-doctor-wrapper.XXXXXXXX)
+curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/0a8d70612d3ff82929c60a924ba346ff28f1a30d/scripts/unraid-doctor-export.sh \
+  --output "$wrapper_dir/unraid-doctor-export.sh"
+printf '%s  %s\n' 6aaa96f93a2bd166671003edc861b59f18d58a8e8fb717b9b789af1d62fc82ca "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
+bash "$wrapper_dir/unraid-doctor-export.sh"
 ```
 
 Das Skript erzeugt ausschließlich einen **neuen** privaten Diagnoseordner

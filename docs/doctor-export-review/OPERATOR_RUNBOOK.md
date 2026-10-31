@@ -8,6 +8,23 @@ privat nach Unraid kopieren; dessen SHA256 vor Ausführung vergleichen:
 printf '%s  %s\n' d60871dc64f67041842e9089c864e0a0cbb90dc29161c620bed0e6bad986cd1d /PRIVATE/unraid-doctor-export.sh | sha256sum -c -
 ```
 
+Alternativ nach unabhängiger Prüfung den festen Quellstand bereitstellen:
+
+```sh
+umask 077
+wrapper_dir=$(mktemp -d /tmp/eos-doctor-reviewed.XXXXXXXX)
+curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/2fe99eb6d37f9bcb7359e1bfff754974dd07d7c2/scripts/unraid-doctor-export.sh \
+  --output "$wrapper_dir/unraid-doctor-export.sh"
+printf '%s  %s\n' d60871dc64f67041842e9089c864e0a0cbb90dc29161c620bed0e6bad986cd1d "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
+```
+
+Das ist ausschließlich Skriptbereitstellung in einem neuen privaten Ordner.
+Bei einem Curl-/Hashfehler nicht ausführen. Danach kann in den folgenden Befehlen
+statt `/PRIVATE/unraid-doctor-export.sh` der geprüfte Pfad
+`"$wrapper_dir/unraid-doctor-export.sh"` verwendet werden. Der Vorabtest selbst
+lädt nichts herunter und erzeugt keine Dateien.
+
 ## 1. Rein lesender Vorabtest – Unraid-Root-Konsole
 
 ```sh
@@ -58,11 +75,12 @@ auf dem Diagnose-Rechner mit vorhandenem lokalen privaten Image:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 C:\Users\volke\eos-v010-private\doctor-snapshot.zip
-docker --context desktop-linux run --rm --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 --mount type=bind,source=C:\Users\volke\eos-v010-private\doctor-snapshot.zip,target=/private/snapshot.zip,readonly eos-pv-helper:v010-private doctor --snapshot /private/snapshot.zip
+docker --context desktop-linux run --rm --pull=never --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 --mount type=bind,source=C:\Users\volke\eos-v010-private\doctor-snapshot.zip,target=/private/snapshot.zip,readonly eos-pv-helper:v010-private doctor --snapshot /private/snapshot.zip
 $LASTEXITCODE
 ```
 
-Kein Pull/Deployment auf Unraid und kein produktiver Docker-Socket. Nur die
+Kein Pull/Deployment auf Unraid und kein produktiver Docker-Socket. Fehlt das
+lokale private Image, mit Fehler abbrechen; kein automatischer Download. Nur die
 einzelne Diagnosekopie muss für den gewählten Benutzer lesbar sein; keine
 produktiven Originalrechte verändern. Kein `--write-eos` oder `--refresh-source`.
 

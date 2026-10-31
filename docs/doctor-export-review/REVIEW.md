@@ -38,6 +38,7 @@ Reviewmaterial, nicht die zur neuen Ausführung vorgesehene Variante.
 
 [`scripts/unraid-doctor-export.sh`](../../scripts/unraid-doctor-export.sh),
 SHA256 `d60871dc64f67041842e9089c864e0a0cbb90dc29161c620bed0e6bad986cd1d`.
+Ausführbarer Quellstand: `2fe99eb6d37f9bcb7359e1bfff754974dd07d7c2`.
 Sie enthält die Schutzprüfungen aus PR #9 und zusätzlich `--check-only` als
 sicheren Standard ohne Argumente. Nur `--export` erzeugt einen Export:
 
@@ -66,8 +67,10 @@ Privacy, konsistente Rohbytes, fehlende/Symlink-Dateien, falsche Hashes, aktive
 Writer und fehlerhafte Optionen werden geprüft. Drei echte Optimiererläufe
 werden in der Review-CI gezielt ausgenommen; keine neue GENETIC-Simulation.
 Lokaler abschließender Stand: **336 bestanden, 3 gezielt deselected**. Ruff,
-Actionlint, Compose, Bash-Syntax und diff-check erfolgreich. Der Review-PR ergänzt
-die konkreten CI-Links am geprüften Head; keine Optimiererausführung.
+Actionlint, Compose, Bash-Syntax und diff-check erfolgreich. Die konkreten
+CI-Links am geprüften Head stehen in [PR #10](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/10/checks);
+keine Optimiererausführung. Der PR basiert für einen kleinen unabhängigen Delta-
+Review auf PR #9; die zusätzliche Dokumentation ändert den ausführbaren Quellstand nicht.
 
 Die private Doctor-Abnahme bleibt offen bis zum erfolgreich geprüften echten
 Export einschließlich bestätigter Herkunft. `GENETIC_ACCEPTANCE.json`, Kandidat,

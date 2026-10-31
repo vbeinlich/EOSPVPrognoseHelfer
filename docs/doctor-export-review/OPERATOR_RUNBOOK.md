@@ -12,14 +12,13 @@ Die Containerauswahl nutzt jetzt vollständiges `.Config.Image` aus `inspect`,
 nicht die gekürzte Image-Anzeige in `docker ps`. Genau ein laufender Treffer ist
 erforderlich; sonst Abbruch ohne Export. Mount-/Lock-/Hash-/Privacy-Prüfung unverändert.
 
-Alternativ nach unabhängiger Prüfung den festen Quellstand bereitstellen.
-`FIX_COMMIT` wird nach dem Code-Commit ersetzt; die Vorlage bis dahin nicht ausführen:
+Alternativ nach unabhängiger Prüfung den festen korrigierten Quellstand bereitstellen:
 
 ```sh
 umask 077
 wrapper_dir=$(mktemp -d /tmp/eos-doctor-reviewed.XXXXXXXX)
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
-  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/FIX_COMMIT/scripts/unraid-doctor-export.sh \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/4a47997c1888e8e939df2a86480a9ad7ffaf6051/scripts/unraid-doctor-export.sh \
   --output "$wrapper_dir/unraid-doctor-export.sh"
 printf '%s  %s\n' 65bac0c457795079ba703c68ec7a48e89c0fc097108c14f51621389fcec6d0fd "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
 ```

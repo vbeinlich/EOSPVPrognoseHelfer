@@ -38,8 +38,7 @@ Reviewmaterial, nicht die zur neuen Ausführung vorgesehene Variante.
 
 [`scripts/unraid-doctor-export.sh`](../../scripts/unraid-doctor-export.sh),
 SHA256 `65bac0c457795079ba703c68ec7a48e89c0fc097108c14f51621389fcec6d0fd`.
-Der ausführbare Fix-Quellstand wird nach dem Code-Commit eingetragen. Die
-Downloadvorlage mit `FIX_COMMIT` bis dahin nicht verwenden.
+Ausführbarer Fix-Quellstand: `4a47997c1888e8e939df2a86480a9ad7ffaf6051`.
 Sie enthält die Schutzprüfungen aus PR #9 und zusätzlich `--check-only` als
 sicheren Standard ohne Argumente. Nur `--export` erzeugt einen Export:
 

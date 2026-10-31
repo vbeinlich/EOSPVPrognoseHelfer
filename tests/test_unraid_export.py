@@ -24,11 +24,19 @@ args=args[2:]
 with open(os.environ['COMMAND_LOG'],'a') as log: log.write(json.dumps(args)+'\n')
 mode=os.environ.get('CASE','')
 if args[0]=='ps':
-    if mode!='no-helper': print('aabbccddeeff ghcr.io/vbeinlich/eospvprognosehelfer@sha256:'+'d'*64)
-    if mode=='two-helpers': print('112233445566 ghcr.io/vbeinlich/eospvprognosehelfer:pr-3')
+    if mode=='display-bare' and args==['ps','--format','{{.ID}} {{.Image}}']:
+        print('aabbccddeeff ghcr.io/vbeinlich/eospvprognosehelfer');sys.exit(0)
+    assert args==['ps','--quiet','--no-trunc']
+    if mode!='no-helper': print('aabbccddeeff')
+    if mode in ('two-helpers','other-containers'): print('112233445566')
 elif args[0]=='inspect':
     template=args[2]
-    if '.Mounts' in template: print('/output\n'+('/wrong' if mode=='mount' else '/app/config.toml'))
+    if template=='{{.State.Running}} {{.Config.Image}}':
+        if mode=='inspect-error': raise SystemExit('Synthetic inspect failure')
+        image=os.environ.get('CONFIG_IMAGE','ghcr.io/vbeinlich/eospvprognosehelfer@sha256:'+'d'*64)
+        if mode=='other-containers' and args[3]=='112233445566': image='ghcr.io/other/application:latest'
+        print(('false' if mode=='stopped' else 'true')+' '+image)
+    elif '.Mounts' in template: print('/output\n'+('/wrong' if mode=='mount' else '/app/config.toml'))
     elif template=='{{.Image}}': print('sha256:'+'c'*64)
     else:
         assert '.Config.Env' not in template and '{{json .}}' not in template
@@ -84,10 +92,13 @@ def harness(tmp_path):
         "ARTIFACTS": str(source), "TEST_CONFIG": str(config), "EXPORTS": str(exports),
         "EXPORTER": str(ROOT / "scripts/doctor_snapshot.py"), "COMMAND_LOG": str(tmp_path / "commands.jsonl")}
 
-    def run(case="", arguments=("--export",)):
+    def run(case="", arguments=("--export",), image=None):
         before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in source.iterdir() if p.is_file()}
+        options = {**env, "CASE": case}
+        if image is not None:
+            options["CONFIG_IMAGE"] = image
         result = subprocess.run(["bash", str(ROOT / "scripts/unraid-doctor-export.sh"), *arguments],
-                                env={**env, "CASE": case}, capture_output=True, timeout=30)
+                                env=options, capture_output=True, timeout=30)
         assert before == {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in source.iterdir() if p.is_file()}
         assert b"CONFIG-CANARY" not in result.stdout+result.stderr
         assert b"FILE-CANARY" not in result.stdout+result.stderr
@@ -141,6 +152,55 @@ def test_default_mode_is_read_only_preflight(harness):
     result = run(arguments=())
     assert result.returncode == 0
     assert json.loads(result.stdout)["export_created"] is False
+    assert list(exports.iterdir()) == []
+
+
+def test_unraid_bare_ps_display_uses_full_inspected_digest_reference(harness):
+    _, exports, env, run = harness
+    image = 'ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7'
+    assert run("display-bare", arguments=("--check-only",), image=image).returncode == 0
+    commands = [json.loads(line) for line in Path(env["COMMAND_LOG"]).read_text().splitlines()]
+    assert commands[0] == ["ps", "--quiet", "--no-trunc"]
+    assert ["inspect", "--format", "{{.State.Running}} {{.Config.Image}}", "aabbccddeeff"] in commands
+    assert list(exports.iterdir()) == []
+
+
+@pytest.mark.parametrize("suffix", ["", ":latest", ":pr-3", "@sha256:"+"a"*64,
+    ":v0.1.0@sha256:"+"b"*64])
+def test_exact_configured_repository_accepts_valid_tag_and_digest_forms(harness, suffix):
+    _, exports, _, run = harness
+    result = run(arguments=("--check-only",), image="ghcr.io/vbeinlich/eospvprognosehelfer"+suffix)
+    assert result.returncode == 0, result.stderr.decode()
+    assert list(exports.iterdir()) == []
+
+
+@pytest.mark.parametrize("image", ["ghcr.io/other/eospvprognosehelfer:latest",
+    "docker.io/vbeinlich/eospvprognosehelfer:latest",
+    "ghcr.io/vbeinlich/eospvprognosehelfer-other:latest",
+    "ghcr.io/vbeinlich/eospvprognosehelfer@sha256:abc",
+    "ghcr.io/vbeinlich/eospvprognosehelfer@sha256:"+"g"*64,
+    "ghcr.io/vbeinlich/eospvprognosehelfer@sha512:"+"a"*64,
+    "ghcr.io/vbeinlich/eospvprognosehelfer:"])
+def test_unrelated_or_malformed_configured_images_are_rejected(harness, image):
+    _, exports, env, run = harness
+    assert run(arguments=("--check-only",), image=image).returncode != 0
+    commands = [json.loads(line) for line in Path(env["COMMAND_LOG"]).read_text().splitlines()]
+    assert not any(command[0] == "exec" for command in commands)
+    assert list(exports.iterdir()) == []
+
+
+@pytest.mark.parametrize("case", ["two-helpers", "stopped", "inspect-error"])
+def test_only_one_still_running_inspected_helper_is_accepted(harness, case):
+    _, exports, _, run = harness
+    assert run(case, arguments=("--check-only",)).returncode != 0
+    assert list(exports.iterdir()) == []
+
+
+def test_other_running_application_is_ignored_without_exec(harness):
+    _, exports, env, run = harness
+    assert run("other-containers", arguments=("--check-only",)).returncode == 0
+    commands = [json.loads(line) for line in Path(env["COMMAND_LOG"]).read_text().splitlines()]
+    assert not any(command[0] == "exec" and command[2] == "112233445566" for command in commands)
     assert list(exports.iterdir()) == []
 
 

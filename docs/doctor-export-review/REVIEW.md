@@ -37,8 +37,9 @@ Reviewmaterial, nicht die zur neuen Ausführung vorgesehene Variante.
 ## Zur Ausführung vorgesehene Fassung
 
 [`scripts/unraid-doctor-export.sh`](../../scripts/unraid-doctor-export.sh),
-SHA256 `d60871dc64f67041842e9089c864e0a0cbb90dc29161c620bed0e6bad986cd1d`.
-Ausführbarer Quellstand: `2fe99eb6d37f9bcb7359e1bfff754974dd07d7c2`.
+SHA256 `65bac0c457795079ba703c68ec7a48e89c0fc097108c14f51621389fcec6d0fd`.
+Der ausführbare Fix-Quellstand wird nach dem Code-Commit eingetragen. Die
+Downloadvorlage mit `FIX_COMMIT` bis dahin nicht verwenden.
 Sie enthält die Schutzprüfungen aus PR #9 und zusätzlich `--check-only` als
 sicheren Standard ohne Argumente. Nur `--export` erzeugt einen Export:
 
@@ -53,6 +54,21 @@ sicheren Standard ohne Argumente. Nur `--export` erzeugt einen Export:
 - Neue Diagnoseausgaben ausschließlich in privatem `/tmp`-Ordner; keine Änderungen
   an bestehender Appdata, Konfiguration, Status, Claims oder Lösungen.
 
+### Korrektur der Container-Erkennung
+
+Der reale Unraid-Befund zeigt, dass die Image-Anzeige von `docker ps` den Tag/
+Digest weglassen kann. Deshalb werden ausschließlich laufende IDs aufgelistet;
+für jede ID liest `docker inspect` selektiv `.State.Running` und `.Config.Image`.
+Akzeptiert wird genau ein noch laufender Container aus dem exakten Repository,
+mit optionalem gültigem Tag und/oder vollständigem `sha256`-Digest. Andere
+Registries, Präfix-Lookalikes, fehlerhafte Digests und mehrere Treffer brechen ab.
+Inspektionsfehler werden nicht als Abwesenheit interpretiert. Kein Image-Pull,
+kein Start/Stop und kein Zugriff auf andere Containerdateien.
+
+Die Mount-, Shared-Lock-, Exporter-SHA256- und Privacy-/ZIP-Prüfungen bleiben
+erhalten. Die tatsächliche Image-ID/Referenz wird weiterhin privat protokolliert.
+Die Auswahl ist keine neue Distributionsfreigabe oder Remote-Image-Verifikation.
+
 ## Ausführung und Bewertung
 
 [Kurzanleitung](OPERATOR_RUNBOOK.md). Technisch ist diese Fassung zur rein lesenden
@@ -66,7 +82,10 @@ den echten gepinnten Exporter und echte Shared-/Exclusive-Locks. Originalhashes,
 Privacy, konsistente Rohbytes, fehlende/Symlink-Dateien, falsche Hashes, aktive
 Writer und fehlerhafte Optionen werden geprüft. Drei echte Optimiererläufe
 werden in der Review-CI gezielt ausgenommen; keine neue GENETIC-Simulation.
-Lokaler abschließender Stand: **336 bestanden, 3 gezielt deselected**. Ruff,
+Lokaler Stand nach Erkennungsfix: **353 bestanden, 3 gezielt deselected**,
+darunter 37 Wrapper-Tests. Der reale Fall mit gekürzter Image-Anzeige ist als
+Regression abgedeckt, ebenso Tag-/Digest-Referenzen, mehrere Treffer, falsche
+Images, gestoppte Container und Inspect-Fehler. Ruff,
 Actionlint, Compose, Bash-Syntax und diff-check erfolgreich. Die konkreten
 CI-Links am geprüften Head stehen in [PR #10](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/10/checks);
 keine Optimiererausführung. Der PR basiert für einen kleinen unabhängigen Delta-

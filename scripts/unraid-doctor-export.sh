@@ -16,14 +16,28 @@ fi
 source_revision=47bd42468ffbf2876143ba950512e968825a5f53
 script_sha256=56a950467d27482bf3361c0739f6cccab394dcbe04d3c0238255119d6bbc8ca5
 
-# Select exactly one RUNNING helper from its configured GHCR image, not its name.
-helper_id=$(docker ps --format '{{.ID}} {{.Image}}' | awk '$2 ~ /^ghcr.io\/vbeinlich\/eospvprognosehelfer[:@]/ {print $1}')
-case "$helper_id" in
-  ''|*[!0-9a-f]*)
-    printf '%s\n' 'STOP: could not identify exactly one running helper. Do not start/stop a container.' >&2
+# docker ps may shorten its Image display. Select by the complete Config.Image
+# from inspect instead, and recheck the running state without exposing Env data.
+running_ids=$(docker ps --quiet --no-trunc)
+helper_id=''
+helper_count=0
+image_pattern='^true ghcr[.]io/vbeinlich/eospvprognosehelfer(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(@sha256:[0-9a-f]{64})?$'
+while IFS= read -r container_id; do
+  [ -n "$container_id" ] || continue
+  if [[ ! "$container_id" =~ ^[0-9a-f]{12,64}$ ]]; then
+    printf '%s\n' 'STOP: unexpected Docker container ID; no export performed.' >&2
     exit 1
-    ;;
-esac
+  fi
+  identity=$(docker inspect --format '{{.State.Running}} {{.Config.Image}}' "$container_id")
+  if [[ "$identity" =~ $image_pattern ]]; then
+    helper_count=$((helper_count + 1))
+    helper_id=$container_id
+  fi
+done <<< "$running_ids"
+if [ "$helper_count" -ne 1 ]; then
+  printf '%s\n' 'STOP: could not identify exactly one running helper. Do not start/stop a container.' >&2
+  exit 1
+fi
 
 # Refuse unexpected/missing mount destinations; never guess alternative paths.
 mount_destinations=$(docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' "$helper_id")

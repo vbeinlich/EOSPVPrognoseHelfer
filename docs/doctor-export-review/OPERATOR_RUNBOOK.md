@@ -4,7 +4,7 @@ Stand 31.10.2026. Keine Befehle hier auf Unraid ausgeführt. Kein Export ist ein
 
 ## Geprüften Wrapper bereitstellen
 
-Quellcommit: `HISTORY_SOURCE_COMMIT` (vor Ausführung fest pinnen).
+Quellcommit: `f8e5eee707c90c70c538fa6ac00f1272cd5bf8cf`.
 Wrapper-SHA256: `c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952`.
 Engine-SHA256 ohne abschließenden Zeilenumbruch:
 `90b07b6bf178f4d49f9bdb5ad47373b6a269dfbc0302050a6f713b5952fd514e`.
@@ -21,7 +21,7 @@ Nach unabhängigem Review den Wrapper privat kopieren oder den festen Stand lade
 umask 077
 wrapper_dir=$(mktemp -d /tmp/eos-doctor-reviewed.XXXXXXXX)
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
-  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/HISTORY_SOURCE_COMMIT/scripts/unraid-doctor-export.sh \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/f8e5eee707c90c70c538fa6ac00f1272cd5bf8cf/scripts/unraid-doctor-export.sh \
   --output "$wrapper_dir/unraid-doctor-export.sh"
 printf '%s  %s\n' c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952 "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
 ```

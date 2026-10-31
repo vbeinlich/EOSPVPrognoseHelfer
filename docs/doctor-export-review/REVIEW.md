@@ -61,7 +61,7 @@ Die zusätzliche Betreiberfreigabe für historische Releasebelege bleibt erforde
 
 ## Quellstand und Validierung
 
-Ausführbarer Review-Commit: `HISTORY_SOURCE_COMMIT` (vor Ausführung fest pinnen).
+Ausführbarer Review-Commit: `f8e5eee707c90c70c538fa6ac00f1272cd5bf8cf`.
 Wrapper-SHA256: `c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952`.
 Engine-SHA256 ohne abschließenden Zeilenumbruch:
 `90b07b6bf178f4d49f9bdb5ad47373b6a269dfbc0302050a6f713b5952fd514e`.
@@ -76,6 +76,11 @@ Tests: synthetische Eingaben, echte Locks, Fake-Docker, gepinnte EOS-Testinstall
 Abgedeckt: Waiting, mehrere Erfolge, vollständige Historie trotz neuer Live-Eingaben,
 fehlende/inkonsistente Preise/SoC/PV, Versions-/Hash-/Lösungsabweichungen, Frische,
 Privacy, Lock, Image-Erkennung, eingebettete Bytes und fehlende Schreibzugriffe.
-Keine neue GENETIC-Simulation. Endgültige Ergebnisse und CI am PR-Head:
+**390 Tests bestanden, 3 echte Optimiererläufe gezielt ausgespart.** Ruff,
+Actionlint, Bash-Syntax, Compose und diff-check erfolgreich. Keine neue GENETIC-
+Simulation. Zusätzlich Offline-Smoke-Test der neuen Engine im bereits vorhandenen
+privaten Diagnose-Image: UID 10001, read-only, Netzwerk aus, nur synthetisches ZIP
+und Engine read-only eingebunden; Exitcode 0. Kein Image-Neubau/Update, kein realer
+Abnahmebeleg. Endgültige Ergebnisse und CI am PR-Head:
 [PR #10 Checks](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/10/checks).
 Private Abnahme bleibt bis zum echten vollständigen und geprüften Nachweis offen.

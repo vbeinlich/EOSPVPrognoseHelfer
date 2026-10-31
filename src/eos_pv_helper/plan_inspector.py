@@ -146,7 +146,12 @@ def archived_inputs(root, version, claim, solution_raw, now):
         return {**missing, "message": "Historische Eingabe nicht belegbar: Archiv fehlt oder Zuordnung/Validierung ungültig"}
 
 
-def parse_plan(root, version, raw, claim, zone, legacy_zone, now):
+def parse_plan(root, version, raw, claim, zone, legacy_zone, now, *, archive_lookup=True,
+               replay_inputs=False, scaled_load=False, calculate=False):
+    if __package__:
+        from . import economics
+    else:
+        import economics
     solution = obj(raw)
     start = stamp(solution.get("start_solution_datetime"))
     seconds = solution.get("interval_seconds")
@@ -168,8 +173,10 @@ def parse_plan(root, version, raw, claim, zone, legacy_zone, now):
     if claim and not claim_matches:
         warnings.append("Claim-Zeitbasis/Version passt nicht zur Lösung. Eingaben bleiben ausgeblendet.")
         inputs = {"status": "unproven", "message": "Historische Eingabe nicht belegbar", "values": {}}
-    else:
+    elif archive_lookup:
         inputs = archived_inputs(root, version, claim, raw, now)
+    else:
+        inputs = {"status": "unproven", "message": "Offline-Projektion: keine unabhängige historische Quellfrischeprüfung", "values": {}}
     if origin is None or seconds is None:
         warnings.append("Zeitbasis nicht belegbar: Originalindizes bleiben sichtbar, keine erfundenen Slot-Zeiten.")
     arrays = {}
@@ -271,6 +278,23 @@ def parse_plan(root, version, raw, claim, zone, legacy_zone, now):
                 running.append({"device": device_numbers[device], "values": [v if isinstance(v, bool) else None for v in values],
                                 "start_utc": start.isoformat() if start else None, "interval_seconds": seconds})
     inputs.pop("values")
+    ac = solution.get("ac_charge")
+    economics_claim_matches = not claim or (claim_matches and isinstance(ac, list) and seconds
+                                            and control_h == len(ac)*seconds/3600)
+    # The NAS reader never imports/initializes EOS or simulates while holding sync.lock.
+    comparison = (economics.evaluate(solution, scaled_load=scaled_load) if calculate and economics_claim_matches else
+                  {"status": "not_calculable", "message": "Nicht berechenbar: separater nativer Offline-Vergleich auf dem Diagnose-Rechner erforderlich.",
+                   "replay_verified": False})
+    if not economics_claim_matches:
+        comparison = {"status": "not_calculable", "message": "Nicht berechenbar: Claim und Originalplan sind inkonsistent."}
+    export = None
+    if replay_inputs and economics_claim_matches:
+        try:
+            projection = economics.project(solution)
+            export = {"schema_version": 1, "source_sha256": hashlib.sha256(raw).hexdigest(),
+                      "projection_sha256": economics.digest(projection), "projection": projection}
+        except Exception:
+            pass
     return {"version": version, "file": "solution-"+version+".json", "solution_sha256": hashlib.sha256(raw).hexdigest(),
             "claim_status": status, "solution_status": "readable",
             "claimed_at_utc": claim.get("claimed_at_utc") if stamp(claim.get("claimed_at_utc")) else None,
@@ -280,10 +304,11 @@ def parse_plan(root, version, raw, claim, zone, legacy_zone, now):
             "controls": {key: CONTROL_FIELDS[key] for key in arrays}, "rows": rows, "summary": summary,
             "terminal": terminal_summary, "tail": tail, "appliances": appliances,
             "unmapped_ev_arrays": extra, "appliance_running": running,
-            "legacy_washingstart": numeric(solution.get("washingstart")), "inputs": inputs}
+            "legacy_washingstart": numeric(solution.get("washingstart")), "inputs": inputs,
+            "comparison": comparison, **({"replay_inputs": export} if replay_inputs else {})}
 
 
-def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None):
+def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None, *, replay_inputs=False):
     root, zone = Path(source), ZoneInfo(timezone)
     legacy_zone = ZoneInfo(legacy_timezone) if legacy_timezone else None
     now = now or datetime.now(UTC)
@@ -319,7 +344,8 @@ def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None):
                 budget += len(raw)
                 if budget > 32_000_000:
                     raise InspectorError("Datenbudget überschritten.")
-                plan = parse_plan(root, version, raw, events.get(version), zone, legacy_zone, now)
+                plan = parse_plan(root, version, raw, events.get(version), zone, legacy_zone, now,
+                                  replay_inputs=replay_inputs)
             except Exception:
                 claim = events.get(version)
                 claim_status = claim.get("status") if isinstance(claim, dict) else None
@@ -329,13 +355,14 @@ def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None):
                         "source_slots": 0, "controls": {}, "rows": [], "summary": {}, "terminal": {}, "tail": [],
                         "appliances": [], "inputs": {"status": "unproven", "message": "Historische Eingabe nicht belegbar"},
                         "warnings": ["Lösung fehlt, ist beschädigt, unsicher oder überschreitet ein Leselimit."],
-                        "unmapped_ev_arrays": {}, "appliance_running": []}
+                        "unmapped_ev_arrays": {}, "appliance_running": [],
+                        "comparison": {"status": "not_calculable", "message": "Nicht berechenbar: Originallösung fehlt oder ist ungültig."}}
             plans.append(plan)
         plans.sort(key=lambda p: (p.get("start_utc") or "", p["version"]), reverse=True)
-        return {"schema_version": 1, "read_only": True, "phase": 1, "timezone": timezone,
+        return {"schema_version": 1, "read_only": True, "phase": 2, "timezone": timezone,
                 "generated_at_utc": now.isoformat(), "latest_sync_status": status, "warnings": warnings,
                 "plans": plans, "summary_fields": SUMMARY_FIELDS, "model_fields": MODEL_FIELDS, "tail_fields": TAIL_FIELDS,
-                "baseline": "nicht berechnet", "savings": "nicht berechnet"}
+                "baseline": "siehe Vergleich je Plan", "savings": "prognostiziert; keine realisierte Ersparnis"}
 
 
 def main():
@@ -343,11 +370,12 @@ def main():
     parser.add_argument("--source", default="/output")
     parser.add_argument("--timezone", default="Europe/Berlin")
     parser.add_argument("--legacy-timezone", help="Explicit known source timezone for legacy midnight-prefix arrays")
-    parser.add_argument("--format", choices=("html", "json"), default="html")
+    parser.add_argument("--format", choices=("html", "json", "comparison-inputs"), default="html")
     args = parser.parse_args()
     try:
-        data = collect(args.source, args.timezone, args.legacy_timezone)
-        if args.format == "json":
+        data = collect(args.source, args.timezone, args.legacy_timezone,
+                       replay_inputs=args.format == "comparison-inputs")
+        if args.format != "html":
             text = json.dumps(data, ensure_ascii=False, allow_nan=False)
         else:
             if __package__:

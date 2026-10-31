@@ -41,6 +41,14 @@ plans.forEach((p,i)=>make('option',(p.start_local||'Zeit unbekannt')+' · '+p.cl
 const preferred=plans.findIndex(p=>p.claim_status==='succeeded'&&p.rows.length);el('plans').value=preferred<0?0:preferred;
 function detail(p,r,q){
  const node=el('detail');node.replaceChildren();make('h3','Slot-Details · Originalindex '+r.source_index,node);
+ if(p.comparison?.status==='calculated'){
+  for(const [key,label] of [['baseline','E3/DC-Referenz'],['genetic','GENETIC']]){
+   const s=p.comparison.slots[key].find(x=>x.start_utc===r.start_utc);if(!s)continue;
+   make('h3',label+' · simuliertes Originalintervall',node);
+   dl(node,[['Netzbezug',val(s.grid_import_wh)+' Wh'],['Einspeisung',val(s.grid_export_wh)+' Wh'],['SoC Beginn / Ende',val(s.soc_start_percent)+' / '+val(s.soc_end_percent)+' %'],['Netzbezugskosten',val(s.grid_cost_eur)+' EUR'],['Verschleiß',val(s.wear_eur)+' EUR'],['Einspeiseerlös',val(s.feed_in_revenue_eur)+' EUR']]);
+  }
+  make('p','Energiemengen gelten für das ganze Originalintervall; Viertelstunden erzeugen keine zusätzlichen Messwerte.',node);
+ }
  dl(node,[['Ausgewähltes Anzeigeintervall',q?q.local+' → '+q.end_local:'Originalraster'],['Originalentscheidung',r.local?r.local+' → '+r.end_local:'Zeitbasis nicht belegbar'],['UTC-Intervall',r.start_utc?r.start_utc+' → '+r.end_utc:'Nicht zugeordnet'],['Einordnung',phase[r.phase]],['Gespeicherte Freigaben',r.permissions.join(' · ')]]);
  make('p','Faktoren und Freigaben zeigen keine tatsächliche Lade-/Entladeleistung. Modellwerte unten gehören zum gesamten Originalslot; Viertelstunden sind keine zusätzlichen Entscheidungen.',node);
  dl(node,Object.entries(r.controls).map(([k,v])=>[k,val(v)]));
@@ -79,12 +87,37 @@ function extra(p){
  const proof=make('details',undefined,n);make('summary','Herkunft und Datenbindung',proof);dl(proof,[['Version',p.version],['Quelldatei',p.file],['Lösungs-SHA256',p.solution_sha256||'nicht verfügbar'],['Claim-Zeitpunkt',p.claimed_at_utc||'nicht zugeordnet'],['Eingaben',p.inputs.message],['Archiv-SHA256',p.inputs.archive_sha256||'nicht vorhanden'],['Originale Erhebung',p.inputs.captured_at_utc||'nicht vorhanden']]);
  if(p.inputs.status==='verified')dl(proof,[['Historischer Anfangs-SoC',val(p.inputs.initial_soc_percent)+' %'],['Quellzeitpunkt SoC',p.inputs.soc_source_timestamp],['Aktuelle Frische geprüft','nein']]);
 }
+function economics(p){
+ const c=p.comparison,n=el('comparison');n.replaceChildren();
+ const ok=c?.status==='calculated';
+ el('baseline-cost').textContent=ok?val(c.baseline.adjusted_cost_eur)+' EUR':'Nicht berechenbar';
+ el('genetic-cost').textContent=ok?val(c.genetic.adjusted_cost_eur)+' EUR':'Nicht berechenbar';
+ el('saving').textContent=ok?val(c.additional_savings_eur)+' EUR'+(c.additional_savings_percent===null?'':' · '+val(c.additional_savings_percent)+' %'):'Nicht berechenbar';
+ make('h2','Wirtschaftlichkeit · prognostizierter Modellvergleich',n);
+ make('p',c?.message||'Nicht berechenbar: historische Vergleichseingaben fehlen.',n);
+ if(!ok)return;
+ make('p','Vereinfachter E3/DC-Eigenverbrauch: PV-Überschuss laden, Hausbedarf aus Batterie decken, keine Netzladung. Beide Szenarien nutzen dieselbe EOS-Physik und dieselbe gespeicherte Endwertkurve. Eingaben stammen aus dem Plan, Quellfrische ist damit nicht unabhängig nachgewiesen.',n);
+ const table=make('table',undefined,n),h=make('tr',undefined,table);
+ ['Kostenbestandteil / Energie','E3/DC-Referenz','GENETIC'].forEach(x=>make('th',x,h));
+ for(const [key,label,unit] of [['grid_cost_eur','Netzbezug','EUR'],['feed_in_revenue_eur','Einspeiseerlös (abziehen)','EUR'],['wear_eur','Batterieverschleiß','EUR'],['operating_cost_eur','Betriebskosten vor Endwert','EUR'],['terminal_credit_eur','Endwert (abziehen; kann negativ sein)','EUR'],['adjusted_cost_eur','Kosten einschließlich identischem Endwertmodell','EUR'],['grid_kwh','Netzbezug','kWh'],['feed_in_kwh','Einspeisung','kWh'],['losses_kwh','Verluste, bereits in Energieflüssen enthalten','kWh'],['end_soc_percent','SoC am tatsächlichen Kontrollende','%'],['end_usable_ac_kwh','Nutzbare Endenergie oberhalb Minimum','kWh']]){
+  const r=make('tr',undefined,table);[label,val(c.baseline[key])+' '+unit,val(c.genetic[key])+' '+unit].forEach(x=>make('td',x,r));
+ }
+ make('p','Verluste werden nicht nochmals als Eurobetrag addiert. Die Endbewertung erfolgt genau einmal je Szenario. Negative Mehrersparnis bedeutet einen Modellnachteil; Prozentwerte entfallen bei nicht positiven Referenzkosten.',n);
+ const d=make('details',undefined,n);make('summary','SoC und Netzbezug im gemeinsamen Originalraster',d);
+ const t=make('table',undefined,d),head=make('tr',undefined,t);['Lokaler Slot','Referenz Netzbezug Wh','GENETIC Netzbezug Wh','Referenz End-SoC %','GENETIC End-SoC %','PV Wh','Last Wh','Preis EUR/kWh'].forEach(x=>make('th',x,head));
+ c.slots.baseline.forEach((b,i)=>{const g=c.slots.genetic[i],r=make('tr',undefined,t);[p.rows[i]?.local||b.start_utc,b.grid_import_wh,g.grid_import_wh,b.soc_end_percent,g.soc_end_percent,b.pv_wh,b.load_wh,b.price_eur_kwh].forEach(x=>make('td',val(x),r));});
+ if(c.sensitivity?.status==='calculated'){
+  const s=make('details',undefined,n);make('summary','Isolierter Last-Annahmetest: 8.000 → 11.251 kWh',s);make('p',c.sensitivity.message,s);
+  dl(s,[['Referenz inkl. Endwert',val(c.sensitivity.baseline.adjusted_cost_eur)+' EUR'],['Unveränderte GENETIC-Freigaben inkl. Endwert',val(c.sensitivity.genetic.adjusted_cost_eur)+' EUR'],['Modell-Mehrersparnis unter Annahme',val(c.sensitivity.additional_savings_eur)+' EUR']]);
+ }
+ make('p','Native Wiedergabe des Originals bestätigt · Eingabehash '+c.input_sha256+' · keine neue GENETIC-Optimierung.',n);
+}
 function show(){
  const p=plans[Number(el('plans').value)];active=p;if(!p){el('empty').hidden=false;el('content').hidden=true;return;}
  el('empty').hidden=true;el('content').hidden=false;el('cost').textContent=p.summary.total_costs===undefined||p.summary.total_costs===null?'Nicht gespeichert':val(p.summary.total_costs)+' EUR';
  const basis={run_relative:'ab Planstart',legacy_midnight_explicit_timezone:'Mitternachts-Präfix, Quellzeitzone bestätigt',unproven:'nicht belegbar'};
  el('meta').replaceChildren();[p.claim_status,p.start_local||'Startzeit unbekannt','Zeitbasis: '+(basis[p.time_basis]||'unbekannt'),'Steuerhorizont '+val(p.control_hours)+' h / Tail '+val(p.effective_tail_hours)+' h'].forEach(x=>{const n=make('span',x,el('meta'));n.className='tag';});
- el('quality').textContent=[...p.warnings,p.inputs.message].join(' ');el('detail').replaceChildren();chart(p);rows(p);extra(p);if(p.rows.length)detail(p,p.rows[0],p.rows[0].quarters[0]);
+ el('quality').textContent=[...p.warnings,p.inputs.message].join(' ');el('detail').replaceChildren();chart(p);rows(p);extra(p);economics(p);if(p.rows.length)detail(p,p.rows[0],p.rows[0].quarters[0]);
 }
 el('plans').addEventListener('change',show);el('grid').addEventListener('change',()=>{if(active)rows(active);});show();
 """
@@ -101,13 +134,14 @@ def render(data):
     return f'''<!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="{policy}"><title>EOS GENETIC · Lokaler Plan-Inspector</title><style>{CSS}</style></head>
-<body><header><div class="pill">Phase 1 · rein lesend · keine Gerätesteuerung</div><h1>Gespeicherte GENETIC-Pläne</h1>
+<body><header><div class="pill">Phase 2 · Offline-Modellvergleich · keine Gerätesteuerung</div><h1>Gespeicherte GENETIC-Pläne</h1>
 <p>Originalentscheidungen verstehen. Keine neue Optimierung, keine Live-Messung.</p></header><main>
 <p id="sync" class="muted"></p><div id="global" class="notice"></div><section><div class="toolbar"><label>Gespeicherter Plan<select id="plans" aria-label="Gespeicherten Plan auswählen"></select></label>
 <label>Anzeige<select id="grid"><option value="quarter">15-Minuten-Ansicht</option><option value="native">Originalraster</option></select></label></div><div id="meta" class="meta"></div></section>
 <div id="empty" class="empty" hidden>Keine gespeicherten Pläne vorhanden.</div><div id="content">
-<div class="cards"><div class="card">Gesamte Modellkosten<strong id="cost"></strong><small>Gespeicherter Simulationswert · keine Rechnung und kein Sparbetrag</small></div>
-<div class="card">E3/DC-Referenz<strong>Nicht berechnet</strong><small>Baseline-Simulation ist Phase 2</small></div><div class="card">Zusätzliche Ersparnis<strong>Nicht berechnet</strong><small>Ohne Referenzlauf kein Vergleichswert</small></div></div>
+<div class="cards"><div class="card">E3/DC-Referenzkosten<strong id="baseline-cost">Nicht berechenbar</strong><small>Modellkosten einschließlich gemeinsamer Endwertbewertung</small></div>
+<div class="card">GENETIC-Kosten<strong id="genetic-cost">Nicht berechenbar</strong><small>Modellkosten einschließlich derselben Endwertbewertung</small></div><div class="card">Prognostizierte Mehrersparnis<strong id="saving">Nicht berechenbar</strong><small>Referenz minus GENETIC · keine realisierte Ersparnis</small></div></div>
+<section id="comparison"></section><p>Im Original gespeicherte Modellkosten vor Endwert: <span id="cost"></span></p>
 <section><h2>Freigaben im Originalraster</h2><p class="muted">Farbflächen zeigen Faktoren/Freigaben, keine kW. Auswahl öffnet den Originalslot.</p><svg id="timeline" role="img" aria-label="Zeitachse gespeicherter Steuerfaktoren"></svg>
 <div id="quality" class="notice"></div><p id="row-count" class="muted"></p><div class="scroll"><table id="slots"></table></div><div id="detail" class="detail" aria-live="polite"></div></section>
 <section><h2>Weitere gespeicherte Ergebnisse</h2><div id="extra"></div></section></div>

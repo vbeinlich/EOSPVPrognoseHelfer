@@ -15,6 +15,7 @@ legacy=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --json) format=json; shift ;;
+    --comparison-inputs) format=comparison-inputs; shift ;;
     --legacy-timezone)
       [ "$#" -ge 2 ] && [ -z "$legacy" ] || exit 2
       legacy=$2; shift 2 ;;
@@ -49,10 +50,10 @@ try:
     raw = sys.stdin.buffer.read(1_000_001)
     if len(raw) > 1_000_000 or hashlib.sha256(raw).hexdigest() != sys.argv[1]:
         raise ValueError()
-    expected = {'__main__.py', 'plan_inspector.py', 'plan_view.py', 'historical_validator.py'}
+    expected = {'__main__.py', 'plan_inspector.py', 'plan_view.py', 'historical_validator.py', 'economics.py', 'economics_native.py'}
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         infos = archive.infolist()
-        if (len(infos) != 5 or len({i.filename for i in infos}) != 5
+        if (len(infos) != 7 or len({i.filename for i in infos}) != 7
                 or any(i.file_size > 250_000 for i in infos)
                 or {i.filename for i in infos} != expected | {'bundle.json'}):
             raise ValueError()
@@ -62,7 +63,7 @@ try:
         sources = {name: archive.read(name) for name in expected}
         if any(hashlib.sha256(code).hexdigest() != manifest['files'][name] for name, code in sources.items()):
             raise ValueError()
-    for name in ('historical_validator', 'plan_view', 'plan_inspector'):
+    for name in ('historical_validator', 'economics', 'economics_native', 'plan_view', 'plan_inspector'):
         module = types.ModuleType(name)
         sys.modules[name] = module
         exec(compile(sources[name+'.py'], '<reviewed-code-bundle>', 'exec'), module.__dict__)

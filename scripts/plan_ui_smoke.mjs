@@ -25,18 +25,23 @@ try{
  let loaded=false;for(let i=0;i<120;i++){if(await evaluate("document.querySelectorAll('#slots tbody tr').length===96")){loaded=true;break;}await sleep(100);}
  if(!loaded)throw Error('Static report did not render its 96 quarter-hour rows: '+errors.join('; '));
  const check=async expression=>{if(!await evaluate(expression))throw Error('UI assertion failed: '+expression);};
- await check("document.querySelectorAll('#plans option').length===2");
+ await check("document.querySelectorAll('#plans option').length==="+(args.includes('--economic')?'1':'2'));
  await check("document.querySelector('#sync').textContent.includes('waiting-publication')");
- await check("[...document.querySelectorAll('.card strong')].filter(n=>n.textContent==='Nicht berechnet').length===2");
+ if(args.includes('--economic')){
+  await check("[...document.querySelectorAll('.card strong')].every(n=>n.textContent.includes('EUR'))");
+  await check("document.querySelector('#comparison').textContent.includes('Batterieverschleiß')");
+  await check("document.querySelector('#comparison').textContent.includes('11.251')");
+  await check("document.querySelector('#comparison table').rows.length===12");
+ }else await check("[...document.querySelectorAll('.card strong')].filter(n=>n.textContent==='Nicht berechenbar').length===3");
  await check("(()=>{const d=JSON.parse(document.querySelector('#report-data').textContent);const i=d.plans.findIndex(p=>p.interval_seconds===3600);const s=document.querySelector('#plans');s.value=i;s.dispatchEvent(new Event('change'));return document.querySelectorAll('#slots tbody tr').length===96;})()");
  await check("(()=>{const s=document.querySelector('#grid');s.value='native';s.dispatchEvent(new Event('change'));return document.querySelectorAll('#slots tbody tr').length===24;})()");
  await check("document.querySelectorAll('#timeline rect').length===72");
  await check("(()=>{document.querySelector('#slots tbody tr').click();return document.querySelector('#detail').textContent.includes('Originalindex 0')&&document.querySelector('#detail').textContent.includes('ac_charge');})()");
- await check("document.querySelector('#quality').textContent.includes('Historische Eingabe nicht belegbar')");
+ await check("document.querySelector('#quality').textContent.includes('"+(args.includes('--economic')?'Offline-Projektion':'Historische Eingabe nicht belegbar')+"')");
  if(errors.length)throw Error('Browser errors: '+errors.join('; '));
  if(requests.length)throw Error('Unexpected page network requests');
  if(args.includes('--screenshot')){const shot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false},sessionId);writeFileSync(option('--screenshot'),Buffer.from(shot.data,'base64'),{flag:'wx'});}
- console.log(JSON.stringify({passed:true,real_browser:true,static_file:true,plans:2,quarter_rows:96,native_hour_rows:24,external_requests:requests.length,browser_errors:errors.length}));
+ console.log(JSON.stringify({passed:true,real_browser:true,static_file:true,plans:args.includes('--economic')?1:2,economic:args.includes('--economic'),quarter_rows:96,native_hour_rows:24,external_requests:requests.length,browser_errors:errors.length}));
  await call('Browser.close');
 }finally{
  if(ws)ws.close();browser.kill();

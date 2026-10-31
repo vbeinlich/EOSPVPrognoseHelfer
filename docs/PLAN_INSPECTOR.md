@@ -1,5 +1,15 @@
 # Phase 1: vorhandene GENETIC-Pläne lokal öffnen
 
+**Erweiterung im separaten Phase-2-Review:**
+[Wirtschaftlichkeitsvergleich und private Offline-Abnahme](ECONOMICS_COMPARISON.md).
+Die folgenden ursprünglichen Phase-1-Aussagen beschreiben PR #14. Im Phase-2-Branch
+zeigen die drei Kostenkarten entweder einen nachgewiesen reproduzierten nativen
+Modellvergleich oder „Nicht berechenbar“. Das alte Produktionsimage wird dafür
+nicht erweitert; es kann einen numerischen, bereinigten `--comparison-inputs`-
+Export rein lesend liefern. Berechnung auf dem Diagnose-Rechner, niemals per
+Optimierungs-API. Neue Bundle-/Wrapper-Hashes stehen in der Phase-2-Dokumentation;
+alte Phase-1-Hashes gelten ausschließlich für deren alten Bundle-Stand.
+
 Review-Werkzeug für Issue #6, eigenständiger PR auf Main. **Keine Phase-2-Simulation,
 keine neue Optimierung, keine Geräteansteuerung und kein Webserver.** Bestehender
 Helfer, Container, Ports, Betriebsarten und Konfiguration bleiben unverändert.

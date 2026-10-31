@@ -1,5 +1,12 @@
 # Unraid-Export und spätere Offline-Auswertung
 
+> **Ersetzt am 31.10.2026:** Für vollständige historische Abnahmen ausschließlich
+> die [aktuelle Anleitung](../doctor-export-review/OPERATOR_RUNBOOK.md) verwenden.
+> Das unten dokumentierte alte Vier-Artefakt-Verfahren belegt historische SoC-/PV-
+> Eingaben nicht vollständig. Bei `waiting-publication` keine heutigen Preise mit
+> alten Lösungen verbinden. Die folgenden Befehle bleiben nur als historische
+> Dokumentation erhalten und sind nicht die aktuelle Ausführungsempfehlung.
+
 Die reale Doctor-Abnahme läuft separat beim Betreiber. Dieser PR liefert nur
 geprüfte Werkzeuge und synthetische Tests, keinen echten Abnahmebeleg. Bestehende
 konsistente Exporte bleiben nutzbar; nicht allein für einen neuen Wrapper erneut

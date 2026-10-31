@@ -1,35 +1,36 @@
-# Kurzanleitung für den geprüften Doctor-Export
+# Doctor: aktueller und historischer Nachweis
 
-Nur die in [REVIEW.md](REVIEW.md) identifizierte neue Skriptfassung verwenden.
-Originale unter `local-originals` sind ausschließlich Reviewmaterial. Skript
-privat nach Unraid kopieren; dessen SHA256 vor Ausführung vergleichen:
+Stand 31.10.2026. Keine Befehle hier auf Unraid ausgeführt. Kein Export ist eine Releasefreigabe.
 
-```sh
-printf '%s  %s\n' 65bac0c457795079ba703c68ec7a48e89c0fc097108c14f51621389fcec6d0fd /PRIVATE/unraid-doctor-export.sh | sha256sum -c -
-```
+## Geprüften Wrapper bereitstellen
 
-Die Containerauswahl nutzt jetzt vollständiges `.Config.Image` aus `inspect`,
-nicht die gekürzte Image-Anzeige in `docker ps`. Genau ein laufender Treffer ist
-erforderlich; sonst Abbruch ohne Export. Mount-/Lock-/Hash-/Privacy-Prüfung unverändert.
+Quellcommit: `HISTORY_SOURCE_COMMIT` (vor Ausführung fest pinnen).
+Wrapper-SHA256: `c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952`.
+Engine-SHA256 ohne abschließenden Zeilenumbruch:
+`90b07b6bf178f4d49f9bdb5ad47373b6a269dfbc0302050a6f713b5952fd514e`.
 
-Alternativ nach unabhängiger Prüfung den festen korrigierten Quellstand bereitstellen:
+Die neue Engine wird bytegleich eingebettet, vor Ausführung hashgeprüft und mit
+`python -B -c` im bestehenden Container ausgeführt. Kein Download, keine Installation
+und kein Update bei Vorabtest oder Export. Der alte gepinnte Exporter
+`scripts/doctor_snapshot.py` bleibt unverändert, wird aber nicht mehr verwendet:
+Seinem Vier-Artefakt-Format fehlen die gespeicherten SoC-/PV-Eingaben.
+
+Nach unabhängigem Review den Wrapper privat kopieren oder den festen Stand laden:
 
 ```sh
 umask 077
 wrapper_dir=$(mktemp -d /tmp/eos-doctor-reviewed.XXXXXXXX)
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
-  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/4a47997c1888e8e939df2a86480a9ad7ffaf6051/scripts/unraid-doctor-export.sh \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/HISTORY_SOURCE_COMMIT/scripts/unraid-doctor-export.sh \
   --output "$wrapper_dir/unraid-doctor-export.sh"
-printf '%s  %s\n' 65bac0c457795079ba703c68ec7a48e89c0fc097108c14f51621389fcec6d0fd "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
+printf '%s  %s\n' c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952 "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
 ```
 
-Das ist ausschließlich Skriptbereitstellung in einem neuen privaten Ordner.
-Bei einem Curl-/Hashfehler nicht ausführen. Danach kann in den folgenden Befehlen
-statt `/PRIVATE/unraid-doctor-export.sh` der geprüfte Pfad
-`"$wrapper_dir/unraid-doctor-export.sh"` verwendet werden. Der Vorabtest selbst
-lädt nichts herunter und erzeugt keine Dateien.
+Bei Curl-/Hashfehler nicht ausführen. Im Folgenden `/PRIVATE/unraid-doctor-export.sh`
+durch den tatsächlichen geprüften Pfad ersetzen. Archivierte lokale Originale
+unter `local-originals` sind ausschließlich Reviewmaterial.
 
-## 1. Rein lesender Vorabtest – Unraid-Root-Konsole
+## 1. Rein lesender Vorabtest
 
 ```sh
 bash /PRIVATE/unraid-doctor-export.sh --check-only
@@ -37,70 +38,103 @@ rc=$?
 printf 'Vorabtest-Exitcode: %s\n' "$rc"
 ```
 
-Erwartet: Exitcode 0, `preflight=passed`, `read_only=true`,
-`shared_lock_verified=true`, `export_created=false`, `doctor_acceptance=false`.
-Keine Ausgabedateien und kein Download. Bei Fehler stoppen, Container/Mounts/
-Leserechte bzw. normalen laufenden Sync prüfen. Nicht stoppen oder umkonfigurieren.
-Auch ein Aufruf ohne Argumente macht ausschließlich diesen Vorabtest.
+Erfolg: Exitcode 0, `preflight=passed`, `shared_lock_verified=true`,
+`artifact_count=7`, `export_created=false`, `doctor_acceptance=false`.
+Keine Dateien, Downloads oder privaten Messwerte in der Vorabtest-Ausgabe.
 
-## 2. Export – nur nach erfolgreichem Vorabtest
+Beim bestätigten `waiting-publication` ohne Event-Version und mit zwei Erfolgen
+ist ohne historische Eingaben ein begründeter Abbruch erwartet:
+`Historical input evidence incomplete ... 2 succeeded claim(s) do not prove saved prices/SoC/PV`.
+Kein Lock-/Modbus-/Optimierungsfehler. Keine Optimierung starten, Claims löschen
+oder Dateien umbenennen, um die Diagnose zu umgehen.
+
+## 2. Vorhandenes historisches Ereignis auswählen
+
+Ein vollständiges Schema-2-ZIP enthält `snapshot.json` und sieben unveränderte
+Rohartefakte derselben Erhebung: `sync-report.json`, `sync-state.json`,
+`prices.json`, `soc.json`, `forecast.json`, `report.json`,
+`solution-<version>.json`. Erfolgsreport, Preisversion, SoC-Beweis und PV-Daten
+müssen zum gewählten Claim gehören. Ein altes Schema-1-ZIP mit vier Rohartefakten
+reicht nicht. Den Versionsplatzhalter durch die echte Archiv-/Claim-Version ersetzen:
 
 ```sh
-bash /PRIVATE/unraid-doctor-export.sh --export
+bash /PRIVATE/unraid-doctor-export.sh --check-only \
+  --historical-snapshot /PRIVATE/EXISTING-HISTORICAL.zip \
+  --event-version ACTUAL_64_HEX_EVENT_VERSION
+rc=$?
+printf 'Historischer Vorabtest-Exitcode: %s\n' "$rc"
+```
+
+Es wird kein vermeintlich jüngster Erfolg gewählt: Archivversion bzw. explizite
+Version bestimmt genau ein Ereignis. Aktuelle Preise, SoC, Prognose und Bericht
+werden hierbei nicht als historische Eingaben gelesen. Unter Shared-Lock werden
+persistierter erfolgreicher Claim und exakte Lösungsbytes mit dem Archiv verglichen.
+
+**Ohne vollständige alte Eingaben hier stoppen.** Ein konsistenter damaliger
+privater Backup-Satz kann zuerst offline geprüft werden. Nicht aus heutigen Dateien
+eine Vergangenheit zusammensetzen oder Zeitstempel, Messwerte und Manifeste
+rekonstruieren. Der neue Parser erzeugt keine verlorene Historie. Die private
+Abnahme bleibt dann offen; dieser Auftrag fordert keinen neuen GENETIC-Lauf an.
+
+## 3. Export nach erfolgreichem Vorabtest
+
+Mit denselben historischen Optionen, oder ohne Optionen nur bei vollständig
+belegtem ursprünglichem Erfolgszyklus:
+
+```sh
+bash /PRIVATE/unraid-doctor-export.sh --export \
+  --historical-snapshot /PRIVATE/EXISTING-HISTORICAL.zip \
+  --event-version ACTUAL_64_HEX_EVENT_VERSION
 rc=$?
 printf 'Export-Exitcode: %s\n' "$rc"
 ```
 
-Erwartet: 0 und `Export successful; private directory: /tmp/eos-v010-doctor.…`.
-Das Skript prüft erneut unabhängig den Lock und den SHA256 des Originalexporters.
-Kein manueller Sync, POST, Quellenrefresh oder GENETIC-Aufruf.
-
-## 3. Privates ZIP und Hash prüfen
-
-Den tatsächlich ausgegebenen privaten Verzeichnispfad verwenden:
+Erfolg: 0 und neuer privater `/tmp/eos-v010-doctor.…`-Ordner. Erneutes Shared-Lock,
+Inhalts-/Hash-/Privacy-Prüfung vor ZIP-Ausgabe und unabhängige Streamprüfung.
+Historische ZIP-Bytes und `captured_at_utc` bleiben exakt erhalten; der heutige
+Exportzeitpunkt steht getrennt in `operator-observed-at-utc.txt`.
 
 ```sh
 cd /tmp/eos-v010-doctor.TATSAECHLICHER_SUFFIX
 sha256sum -c SHA256SUMS.txt
 sha256sum doctor-snapshot.zip
+sha256sum historical-doctor.py
 ```
 
-Nur bei Export-Exitcode 0, fertiger ZIP und passenden Hashes übertragen. Eine
-`.partial`-Datei oder ein fehlendes Hashfile ist kein Erfolg. Fehler nicht durch
-Umbenennen oder Zeitänderungen beheben. Bei belegtem Lock später einen neuen
-Export versuchen; keinen Optimierungslauf erzwingen. Private Daten nie nach GitHub.
-`/tmp` ist flüchtig: ZIP, Hash-/Herkunftsdateien vor Neustart sicher übertragen.
+ZIP, mitgelieferte Engine und Herkunftsdateien privat sichern. Keine TOML, Tokens,
+Env-Dumps oder evcc-Rohantworten im Export. `.partial` ist kein Erfolg.
+Bei Lockbelegung später erneut prüfen, keinen Writer stoppen. `/tmp` ist flüchtig.
+Archive, Messwerte und Secrets niemals nach GitHub hochladen.
 
 ## 4. Offline auf dem Diagnose-Rechner
 
-ZIP als private Diagnosekopie unter dem bekannten lokalen Pfad ablegen und Hash
-gegen den echten Unraid-Wert vergleichen. Beispiel für PowerShell, ausschließlich
-auf dem Diagnose-Rechner mit vorhandenem lokalen privaten Image:
+ZIP und `historical-doctor.py` privat übertragen; Hashes mit Unraid vergleichen.
+Das vorhandene private Diagnose-Image genügt, die neue Engine wird nur lokal
+read-only eingebunden. Beispiel PowerShell:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 C:\Users\volke\eos-v010-private\doctor-snapshot.zip
-docker --context desktop-linux run --rm --pull=never --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 --mount type=bind,source=C:\Users\volke\eos-v010-private\doctor-snapshot.zip,target=/private/snapshot.zip,readonly eos-pv-helper:v010-private doctor --snapshot /private/snapshot.zip
+Get-FileHash -Algorithm SHA256 C:\Users\volke\eos-v010-private\historical-doctor.py
+docker --context desktop-linux run --rm --pull=never --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 --entrypoint python --mount type=bind,source=C:\Users\volke\eos-v010-private\doctor-snapshot.zip,target=/private/snapshot.zip,readonly --mount type=bind,source=C:\Users\volke\eos-v010-private\historical-doctor.py,target=/private/historical-doctor.py,readonly eos-pv-helper:v010-private -B /private/historical-doctor.py --snapshot /private/snapshot.zip
 $LASTEXITCODE
 ```
 
-Kein Pull/Deployment auf Unraid und kein produktiver Docker-Socket. Fehlt das
-lokale private Image, mit Fehler abbrechen; kein automatischer Download. Nur die
-einzelne Diagnosekopie muss für den gewählten Benutzer lesbar sein; keine
-produktiven Originalrechte verändern. Kein `--write-eos` oder `--refresh-source`.
+Alternativ im Entwicklungscheckout mit installierten Abhängigkeiten:
+`python -B -m eos_pv_helper doctor --snapshot PRIVATE.zip`.
+Der alte Image-Befehl `doctor --snapshot` kennt das neue Schema nicht; dort
+ausdrücklich die mitgelieferte Engine verwenden. Kein Netzwerk, Docker-Socket,
+Live-Output oder produktive Konfiguration mounten. Kein `--write-eos`/Refresh.
 
-## 5. Erwartetes Ergebnis
+## 5. Ergebnis und Fehler
 
-Erst Exitcode 0, `accepted=true`, alle Checks wahr, vier passende Artefakthashes,
-konsistente Preis-/Eventversion und `succeeded`-Claim mit zugehöriger Lösung
-erfüllen den technischen Doctor-Nachweis. Herkunft aus `runtime.json`,
-`image-origin.json`, Skriptrevision und tatsächlicher Erhebung vom Betreiber
-bestätigen lassen. Hashes allein authentifizieren den Ursprung nicht.
+Erforderlich: Exitcode 0, `accepted=true`, alle Checks wahr, sieben Artefakthashes,
+`capture_manifest_sha256`, `evidence_mode=historical_snapshot`,
+`historical_reference_kind=persisted_claim`, `current_freshness_verified=false`.
 
-Historische Prüfung: `evidence_mode=historical_snapshot`,
-`current_freshness_verified=false`. Report-/SoC-Alter werden zum echten
-Erhebungszeitpunkt bewertet, SoC maximal 300 s oder strengere konfigurierte Grenze.
-Keine Messwerte ergänzen oder Zeiten zurückdatieren. Bei Fehler bleibt die
-Abnahme offen; ein erfolgreicher Export allein ist keine Doctor-/Releasefreigabe.
-
-Diese Befehle wurden hier nicht auf Unraid ausgeführt. Keine private Datei,
-Konfiguration, IP-Adresse oder Zugangsdaten werden im Review-PR veröffentlicht.
+`historical_reference_utc` ist das unveränderte gespeicherte `claimed_at_utc`:
+SoC höchstens 300 s bzw. strengere Grenze **damals**, Lesebeweis vor Dispatch
+abgeschlossen. Originale Erhebungszeit und heutige Prüfzeit bleiben getrennt.
+Kein Rückdatieren. Fehlende/abweichende Versionen, Eingaben, Hashes oder Lösungen
+sperren die Abnahme mit Diagnose. Hashes authentifizieren die Herkunft nicht:
+Betreiber muss Originalerhebung, tatsächliche Grenzen und Kandidatenbezug prüfen.
+Alle historischen Betreiber-, Lizenz- und Releasefreigaben bleiben separat offen.

@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
-import test_doctor as fixtures
+from test_historical_doctor import complete_artifacts, second_claim, snapshot, waiting
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,25 +44,20 @@ elif args[0]=='inspect':
 elif args[:2]==['image','inspect']:
     print(json.dumps({'source':'https://github.com/vbeinlich/EOSPVPrognoseHelfer','revision':'b'*40,'version':'synthetic'}))
 elif args[:4]==['exec','-i','aabbccddeeff','python']:
-    if args[4]=='-':
-        assert args[5:]==['--source','/output','--config','/app/config.toml']
-        result=subprocess.run([sys.executable,'-','--source',os.environ['ARTIFACTS'],'--config',os.environ['TEST_CONFIG']],input=sys.stdin.buffer.read(),capture_output=True)
-        raw=result.stdout
+    assert args[4:6]==['-B','-c']
+    extra=[os.environ['ARTIFACTS'] if a=='/output' else os.environ['TEST_CONFIG'] if a=='/app/config.toml' else a for a in args[7:]]
+    result=subprocess.run([sys.executable,'-B','-c',args[6],*extra],input=sys.stdin.buffer.read(),capture_output=True)
+    raw=result.stdout
+    if '--source' in extra and '--emit' in extra and result.returncode==0:
         if mode=='zip-corrupt': raw=b'not a ZIP'
-        if mode=='hash' and raw:
+        if mode=='hash':
             with zipfile.ZipFile(io.BytesIO(raw)) as z: files={n:z.read(n) for n in z.namelist()}
             files['prices.json']+=b' '
             out=io.BytesIO()
             with zipfile.ZipFile(out,'w') as z:
                 for n,b in files.items(): z.writestr(n,b)
             raw=out.getvalue()
-        sys.stdout.buffer.write(raw);sys.stderr.buffer.write(result.stderr);sys.exit(result.returncode)
-    assert args[4]=='-c'
-    extra=args[6:]
-    if extra:
-        assert extra==['/output','/app/config.toml']
-        extra=[os.environ['ARTIFACTS'],os.environ['TEST_CONFIG']]
-    sys.exit(subprocess.run([sys.executable,'-c',args[5],*extra],stdin=sys.stdin.buffer).returncode)
+    sys.stdout.buffer.write(raw);sys.stderr.buffer.write(result.stderr);sys.exit(result.returncode)
 else: raise SystemExit('Forbidden Docker command')
 '''
 
@@ -71,8 +66,7 @@ else: raise SystemExit('Forbidden Docker command')
 def harness(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
-    artifacts = fixtures.artifacts.__wrapped__(source)
-    fixtures.inspect(artifacts)
+    complete_artifacts(source)
     config = tmp_path / "private.toml"
     config.write_text('timezone="Europe/Berlin"\nprivate_key="CONFIG-CANARY-NEVER-EXPORT"\n'
                       '[soc]\nmax_age_seconds=60\nmax_abs_power_w=9000\n'
@@ -97,7 +91,12 @@ def harness(tmp_path):
         options = {**env, "CASE": case}
         if image is not None:
             options["CONFIG_IMAGE"] = image
-        result = subprocess.run(["bash", str(ROOT / "scripts/unraid-doctor-export.sh"), *arguments],
+        script = ROOT / "scripts/unraid-doctor-export.sh"
+        if case == "script-hash":
+            script = tmp_path / "bad-wrapper.sh"
+            script.write_text((ROOT / "scripts/unraid-doctor-export.sh").read_text().replace(
+                'No network, extraction, timestamp repair', 'No network, extraction, timestamp edit'))
+        result = subprocess.run(["bash", str(script), *arguments],
                                 env=options, capture_output=True, timeout=30)
         assert before == {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in source.iterdir() if p.is_file()}
         assert b"CONFIG-CANARY" not in result.stdout+result.stderr
@@ -116,7 +115,7 @@ def test_export_has_exact_files_no_config_secrets_and_preserves_raw_artifacts(ha
     assert b"not Doctor acceptance" in result.stdout
     with zipfile.ZipFile(path) as archive:
         manifest = json.loads(archive.read("snapshot.json"))
-        assert len(archive.namelist()) == 5
+        assert len(archive.namelist()) == 8
         assert manifest["validation_constraints"]["max_age_seconds"] == 60
         for name, digest in manifest["files"].items():
             raw = archive.read(name)
@@ -140,7 +139,7 @@ def test_preflight_reads_under_lock_without_export_download_or_private_output(ha
     result = run(arguments=("--check-only",))
     assert result.returncode == 0, result.stderr.decode()
     assert json.loads(result.stdout) == {"preflight": "passed", "read_only": True,
-        "shared_lock_verified": True, "artifact_count": 4, "export_created": False,
+        "shared_lock_verified": True, "artifact_count": 7, "export_created": False,
         "doctor_acceptance": False}
     assert list(exports.iterdir()) == []
     commands = [json.loads(line) for line in Path(env["COMMAND_LOG"]).read_text().splitlines()]
@@ -261,3 +260,66 @@ def test_missing_or_symlinked_artifact_never_becomes_an_export(harness, failure)
         path.symlink_to(env["TEST_CONFIG"])
     assert run().returncode != 0
     assert not list(exports.glob("*/doctor-snapshot.zip"))
+
+
+def historical_case(harness):
+    source, exports, _, _ = harness
+    files = {p.name: json.loads(p.read_bytes()) for p in source.glob("*.json")}
+    artifacts = source, {"output": {"directory": str(source)}}, files
+    raw = snapshot(artifacts)
+    path = exports.parent / "existing-private-snapshot.zip"
+    path.write_bytes(raw)
+    waiting(artifacts)
+    second_claim(artifacts)
+    return path, raw, files["sync-report.json"]["event"]["version"]
+
+
+def test_waiting_publication_without_history_explains_missing_evidence(harness):
+    source, exports, _, run = harness
+    historical_case(harness)
+    for mode in ("--check-only", "--export"):
+        result = run(arguments=(mode,))
+        assert result.returncode != 0
+        assert b"2 succeeded claim(s) do not prove saved prices/SoC/PV" in result.stderr
+    assert list(exports.iterdir()) == []
+    assert json.loads((source / "sync-report.json").read_bytes())["event"] == {"status": "waiting-publication"}
+
+
+def test_historical_preflight_and_export_keep_original_archive_and_capture_time(harness):
+    source, exports, _, run = harness
+    path, raw, version = historical_case(harness)
+    for name in ("prices.json", "soc.json", "forecast.json", "report.json"):
+        (source / name).write_text('{"current_data_is_not_history":true}')
+    options = ("--historical-snapshot", str(path), "--event-version", version)
+    assert run(arguments=("--check-only", *options)).returncode == 0
+    assert not list(exports.iterdir())
+    result = run(arguments=("--export", *options))
+    assert result.returncode == 0, result.stderr.decode()
+    assert next(exports.glob("*/doctor-snapshot.zip")).read_bytes() == raw
+    assert path.read_bytes() == raw
+
+
+@pytest.mark.parametrize("failure", ["missing", "symlink", "legacy", "wrong-version", "inconsistent"])
+def test_historical_wrapper_fails_closed_without_partial_export(harness, failure):
+    source, exports, _, run = harness
+    path, raw, version = historical_case(harness)
+    if failure == "missing":
+        path.unlink()
+    elif failure == "symlink":
+        path.unlink()
+        path.symlink_to(source / "sync-report.json")
+    elif failure == "legacy":
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("snapshot.json", '{"schema_version":1}')
+    elif failure == "wrong-version":
+        version = "f"*64
+    else:
+        with zipfile.ZipFile(path) as archive:
+            contents = {n: archive.read(n) for n in archive.namelist()}
+        contents["prices.json"] += b" "
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, payload in contents.items():
+                archive.writestr(name, payload)
+    result = run(arguments=("--export", "--historical-snapshot", str(path), "--event-version", version))
+    assert result.returncode != 0
+    assert not list(exports.iterdir())

@@ -24,3 +24,11 @@ def test_snapshot_producer_remains_the_original_pinned_read_only_implementation(
     assert hashlib.sha256((ROOT / "scripts/doctor_snapshot.py").read_bytes()).hexdigest() == (
         "56a950467d27482bf3361c0739f6cccab394dcbe04d3c0238255119d6bbc8ca5"
     )
+
+
+def test_embedded_historical_engine_matches_reviewed_source_and_hash():
+    text = (ROOT / "scripts/unraid-doctor-export.sh").read_text()
+    engine = text.split("historical_engine=$(cat <<'PY_ENGINE'\n", 1)[1].split("\nPY_ENGINE\n", 1)[0]
+    assert engine == (ROOT / "src/eos_pv_helper/historical.py").read_text().rstrip("\n")
+    expected = re.search(r"^engine_sha256=([0-9a-f]{64})$", text, re.M)[1]
+    assert hashlib.sha256(engine.encode()).hexdigest() == expected

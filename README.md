@@ -1,5 +1,8 @@
 # EOS PV-Prognose-Helfer
 
+Neu im Review: [Phase 1 – gespeicherte GENETIC-Pläne lokal als HTML öffnen](docs/PLAN_INSPECTOR.md).
+Rein lesend, ohne Webserver oder neue Optimierung. Baseline und Ersparnis bleiben unberechnet.
+
 Validiert vorhandene Forecast.Solar-Prognosen für Akkudoktor EOS und stellt eine zentrale
 UTC-Viertelstundenreihe bereit. Keine Gerätebefehle, keine neue Wetter-API und kein eigener
 Forecast.Solar-Client: verwendet wird der originale EOS-Provider `PVForecastForecastSolar`.

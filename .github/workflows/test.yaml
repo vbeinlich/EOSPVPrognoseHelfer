@@ -9,6 +9,9 @@ permissions:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    env:
+      # Review boundary: mocked optimize responses only, never execute GENETIC.
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/issue-12-genetic-evidence' || github.ref_name == 'release/issue-12-genetic-evidence') && '-m "not genetic_execution"' || '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -17,6 +20,12 @@ jobs:
       - run: pip install '.[test]'
       - run: ruff check src tests scripts
       - run: pytest -q
+      - name: Produce evidence using real sync writer and mocked optimize response
+        run: python tests/make_evidence_fixture.py --destination "$RUNNER_TEMP/evidence-compat"
+      - name: Read immutable historical production image for archive compatibility
+        run: docker pull ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7
+      - name: Verify auto-archives without development modules in the production image
+        run: python scripts/evidence_container_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7 --fixture "$RUNNER_TEMP/evidence-compat" --expect-no-doctor
       - run: docker compose config --no-path-resolution
       - run: docker build --target eos-source -t eos-pv-helper:ci .
       - run: python scripts/unraid_smoke.py --image eos-pv-helper:ci
@@ -29,6 +38,8 @@ jobs:
           path: candidate-license-inventory.json
   eos-integration:
     runs-on: ubuntu-latest
+    env:
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/issue-12-genetic-evidence' || github.ref_name == 'release/issue-12-genetic-evidence') && '-m "not genetic_execution"' || '' }}
     permissions:
       contents: read
       issues: read
@@ -37,4 +48,4 @@ jobs:
         with:
           fetch-depth: 0
       - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
-      - run: docker run --rm --network none eos-pv-helper:eos-test
+      - run: docker run --rm --network none -e PYTEST_ADDOPTS eos-pv-helper:eos-test

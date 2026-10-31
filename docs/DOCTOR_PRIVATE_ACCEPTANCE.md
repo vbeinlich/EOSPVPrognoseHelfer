@@ -1,5 +1,12 @@
 # Private Doctor-Abnahme ohne neuen Produktionslauf
 
+> **Aktualisierung Issue #12:** Vollständige neue Ereignisse können nach separater
+> Aktivierung automatisch als sieben zusammengehörige Rohartefakte gesichert werden.
+> Maßgeblich sind [Schema, Migration und Abnahmeverfahren](GENETIC_EVIDENCE.md).
+> Die nachfolgend beschriebene ältere Vier-Artefakt-ZIP reicht für die vollständige
+> historische SoC-/PV-Abnahme nicht aus. Keine heutigen Eingaben mit alten Lösungen
+> kombinieren und keine verlorene Historie rekonstruieren.
+
 Stand 30.10.2026. Die reale GENETIC-Abnahme von #1 bleibt abgeschlossen.
 Für das strengere Release-Gate fehlt weiterhin der vollständige private Doctor-Beleg.
 Diese Anleitung bereitet ihn vor; sie wurde nicht auf dem produktiven Helfer ausgeführt.

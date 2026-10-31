@@ -1,6 +1,6 @@
 #!/bin/bash
 # Operator-only: run in the Unraid terminal. Reads the existing helper only.
-# Creates a NEW private diagnostic directory under /tmp, never changes appdata.
+# --check-only creates no files; --export creates a NEW private /tmp directory.
 set -euo pipefail
 umask 077
 set -C
@@ -8,7 +8,11 @@ set -C
 # Always use Unraid's local Docker socket; do not follow a remote context.
 docker() { command docker --host unix:///var/run/docker.sock "$@"; }
 
-accept_dir=$(mktemp -d /tmp/eos-v010-doctor.XXXXXXXX)
+mode=${1:---check-only}
+if [ "$#" -gt 1 ] || { [ "$mode" != '--export' ] && [ "$mode" != '--check-only' ]; }; then
+  printf '%s\n' 'Usage: bash unraid-doctor-export.sh [--check-only|--export]' >&2
+  exit 2
+fi
 source_revision=47bd42468ffbf2876143ba950512e968825a5f53
 script_sha256=56a950467d27482bf3361c0739f6cccab394dcbe04d3c0238255119d6bbc8ca5
 
@@ -26,6 +30,52 @@ mount_destinations=$(docker inspect --format '{{range .Mounts}}{{println .Destin
 printf '%s\n' "$mount_destinations" | awk '$0=="/output" {found=1} END {exit !found}'
 printf '%s\n' "$mount_destinations" | awk '$0=="/app/config.toml" {found=1} END {exit !found}'
 
+# A point-in-time read-only preflight. Export acquires its own lock again later.
+if [ "$mode" = '--check-only' ]; then
+  preflight=$(cat <<'PY'
+import fcntl, json, re, sys, tomllib
+from pathlib import Path
+try:
+    root, config = Path(sys.argv[1]), Path(sys.argv[2])
+    lock = root / 'sync.lock'
+    if lock.is_symlink() or not lock.is_file():
+        raise ValueError()
+    with lock.open('rb') as handle:
+        fcntl.flock(handle, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        def read(name):
+            path = root / name
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > 8_000_000:
+                raise ValueError()
+            with path.open('rb') as source:
+                raw = source.read(8_000_001)
+            if len(raw) > 8_000_000:
+                raise ValueError()
+            value = json.loads(raw)
+            if not isinstance(value, dict):
+                raise ValueError()
+            return value
+        report = read('sync-report.json')
+        version = report.get('event', {}).get('version', '')
+        if not re.fullmatch('[0-9a-f]{64}', version):
+            raise ValueError()
+        state = read('sync-state.json')
+        if state.get('events', {}).get(version, {}).get('status') != 'succeeded':
+            raise ValueError()
+        read('prices.json')
+        read('solution-' + version + '.json')
+        with config.open('rb') as settings:
+            tomllib.load(settings)
+except Exception:
+    raise SystemExit('Read-only preflight blocked; check files, configuration or active sync locally') from None
+print(json.dumps({'preflight': 'passed', 'read_only': True, 'shared_lock_verified': True,
+                  'artifact_count': 4, 'export_created': False, 'doctor_acceptance': False}))
+PY
+)
+  docker exec -i "$helper_id" python -c "$preflight" /output /app/config.toml
+  exit 0
+fi
+
+accept_dir=$(mktemp -d /tmp/eos-v010-doctor.XXXXXXXX)
 # Pin the already reviewed exporter. No install/update inside the helper.
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
   "https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/$source_revision/scripts/doctor_snapshot.py" \

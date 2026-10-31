@@ -9,6 +9,8 @@
 !docs/GENETIC_ACCEPTANCE.json
 !docs/release-admin/
 !docs/release-admin/**
+!docs/doctor-export-review/
+!docs/doctor-export-review/**
 !src/
 !src/**
 !tests/

@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Explicit operator boundary: this preparation must not start GENETIC.
-      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates') && '-m "not genetic_execution"' || '' }}
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates' || github.head_ref == 'release/v0.1.0-doctor-review' || github.ref_name == 'release/v0.1.0-doctor-review') && '-m "not genetic_execution"' || '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -33,7 +33,7 @@ jobs:
   eos-integration:
     runs-on: ubuntu-latest
     env:
-      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates') && '-m "not genetic_execution"' || '' }}
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates' || github.head_ref == 'release/v0.1.0-doctor-review' || github.ref_name == 'release/v0.1.0-doctor-review') && '-m "not genetic_execution"' || '' }}
     permissions:
       contents: read
       issues: read

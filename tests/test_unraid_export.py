@@ -50,7 +50,11 @@ elif args[:4]==['exec','-i','aabbccddeeff','python']:
             raw=out.getvalue()
         sys.stdout.buffer.write(raw);sys.stderr.buffer.write(result.stderr);sys.exit(result.returncode)
     assert args[4]=='-c'
-    sys.exit(subprocess.run([sys.executable,'-c',args[5]],stdin=sys.stdin.buffer).returncode)
+    extra=args[6:]
+    if extra:
+        assert extra==['/output','/app/config.toml']
+        extra=[os.environ['ARTIFACTS'],os.environ['TEST_CONFIG']]
+    sys.exit(subprocess.run([sys.executable,'-c',args[5],*extra],stdin=sys.stdin.buffer).returncode)
 else: raise SystemExit('Forbidden Docker command')
 '''
 
@@ -80,9 +84,9 @@ def harness(tmp_path):
         "ARTIFACTS": str(source), "TEST_CONFIG": str(config), "EXPORTS": str(exports),
         "EXPORTER": str(ROOT / "scripts/doctor_snapshot.py"), "COMMAND_LOG": str(tmp_path / "commands.jsonl")}
 
-    def run(case=""):
+    def run(case="", arguments=("--export",)):
         before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in source.iterdir() if p.is_file()}
-        result = subprocess.run(["bash", str(ROOT / "scripts/unraid-doctor-export.sh")],
+        result = subprocess.run(["bash", str(ROOT / "scripts/unraid-doctor-export.sh"), *arguments],
                                 env={**env, "CASE": case}, capture_output=True, timeout=30)
         assert before == {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in source.iterdir() if p.is_file()}
         assert b"CONFIG-CANARY" not in result.stdout+result.stderr
@@ -118,6 +122,53 @@ def test_wrapper_errors_never_publish_a_final_archive(harness, case):
     assert run(case).returncode != 0
     assert not list(exports.glob("*/doctor-snapshot.zip"))
     assert all(p.stat().st_size == 0 for p in exports.glob("*/*.partial"))
+
+
+def test_preflight_reads_under_lock_without_export_download_or_private_output(harness):
+    _, exports, env, run = harness
+    result = run(arguments=("--check-only",))
+    assert result.returncode == 0, result.stderr.decode()
+    assert json.loads(result.stdout) == {"preflight": "passed", "read_only": True,
+        "shared_lock_verified": True, "artifact_count": 4, "export_created": False,
+        "doctor_acceptance": False}
+    assert list(exports.iterdir()) == []
+    commands = [json.loads(line) for line in Path(env["COMMAND_LOG"]).read_text().splitlines()]
+    assert all(command[0] in {"ps", "inspect", "exec"} for command in commands)
+
+
+def test_default_mode_is_read_only_preflight(harness):
+    _, exports, _, run = harness
+    result = run(arguments=())
+    assert result.returncode == 0
+    assert json.loads(result.stdout)["export_created"] is False
+    assert list(exports.iterdir()) == []
+
+
+@pytest.mark.parametrize("failure", ["writer", "missing-file", "wrong-claim"])
+def test_preflight_fails_closed_without_creating_any_export(harness, failure):
+    import fcntl
+    from contextlib import nullcontext
+    source, exports, _, run = harness
+    if failure == "missing-file":
+        (source / "prices.json").unlink()
+    elif failure == "wrong-claim":
+        path = source / "sync-state.json"
+        value = json.loads(path.read_text())
+        next(iter(value["events"].values()))["status"] = "uncertain"
+        path.write_text(json.dumps(value))
+    context = (source / "sync.lock").open("rb") if failure == "writer" else nullcontext()
+    with context as handle:
+        if handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        assert run(arguments=("--check-only",)).returncode != 0
+    assert list(exports.iterdir()) == []
+
+
+def test_unknown_cli_option_never_touches_docker_or_creates_output(harness):
+    _, exports, env, run = harness
+    assert run(arguments=("--force",)).returncode == 2
+    assert not Path(env["COMMAND_LOG"]).exists()
+    assert list(exports.iterdir()) == []
 
 
 @pytest.mark.parametrize("key,value", [("token", "synthetic-secret"), ("private_key", "synthetic-key"),

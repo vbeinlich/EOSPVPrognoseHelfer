@@ -27,8 +27,9 @@ Nur diese Prüfung zu entfernen würde alte Lösungen mit heutigen Eingaben verb
 - Container-Erkennung unverändert über vollständiges `.Config.Image` und
   `.State.Running`, genau ein Treffer; keine Container-/Imageänderung.
 - [Historische Engine](../../src/eos_pv_helper/historical.py) bytegleich eingebettet
-  und SHA256-geprüft; `python -B -c` im vorhandenen Interpreter, keine Installation,
-  kein Download und keine Bytecode-Dateien.
+  und SHA256-geprüft; `python -I -S -B -c` im vorhandenen Interpreter, keine Installation,
+  kein Download und keine Bytecode-Dateien. Alle Prüfungen sind eigenständig in
+  dieser Engine enthalten; keine Imports aus `eos_pv_helper`, EOS oder Astral.
 - Normaler Pfad verlangt vollständige unveränderte Eingaben des ursprünglichen
   Erfolgszyklus. Spätere Reports mit alter Event-Version reichen nicht: ihr Zeitbezug
   bzw. SoC-Lesebeweis gehört nicht mehr vor den gespeicherten Dispatch.
@@ -61,10 +62,10 @@ Die zusätzliche Betreiberfreigabe für historische Releasebelege bleibt erforde
 
 ## Quellstand und Validierung
 
-Ausführbarer Review-Commit: `f8e5eee707c90c70c538fa6ac00f1272cd5bf8cf`.
-Wrapper-SHA256: `c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952`.
+Ausführbarer Review-Commit: `STANDALONE_SOURCE_COMMIT`.
+Wrapper-SHA256: `5645bac00aa0f2d1c3480ce9e8b4c7dee5a4ebe2fbe68f80d195af695b9c63c3`.
 Engine-SHA256 ohne abschließenden Zeilenumbruch:
-`90b07b6bf178f4d49f9bdb5ad47373b6a269dfbc0302050a6f713b5952fd514e`.
+`d4d713cd53c3a94621032ea7aeb2c76b5787b96e53ec8658544ab248c896a564`.
 Die private Kopie `historical-doctor.py` hat genau diesen Engine-Hash.
 
 Der alte Exporter aus `47bd424...` bleibt unverändert, SHA256
@@ -76,11 +77,14 @@ Tests: synthetische Eingaben, echte Locks, Fake-Docker, gepinnte EOS-Testinstall
 Abgedeckt: Waiting, mehrere Erfolge, vollständige Historie trotz neuer Live-Eingaben,
 fehlende/inkonsistente Preise/SoC/PV, Versions-/Hash-/Lösungsabweichungen, Frische,
 Privacy, Lock, Image-Erkennung, eingebettete Bytes und fehlende Schreibzugriffe.
-**390 Tests bestanden, 3 echte Optimiererläufe gezielt ausgespart.** Ruff,
+**409 Tests bestanden, 3 echte Optimiererläufe gezielt ausgespart.** Ruff,
 Actionlint, Bash-Syntax, Compose und diff-check erfolgreich. Keine neue GENETIC-
-Simulation. Zusätzlich Offline-Smoke-Test der neuen Engine im bereits vorhandenen
-privaten Diagnose-Image: UID 10001, read-only, Netzwerk aus, nur synthetisches ZIP
-und Engine read-only eingebunden; Exitcode 0. Kein Image-Neubau/Update, kein realer
-Abnahmebeleg. Endgültige Ergebnisse und CI am PR-Head:
+Simulation. Zusätzlich echte Kompatibilitätstests mit je sechs Szenarien im exakten
+Produktionsimage und im nachweislich gebundenen OCI-Kandidaten: UID 10001,
+read-only, Netzwerk aus, keine Projektquellcode-Mounts, Pakete nicht importierbar,
+synthetische Eingaben. Der frühere Smoke-Test allein im Kandidaten hatte die
+fehlende Produktionsdatei `doctor.py` nicht erkannt. Neuer dauerhafter CI-Test
+im unveränderten Produktions-Digest. [Nachweis](CONTAINER_COMPATIBILITY.md).
+Kein Image-Neubau/Update für diese beiden Tests und kein realer Abnahmebeleg. Endgültige Ergebnisse und CI am PR-Head:
 [PR #10 Checks](https://github.com/vbeinlich/EOSPVPrognoseHelfer/pull/10/checks).
 Private Abnahme bleibt bis zum echten vollständigen und geprüften Nachweis offen.

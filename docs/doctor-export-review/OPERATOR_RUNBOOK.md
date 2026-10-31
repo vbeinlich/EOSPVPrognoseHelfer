@@ -4,13 +4,17 @@ Stand 31.10.2026. Keine Befehle hier auf Unraid ausgeführt. Kein Export ist ein
 
 ## Geprüften Wrapper bereitstellen
 
-Quellcommit: `f8e5eee707c90c70c538fa6ac00f1272cd5bf8cf`.
-Wrapper-SHA256: `c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952`.
+Quellcommit: `STANDALONE_SOURCE_COMMIT`.
+Wrapper-SHA256: `5645bac00aa0f2d1c3480ce9e8b4c7dee5a4ebe2fbe68f80d195af695b9c63c3`.
 Engine-SHA256 ohne abschließenden Zeilenumbruch:
-`90b07b6bf178f4d49f9bdb5ad47373b6a269dfbc0302050a6f713b5952fd514e`.
+`d4d713cd53c3a94621032ea7aeb2c76b5787b96e53ec8658544ab248c896a564`.
 
 Die neue Engine wird bytegleich eingebettet, vor Ausführung hashgeprüft und mit
-`python -B -c` im bestehenden Container ausgeführt. Kein Download, keine Installation
+`python -I -S -B -c` im bestehenden Container ausgeführt. Ausschließlich Python-3.11-Standardbibliothek
+und System-Zeitzonendaten, keine Projekt-/EOS-/Astral-Module vorausgesetzt.
+Mit `-I -S` ist das installierte Helfer-Paket nicht importierbar. Tatsächliche
+Kompatibilität siehe [Container-Nachweis](CONTAINER_COMPATIBILITY.md).
+Kein Download, keine Installation
 und kein Update bei Vorabtest oder Export. Der alte gepinnte Exporter
 `scripts/doctor_snapshot.py` bleibt unverändert, wird aber nicht mehr verwendet:
 Seinem Vier-Artefakt-Format fehlen die gespeicherten SoC-/PV-Eingaben.
@@ -21,9 +25,9 @@ Nach unabhängigem Review den Wrapper privat kopieren oder den festen Stand lade
 umask 077
 wrapper_dir=$(mktemp -d /tmp/eos-doctor-reviewed.XXXXXXXX)
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
-  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/f8e5eee707c90c70c538fa6ac00f1272cd5bf8cf/scripts/unraid-doctor-export.sh \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/STANDALONE_SOURCE_COMMIT/scripts/unraid-doctor-export.sh \
   --output "$wrapper_dir/unraid-doctor-export.sh"
-printf '%s  %s\n' c15b4d100af653187b39f29ac122beb0ef67fd0735813a50fe5347307dfe7952 "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
+printf '%s  %s\n' 5645bac00aa0f2d1c3480ce9e8b4c7dee5a4ebe2fbe68f80d195af695b9c63c3 "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
 ```
 
 Bei Curl-/Hashfehler nicht ausführen. Im Folgenden `/PRIVATE/unraid-doctor-export.sh`
@@ -115,14 +119,15 @@ read-only eingebunden. Beispiel PowerShell:
 ```powershell
 Get-FileHash -Algorithm SHA256 C:\Users\volke\eos-v010-private\doctor-snapshot.zip
 Get-FileHash -Algorithm SHA256 C:\Users\volke\eos-v010-private\historical-doctor.py
-docker --context desktop-linux run --rm --pull=never --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 --entrypoint python --mount type=bind,source=C:\Users\volke\eos-v010-private\doctor-snapshot.zip,target=/private/snapshot.zip,readonly --mount type=bind,source=C:\Users\volke\eos-v010-private\historical-doctor.py,target=/private/historical-doctor.py,readonly eos-pv-helper:v010-private -B /private/historical-doctor.py --snapshot /private/snapshot.zip
+docker --context desktop-linux run --rm --pull=never --network none --read-only --cap-drop=ALL --security-opt=no-new-privileges --user 10001:10001 --entrypoint python --mount type=bind,source=C:\Users\volke\eos-v010-private\doctor-snapshot.zip,target=/private/snapshot.zip,readonly --mount type=bind,source=C:\Users\volke\eos-v010-private\historical-doctor.py,target=/private/historical-doctor.py,readonly eos-pv-helper:v010-private -I -S -B /private/historical-doctor.py --snapshot /private/snapshot.zip
 $LASTEXITCODE
 ```
 
 Alternativ im Entwicklungscheckout mit installierten Abhängigkeiten:
 `python -B -m eos_pv_helper doctor --snapshot PRIVATE.zip`.
-Der alte Image-Befehl `doctor --snapshot` kennt das neue Schema nicht; dort
-ausdrücklich die mitgelieferte Engine verwenden. Kein Netzwerk, Docker-Socket,
+Im produktiven Image fehlt `doctor.py`; im eingefrorenen Diagnose-Kandidaten
+kennt der alte eingebaute Doctor das neue Schema nicht. Deshalb ausdrücklich
+die mitgelieferte eigenständige Engine verwenden. Kein Netzwerk, Docker-Socket,
 Live-Output oder produktive Konfiguration mounten. Kein `--write-eos`/Refresh.
 
 ## 5. Ergebnis und Fehler

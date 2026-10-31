@@ -39,3 +39,7 @@ Private Messwerte, Konfigurationen, Tokens und Archive niemals nach GitHub.
 Der alte `scripts/doctor_snapshot.py` bleibt zur Reproduzierbarkeit unverändert,
 ist aber nicht mehr die Anleitung für vollständige neue Abnahmen.
 Produktiver Helfer und eingefrorene Releaseartefakte werden nicht aktualisiert.
+Die aktuelle Engine importiert ausschließlich Python-3.11-Standardbibliothek
+und nutzt System-Zeitzonendaten; der Produktionscontainer braucht kein `doctor.py`.
+[Reale Container-Kompatibilitätstests](doctor-export-review/CONTAINER_COMPATIBILITY.md)
+laufen ohne Projektquellcode-Mounts und ohne importierbare Helfer-Pakete.

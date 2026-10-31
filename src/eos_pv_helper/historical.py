@@ -1,14 +1,17 @@
 """Read-only event-bound Doctor evidence, runnable in the existing helper Python.
 
 No network, extraction, timestamp repair, configuration update or optimization.
-The wrapper embeds these exact bytes; imports use the existing Doctor contract.
+The wrapper embeds these exact bytes. Python 3.11 standard library only: no
+installed helper, EOS, astral, site-packages or development source is required.
 """
 
 import argparse
+import bisect
 import fcntl
 import hashlib
 import io
 import json
+import math
 import re
 import sys
 import tomllib
@@ -16,14 +19,161 @@ import zipfile
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
-from eos_pv_helper.doctor import acceptance
-from eos_pv_helper.inputs import PRICE_KEY, interval_averages, number, raw_series
-from eos_pv_helper.normalize import ForecastError, timestamp
+from zoneinfo import ZoneInfo
 
 MAX_FILE = 8_000_000
 MAX_ZIP = 60_000_000
 VERSION = re.compile(r"[0-9a-f]{64}")
+PRICE_KEY = "elecprice_marketprice_wh"
+
+
+class ForecastError(ValueError):
+    """Sanitized evidence error; no runtime project exception dependency."""
+
+
+def timestamp(value):
+    if not isinstance(value, str):
+        raise ForecastError("Historical timestamp must be an ISO-8601 string")
+    try:
+        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if result.utcoffset() is None:
+            raise ValueError()
+        return result.astimezone(UTC)
+    except ValueError:
+        raise ForecastError("Historical timestamp requires a valid explicit UTC offset") from None
+
+
+def number(value):
+    if isinstance(value, bool):
+        raise ForecastError("Boolean is not a measurement")
+    try:
+        result = float(value)
+    except (ValueError, TypeError):
+        raise ForecastError("Missing or nonnumeric measurement") from None
+    if not math.isfinite(result):
+        raise ForecastError("Nonfinite measurement")
+    return result
+
+
+def day_ahead_version(frame, now, timezone):
+    # Preserve the native delivery-day hash byte-for-byte, including DST days.
+    zone = ZoneInfo(timezone)
+    delivery = now.astimezone(zone).date() + timedelta(days=1)
+    left = datetime.combine(delivery, datetime.min.time(), zone).astimezone(UTC)
+    right = datetime.combine(delivery + timedelta(days=1), datetime.min.time(), zone).astimezone(UTC)
+    count = int((right - left).total_seconds() / 900)
+    rows = []
+    for i in range(count):
+        key = (left + timedelta(minutes=15*i)).isoformat()
+        if key not in frame["data"]:
+            raise ForecastError("Historical next delivery day is incomplete")
+        rows.append([key, frame["data"][key][PRICE_KEY]])
+    encoded = json.dumps([delivery.isoformat(), rows], separators=(",", ":")).encode()
+    return {"version": hashlib.sha256(encoded).hexdigest(), "delivery_day": str(delivery),
+            "delivery_intervals": count}
+
+
+def raw_series(response):
+    data = response.get("data")
+    if not isinstance(data, dict) or not data:
+        raise ForecastError("Historical raw series is empty")
+    result = {}
+    for key, value in data.items():
+        dt = timestamp(key)
+        if dt in result:
+            raise ForecastError("Duplicate historical raw-series timestamp")
+        result[dt] = None if value is None else number(value)
+    return result
+
+
+def interval_averages(values, start, slots, seconds):
+    """Bounded interval integration, identical to the inspected input contract."""
+    ordered = sorted((key.timestamp(), value) for key, value in values.items())
+    if not ordered:
+        return [None] * slots
+    stamps, samples = zip(*ordered)
+    cadence = min([3600] + [b - a for a, b in zip(stamps, stamps[1:])])
+    result = []
+    for i in range(slots):
+        left = start.timestamp() + i * seconds
+        right = left + seconds
+        position = max(0, bisect.bisect_right(stamps, left) - 1)
+        covered, weighted = 0, 0
+        while position < len(stamps) and stamps[position] < right:
+            end = min(stamps[position] + cadence,
+                      stamps[position + 1] if position + 1 < len(stamps) else math.inf)
+            overlap = max(0, min(right, end) - max(left, stamps[position]))
+            if overlap and samples[position] is not None:
+                covered += overlap
+                weighted += overlap / seconds * samples[position]
+            position += 1
+        result.append(weighted if abs(covered - seconds) < 1e-6 else None)
+    return result
+
+
+def event_acceptance(config, values, version, reference):
+    """Frozen Doctor checks for one original success, without importing the app."""
+    report, state, prices = (values[name] for name in ("sync-report.json", "sync-state.json", "prices.json"))
+    claim, event = state["events"][version], report["event"]
+    soc, control = report.get("soc", {}), report.get("prices", {}).get("control_coverage", {})
+    proof = soc.get("freshness_evidence", {})
+    expected = day_ahead_version(prices, timestamp(claim["claimed_at_utc"]), config["timezone"])
+    start, claimed = timestamp(claim["start_utc"]), timestamp(claim["claimed_at_utc"])
+    checks = {
+        "sync_recent": 0 <= (reference - timestamp(report["checked_at_utc"])).total_seconds() <= 450,
+        "write_mode": report.get("mode") == "write",
+        "sync_no_errors": report.get("errors") == {},
+        "imports_verified": all(report.get(key, {}).get("import_verified") is True
+                                for key in ("pv", "soc", "prices")),
+        "pv_state_verified": state.get("pv_import_verified") is True,
+        "price_control_complete": control.get("control_complete") is True
+                                  and number(control.get("required_control_hours")) >= 24,
+        "soc_usable": soc.get("usable") is True,
+        "soc_fresh": 0 <= (reference - timestamp(soc.get("source_timestamp", ""))).total_seconds()
+                         <= min(300, config["soc"]["max_age_seconds"]),
+        "soc_proof": soc.get("source") == "evcc" and soc.get("freshness_verified") is True
+                     and soc.get("timestamp_kind") == "successful_uncached_device_read_lower_bound"
+                     and proof.get("contract") == "evcc-0.318.1/e3dc-rscp/uncached-getters",
+        "soc_proof_values_match": (
+            0 <= number(soc.get("percent")) <= 100
+            and number(soc.get("factor")) == number(soc.get("percent")) / 100
+            and number(proof.get("live_soc_percent")) == number(soc.get("percent"))
+            and abs(number(proof.get("live_power_w"))) <= config["soc"]["max_abs_power_w"]
+            and timestamp(soc.get("source_timestamp", "")) == timestamp(proof.get("read_started_at_utc", ""))
+            and 0 <= (timestamp(proof.get("read_completed_at_utc", ""))
+                      - timestamp(proof.get("read_started_at_utc", ""))).total_seconds() <= 15),
+        "no_uncertain_claims": all(isinstance(item, dict) and item.get("status") == "succeeded"
+                                   for item in state["events"].values()),
+        "delivery_version_matches": all(claim.get(key) == event.get(key) == value
+                                        for key, value in expected.items()),
+        "plan_matches_claim": all(claim.get(key) == event.get(key) for key in (
+            "start_utc", "control_hours", "interval_seconds", "effective_tail_hours")),
+        "control_24h": number(claim["control_hours"]) == 24 and claim["interval_seconds"] == 3600,
+        "claim_timing": 0 <= (claimed - start).total_seconds() < 3600 and claimed <= reference,
+    }
+    if claim.get("status") != "succeeded" or event.get("status") != "succeeded":
+        raise ForecastError("Selected historical dispatch is not confirmed succeeded")
+    solution = values["solution-" + version + ".json"]
+    if (solution.get("interval_seconds") != claim["interval_seconds"]
+            or timestamp(solution.get("start_solution_datetime", "")) != start):
+        raise ForecastError("Historical solution start or interval differs from claim")
+    count = int(claim["control_hours"] * 3600 / claim["interval_seconds"])
+    for key in ("ac_charge", "dc_charge", "discharge_allowed"):
+        controls = solution.get(key)
+        if not isinstance(controls, list) or len(controls) < count:
+            raise ForecastError("Incomplete historical solution controls")
+        for value in controls:
+            if not 0 <= number(value) <= 1 or (key == "discharge_allowed" and value not in (0, 1)):
+                raise ForecastError("Invalid historical solution control")
+    costs = number(solution.get("result", {}).get("total_costs"))
+    checks["solution_content_valid"] = True
+    if not all(checks.values()):
+        raise ForecastError("Historical Doctor blocked: " + ", ".join(key for key, value in checks.items() if not value))
+    return {"schema_version": 1, "checked_at_utc": reference.isoformat(), "read_only": True,
+            "accepted": True, "status": "accepted", "checks": checks, "event_status": event["status"],
+            "plan": {**{key: claim[key] for key in ("delivery_day", "start_utc", "claimed_at_utc",
+                     "control_hours", "interval_seconds", "effective_tail_hours")},
+                     "version": version, "total_costs": costs}}
 
 
 def names(version):
@@ -180,8 +330,7 @@ def validate(manifest, files, *, now=None, settings=None):
         raise ForecastError("Historical PV input does not cover selected plan")
     if any(value is None for value in interval_averages(price_series, start, slots, seconds)):
         raise ForecastError("Historical price input does not cover selected plan")
-    evidence, status = acceptance(config, now=claimed, _reader=lambda name: (
-        values[name], hashlib.sha256(files[name]).hexdigest()))
+    evidence = event_acceptance(config, values, version, claimed)
     evidence.update(evidence_mode="historical_snapshot", current_freshness_verified=False,
                     historical_reference_kind="persisted_claim",
                     evaluated_at_utc=now.isoformat(), captured_at_utc=captured.isoformat(),
@@ -190,9 +339,6 @@ def validate(manifest, files, *, now=None, settings=None):
     evidence["checks"].update(historical_soc_matches=True, historical_pv_matches=True,
                               historical_price_coverage=True, historical_inputs_complete=True)
     evidence["artifact_sha256"] = dict(manifest["files"])
-    if status:
-        raise ForecastError("Historical Doctor blocked: " + (evidence.get("reason") or
-            ", ".join(key for key, value in evidence["checks"].items() if not value)))
     return evidence
 
 
@@ -243,6 +389,7 @@ def prepare(directory, settings, *, historical=None, event_version=None, now=Non
                 count = sum(isinstance(c, dict) and c.get("status") == "succeeded"
                             for c in state.get("events", {}).values())
                 raise ForecastError("Historical input evidence incomplete: latest report has no matching succeeded event; "
+                    + ("waiting-publication; " if report.get("event", {}).get("status") == "waiting-publication" else "")
                     + str(count) + " succeeded claim(s) do not prove saved prices/SoC/PV. "
                     "Provide an existing complete --historical-snapshot; never combine current inputs with old solutions")
             files = {name: read(root, name) for name in names(version)}

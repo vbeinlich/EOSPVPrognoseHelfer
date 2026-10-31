@@ -1,18 +1,21 @@
 """Synthetic event inputs only; no production export or optimization."""
 
+import ast
 import copy
 import hashlib
 import io
 import json
+import subprocess
+import sys
 import zipfile
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 import test_doctor as legacy
 
 from eos_pv_helper.doctor import snapshot_acceptance
-from eos_pv_helper.historical import pack, prepare, unpack, validate
-from eos_pv_helper.normalize import ForecastError
+from eos_pv_helper.historical import ForecastError, pack, prepare, unpack, validate
 
 NOW = legacy.NOW
 
@@ -201,3 +204,87 @@ def test_zip_extra_names_and_traversal_are_rejected(artifacts):
         archive.writestr("../secret", b"private")
     with pytest.raises(ForecastError):
         unpack(stream.getvalue())
+
+
+def test_engine_imports_only_python_standard_library():
+    from eos_pv_helper import historical
+    tree = ast.parse(Path(historical.__file__).read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            assert all(alias.name.split('.')[0] in sys.stdlib_module_names for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            assert node.level == 0 and node.module.split('.')[0] in sys.stdlib_module_names
+
+
+def test_isolated_cli_without_site_packages_reports_waiting_without_traceback(artifacts, tmp_path):
+    from eos_pv_helper import historical
+    waiting(artifacts)
+    second_claim(artifacts)
+    config = tmp_path / "limits.toml"
+    config.write_text('timezone="Europe/Berlin"\n')
+    result = subprocess.run([sys.executable, "-I", "-S", "-B", historical.__file__, "--source",
+        str(artifacts[0]), "--config", str(config), "--check-only"], capture_output=True, text=True)
+    assert result.returncode == 1
+    evidence = json.loads(result.stderr)
+    assert evidence["read_only"] and not evidence["accepted"]
+    assert "waiting-publication" in evidence["reason"]
+    assert "2 succeeded claim(s)" in evidence["reason"]
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("day,intervals", [("2026-03-28", 92), ("2026-10-24", 100), ("2026-10-29", 96)])
+def test_standalone_delivery_hash_matches_native_contract_including_dst(day, intervals):
+    from eos_pv_helper.historical import day_ahead_version
+    from eos_pv_helper.inputs import day_ahead_version as native_version
+    now = datetime.fromisoformat(day).replace(hour=13, tzinfo=UTC)
+    origin = now.replace(hour=0)
+    frame = {"data": {(origin + timedelta(minutes=15*i)).isoformat():
+                      {legacy.PRICE_KEY: .0003} for i in range(288)}}
+    result = day_ahead_version(frame, now, "Europe/Berlin")
+    assert result == native_version(frame, now, "Europe/Berlin")
+    assert result["delivery_intervals"] == intervals
+
+
+@pytest.mark.parametrize("failure", ["none", "mode", "error", "import", "control", "soc-proof",
+    "soc-factor", "soc-power", "uncertain", "report-age", "event-status", "tail", "cost", "controls"])
+def test_standalone_checks_preserve_native_doctor_rejection_contract(artifacts, failure):
+    from eos_pv_helper.doctor import acceptance
+    from eos_pv_helper.historical import event_acceptance
+    values = copy.deepcopy(artifacts[2])
+    report = values["sync-report.json"]
+    version = report["event"]["version"]
+    if failure == "mode":
+        report["mode"] = "dry-run"
+    elif failure == "error":
+        report["errors"] = {"event": "synthetic"}
+    elif failure == "import":
+        report["prices"]["import_verified"] = False
+    elif failure == "control":
+        report["prices"]["control_coverage"]["control_complete"] = False
+    elif failure == "soc-proof":
+        report["soc"]["freshness_verified"] = False
+    elif failure == "soc-factor":
+        report["soc"]["factor"] = .1
+    elif failure == "soc-power":
+        report["soc"]["freshness_evidence"]["live_power_w"] = 999999
+    elif failure == "uncertain":
+        values["sync-state.json"]["events"]["a"*64] = {"status": "uncertain"}
+    elif failure == "report-age":
+        report["checked_at_utc"] = (NOW-timedelta(seconds=451)).isoformat()
+    elif failure == "event-status":
+        report["event"]["status"] = "uncertain"
+    elif failure == "tail":
+        report["event"]["effective_tail_hours"] = 8
+    elif failure == "cost":
+        values["solution-"+version+".json"]["result"]["total_costs"] = float("nan")
+    elif failure == "controls":
+        values["solution-"+version+".json"]["ac_charge"] = [1.1]*24
+    config = {"timezone": "Europe/Berlin", "soc": {"max_age_seconds": 300, "max_abs_power_w": 20000}}
+    original, status = acceptance(config, now=NOW, _reader=lambda name: (values[name], "f"*64))
+    if status:
+        with pytest.raises(ForecastError):
+            event_acceptance(config, values, version, NOW)
+    else:
+        result = event_acceptance(config, values, version, NOW)
+        assert result["checks"] == original["checks"]
+        assert result["plan"] == original["plan"]

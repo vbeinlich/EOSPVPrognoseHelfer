@@ -44,9 +44,9 @@ elif args[0]=='inspect':
 elif args[:2]==['image','inspect']:
     print(json.dumps({'source':'https://github.com/vbeinlich/EOSPVPrognoseHelfer','revision':'b'*40,'version':'synthetic'}))
 elif args[:4]==['exec','-i','aabbccddeeff','python']:
-    assert args[4:6]==['-B','-c']
-    extra=[os.environ['ARTIFACTS'] if a=='/output' else os.environ['TEST_CONFIG'] if a=='/app/config.toml' else a for a in args[7:]]
-    result=subprocess.run([sys.executable,'-B','-c',args[6],*extra],input=sys.stdin.buffer.read(),capture_output=True)
+    assert args[4:8]==['-I','-S','-B','-c']
+    extra=[os.environ['ARTIFACTS'] if a=='/output' else os.environ['TEST_CONFIG'] if a=='/app/config.toml' else a for a in args[9:]]
+    result=subprocess.run([sys.executable,'-I','-S','-B','-c',args[8],*extra],input=sys.stdin.buffer.read(),capture_output=True)
     raw=result.stdout
     if '--source' in extra and '--emit' in extra and result.returncode==0:
         if mode=='zip-corrupt': raw=b'not a ZIP'

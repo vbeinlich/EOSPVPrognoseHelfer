@@ -29,6 +29,8 @@ def test_preparation_push_and_pr_ci_explicitly_exclude_optimizer_execution():
         selection = workflow["jobs"][name]["env"]["PYTEST_ADDOPTS"]
         assert "github.head_ref == 'release/v0.1.0-final-gates'" in selection
         assert "github.ref_name == 'release/v0.1.0-final-gates'" in selection
+        assert "github.head_ref == 'release/v0.1.0-doctor-review'" in selection
+        assert "github.ref_name == 'release/v0.1.0-doctor-review'" in selection
         assert "not genetic_execution" in selection
     assert any("-e PYTEST_ADDOPTS" in step.get("run", "")
                for step in workflow["jobs"]["eos-integration"]["steps"])

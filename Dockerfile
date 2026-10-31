@@ -25,6 +25,7 @@ COPY config.example.toml ./
 COPY .github/workflows ./.github/workflows
 COPY docs/GENETIC_ACCEPTANCE.json ./docs/GENETIC_ACCEPTANCE.json
 COPY docs/release-admin ./docs/release-admin
+COPY docs/doctor-export-review ./docs/doctor-export-review
 HEALTHCHECK NONE
 ENTRYPOINT ["pytest"]
 CMD ["-q", "/app/tests"]

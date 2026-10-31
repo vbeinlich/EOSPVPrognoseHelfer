@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Explicit operator boundary: this preparation must not start GENETIC.
-      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates') && '-m "not genetic_execution"' || '' }}
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates' || github.head_ref == 'release/v0.1.0-doctor-review' || github.ref_name == 'release/v0.1.0-doctor-review') && '-m "not genetic_execution"' || '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -20,6 +20,10 @@ jobs:
       - run: pip install '.[test]'
       - run: ruff check src tests scripts
       - run: pytest -q
+      - name: Pull immutable historical production image for compatibility regression
+        run: docker pull ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7
+      - name: Test standalone Doctor in real image without doctor.py
+        run: python scripts/doctor_container_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7 --expect-no-doctor
       - run: docker compose config --no-path-resolution
       - run: docker build --target eos-source -t eos-pv-helper:ci .
       - run: python scripts/unraid_smoke.py --image eos-pv-helper:ci
@@ -33,7 +37,7 @@ jobs:
   eos-integration:
     runs-on: ubuntu-latest
     env:
-      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates') && '-m "not genetic_execution"' || '' }}
+      PYTEST_ADDOPTS: ${{ (github.head_ref == 'release/v0.1.0-final-gates' || github.ref_name == 'release/v0.1.0-final-gates' || github.head_ref == 'release/v0.1.0-doctor-review' || github.ref_name == 'release/v0.1.0-doctor-review') && '-m "not genetic_execution"' || '' }}
     permissions:
       contents: read
       issues: read

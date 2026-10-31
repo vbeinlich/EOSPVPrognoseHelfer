@@ -13,7 +13,7 @@ from build_plan_inspector import build
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def smoke(image, context, html=None):
+def smoke(image, context, html=None, comparison_inputs_output=None):
     def docker(*args, **kwargs):
         return subprocess.run(["docker", "--context", context, *args], capture_output=True, timeout=180, **kwargs)
     host = json.loads(docker("context", "inspect", context, check=True).stdout)[0]["Endpoints"]["docker"]["Host"]
@@ -40,6 +40,9 @@ def smoke(image, context, html=None):
                         "dc_charge": [1]*count, "discharge_allowed": [1, 0]*(count//2),
                         "result": {"total_costs": 2.6875, "battery_soc_per_hour": [55]*count},
                         "parameters": {"password": "PRIVATE-CANARY-192.168.0.99"}}
+            if index == 0:
+                solution = json.loads((ROOT / "tests/fixtures/economics-hold.json").read_text())
+                solution["parameters"]["password"] = "PRIVATE-CANARY-192.168.0.99"
             (root / ("solution-"+version+".json")).write_text(json.dumps(solution))
         (root / "sync-state.json").write_text(json.dumps({"events": events}))
         (root / "sync-report.json").write_text('{"event":{"status":"waiting-publication"}}')
@@ -63,6 +66,13 @@ def smoke(image, context, html=None):
         assert len(report["plans"]) == 2
         assert sorted(p["source_slots"] for p in report["plans"]) == [24, 96]
         assert all(sum(len(r["quarters"]) for r in p["rows"]) == 96 for p in report["plans"])
+        exported = run("comparison-inputs")
+        assert exported.returncode == 0, exported.stderr.decode()
+        packet = json.loads(exported.stdout)
+        projected = [p["replay_inputs"] for p in packet["plans"] if p.get("replay_inputs")]
+        assert len(projected) == 1 and projected[0]["projection"]["control_slots"] == 24
+        assert b"PRIVATE-CANARY" not in exported.stdout and b"DO-NOT-READ" not in exported.stdout
+        assert all(p["comparison"]["status"] == "not_calculable" for p in packet["plans"])
         result = run("html")
         assert result.returncode == 0 and result.stdout.startswith(b"<!doctype html>"), result.stderr.decode()
         assert b"PRIVATE-CANARY" not in result.stdout and b"DO-NOT-READ" not in result.stdout
@@ -71,9 +81,13 @@ def smoke(image, context, html=None):
         if html:
             with Path(html).open("xb") as handle:
                 handle.write(result.stdout)  # New synthetic UI-test artifact only, never source files.
+        if comparison_inputs_output:
+            with Path(comparison_inputs_output).open("xb") as handle:
+                handle.write(exported.stdout)  # Numeric synthetic export for a native offline replay.
     return {"passed": True, "synthetic_only": True, "image_id": image_id, "source_files_unchanged": True,
             "project_source_mounted": False, "installed_helper_importable": False, "network": "none",
-            "read_only": True, "uid": 10001, "bundle_sha256": sha, "phase": 1}
+            "read_only": True, "uid": 10001, "bundle_sha256": sha, "phase": 2,
+            "numeric_projection_exported": True, "offline_calculation_required": True}
 
 
 if __name__ == "__main__":
@@ -81,5 +95,6 @@ if __name__ == "__main__":
     parser.add_argument("--image", required=True)
     parser.add_argument("--docker-context", required=True)
     parser.add_argument("--html", help="NEW synthetic test report outside the input fixture")
+    parser.add_argument("--comparison-inputs-output", help="NEW synthetic numeric export for offline replay")
     args = parser.parse_args()
-    print(json.dumps(smoke(args.image, args.docker_context, args.html), indent=2))
+    print(json.dumps(smoke(args.image, args.docker_context, args.html, args.comparison_inputs_output), indent=2))

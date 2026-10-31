@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def build():
     files = {"__main__.py": b"from plan_inspector import main\nraise SystemExit(main())\n"}
     for target, source in (("plan_inspector.py", "plan_inspector.py"), ("plan_view.py", "plan_view.py"),
+                           ("economics.py", "economics.py"), ("economics_native.py", "economics_native.py"),
                            ("historical_validator.py", "historical.py")):
         files[target] = (ROOT / "src/eos_pv_helper" / source).read_text(encoding="utf-8").encode("utf-8")
     manifest = {"schema_version": 1, "purpose": "code-only read-only plan inspector",

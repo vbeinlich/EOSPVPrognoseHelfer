@@ -27,8 +27,6 @@ def test_preparation_push_and_pr_ci_explicitly_exclude_optimizer_execution():
     workflow = yaml.load((ROOT / ".github/workflows/test.yaml").read_text(), Loader=yaml.BaseLoader)
     for name in ("unit", "eos-integration"):
         selection = workflow["jobs"][name]["env"]["PYTEST_ADDOPTS"]
-        assert "github.head_ref == 'release/issue-6-plan-inspector'" in selection
-        assert "github.ref_name == 'release/issue-6-plan-inspector'" in selection
-        assert "not genetic_execution" in selection
+        assert selection == '-m "not genetic_execution"'
     assert any("-e PYTEST_ADDOPTS" in step.get("run", "")
                for step in workflow["jobs"]["eos-integration"]["steps"])

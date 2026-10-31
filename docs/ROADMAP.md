@@ -1,5 +1,11 @@
 # Nächste Entwicklungsphase: Nutzen nachvollziehbar machen
 
+**Phase 2 im separaten Review:** [nativer Offline-Wirtschaftlichkeitsvergleich](ECONOMICS_COMPARISON.md)
+auf PR #14. Gespeicherte GENETIC-Freigaben werden ohne neue Optimierung gegen
+PV-Eigenverbrauch verglichen. Identische historische Endwertkurve, sichtbare
+Kostenzerlegung und explizite Datenlücken. Kein produktives Deployment und keine
+realisierte Ersparnisbehauptung; private Abnahme aller drei Oktober-Pläne bleibt offen.
+
 **Betreiberpriorität 31.10.2026:** [Issue #6 Phase 1 – statischer Plan-Inspector](PLAN_INSPECTOR.md)
 darf jetzt unabhängig von Wizard #5 und stabilem Release in einem eigenen Review-PR
 vorbereitet werden. Keine Phase-2-Simulation, kein Dauer-Webserver und keine

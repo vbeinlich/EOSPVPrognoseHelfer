@@ -62,14 +62,15 @@ def test_waiting_keeps_successful_plan_and_all_original_hours(data):
     report = reader.collect(root, now=NOW)
     plan = report["plans"][0]
     assert report["latest_sync_status"] == "waiting-publication"
-    assert report["phase"] == 1 and report["read_only"] is True
+    assert report["phase"] == 2 and report["read_only"] is True
     assert plan["claim_status"] == "succeeded" and plan["source_slots"] == 24
     assert len(plan["rows"]) == 24 and sum(len(r["quarters"]) for r in plan["rows"]) == 96
     assert plan["rows"][0]["start_utc"] == "2026-10-29T13:00:00+00:00"
     assert "14:00 CET" in plan["rows"][0]["local"]
     assert plan["summary"]["total_costs"] == 2.6875
     assert plan["inputs"]["status"] == "unproven"
-    assert report["savings"] == report["baseline"] == "nicht berechnet"
+    assert plan["comparison"]["status"] == "not_calculable"
+    assert "Nicht berechenbar" in plan["comparison"]["message"]
     assert before == fingerprint(root)
 
 

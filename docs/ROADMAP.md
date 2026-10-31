@@ -1,5 +1,11 @@
 # Nächste Entwicklungsphase: Nutzen nachvollziehbar machen
 
+**Betreiberpriorität 31.10.2026:** [Issue #6 Phase 1 – statischer Plan-Inspector](PLAN_INSPECTOR.md)
+darf jetzt unabhängig von Wizard #5 und stabilem Release in einem eigenen Review-PR
+vorbereitet werden. Keine Phase-2-Simulation, kein Dauer-Webserver und keine
+Produktionsänderung. Die folgende Reihenfolge gilt weiter für die vollständige
+integrierte Savings-GUI und die gesonderten Releasefreigaben.
+
 Verbindliche Betreiberreihenfolge vom 29.10.2026:
 
 1. **Issue #1:** endgültige Abnahme und Abschluss. Reales automatisches GENETIC-
@@ -14,7 +20,8 @@ Verbindliche Betreiberreihenfolge vom 29.10.2026:
 4. **Issue #6:** [Savings Dashboard](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/6),
    eigener PR nach #5, auf derselben Weboberfläche und Doctor-/Status-Engine.
 
-Bis dahin keine vorgezogene Wizard-/Dashboard-Implementierung. Der produktive
+Bis dahin keine vorgezogene Wizard- oder vollständige Savings-Dashboard-Implementierung.
+Ausgenommen ist die ausdrücklich freigegebene statische Phase-1-Planübersicht. Der produktive
 Helfer bleibt unverändert; vorhandene Pläne werden lesend ausgewertet, keine
 neuen Produktionsoptimierungen für Benchmarks ausgelöst.
 

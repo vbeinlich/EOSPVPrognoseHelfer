@@ -23,6 +23,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["genetic_execution: real optimizer; excluded from Plan-Inspector review runs"]
 pythonpath = ["src", "scripts"]
 
 [tool.ruff]

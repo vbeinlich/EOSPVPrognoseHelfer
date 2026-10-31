@@ -24,10 +24,14 @@ def main():
     assert abs(c["additional_savings_eur"]) < 1e-9
     assert c["baseline"]["end_soc_percent"] == 10
     assert c["genetic"]["end_soc_percent"] == 40
-    with Path(args.html).open("x", encoding="utf-8") as output:
-        output.write(render(report))
+    if args.html == "-":
+        sys.stdout.buffer.write(render(report).encode("utf-8"))
+    else:
+        with Path(args.html).open("x", encoding="utf-8") as output:
+            output.write(render(report))
     print(json.dumps({"passed": True, "synthetic_only": True, "optimizer_invoked": False,
-                      "real_savings_claim": False, "native_replay_verified": True}))
+                      "real_savings_claim": False, "native_replay_verified": True}),
+          file=sys.stderr if args.html == "-" else sys.stdout)
 
 
 if __name__ == "__main__":

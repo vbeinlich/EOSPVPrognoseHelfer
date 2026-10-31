@@ -6,10 +6,10 @@ Vollständige [Modelldefinition und private Abnahme](ECONOMICS_COMPARISON.md).
 
 ## Tatsächlich lokal geprüft
 
-- **374 Tests bestanden, 3 echte Optimierer-Tests ausdrücklich ausgeschlossen.**
+- **375 Tests bestanden, 3 echte Optimierer-Tests ausdrücklich ausgeschlossen.**
   Vollständiger Lauf im lokalen Entwicklungscontainer, Netzwerk aus, Quellmounts
   und RootFS read-only; temporäre EOS-Konfiguration ausschließlich im tmpfs.
-- **73 gezielte Tests als UID 10001**: Reader, Wrapper, Wirtschaftlichkeit und
+- **74 gezielte Tests als UID 10001**: Reader, Wrapper, Wirtschaftlichkeit und
   native Wiedergabe mit read-only RootFS/Quellmount und ohne Netzwerk.
 - Native Forward-Replays: volle Wirkungsgradkette, DC-basierter LCOS, PV-Laden
   ohne Netzladung, Leistungs-/SoC-Begrenzung durch dieselben EOS-Geräteklassen,
@@ -60,6 +60,12 @@ Die Review-CI führt Unit-/Integrationsprüfungen, den echten alten Container un
 zusätzlich eine native synthetische Kosten-/Browserprüfung aus. Der Ausschluss
 echter Optimiererlauf-Tests gilt jetzt unabhängig vom Branch-Namen; AST-/CI-Tests
 prüfen diese Grenze. Main-Push-, Tag- und Preview-Publishing-Sperren unverändert.
+
+Der erste CI-Anlauf bestand Unit- und native Tests, scheiterte jedoch beim
+synthetischen HTML-Export: Root ohne Capabilities konnte den privaten Hostordner
+des Runners nicht beschreiben. Korrigiert durch HTML-Ausgabe auf stdout und
+noclobber-Umleitung durch den Runner. Kein schreibbarer Hostmount mehr erforderlich;
+ein zusätzlicher echter Subprozess-Test prüft den Ausgabevertrag.
 
 Der tatsächliche Head-CI-Status ist im separaten Review-PR zu prüfen. Dieser lokale
 Bericht behauptet keinen noch nicht abgeschlossenen GitHub-Lauf und ersetzt keine

@@ -2,6 +2,9 @@
 
 import copy
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -124,6 +127,16 @@ def test_engine_fingerprint_rejects_unknown_source(tmp_path):
         target.write_bytes(b"not the reviewed EOS source")
     with pytest.raises(cost.ComparisonError, match="ungeprüft"):
         native.fingerprint(tmp_path)
+
+
+def test_smoke_stdout_needs_no_writable_host_artifact_mount(tmp_path):
+    script = Path(__file__).resolve().parents[2]/"scripts/economics_smoke.py"
+    result = subprocess.run([sys.executable, "-B", str(script), "--html", "-"],
+                            cwd=tmp_path, capture_output=True, timeout=90)
+    assert result.returncode == 0, result.stderr.decode()
+    assert result.stdout.startswith(b"<!doctype html>")
+    assert b'"native_replay_verified": true' in result.stderr
+    assert not list(tmp_path.iterdir())
 
 
 @pytest.mark.parametrize("reverse", [False, True])

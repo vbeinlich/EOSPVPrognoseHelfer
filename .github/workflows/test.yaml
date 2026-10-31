@@ -55,12 +55,12 @@ jobs:
         with:
           node-version: '22'
       - name: Native forward comparison only, read-only sources and isolated temporary configuration
-        run: >-
-          docker run --rm --network none --read-only --cap-drop=ALL
-          --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev
-          --tmpfs /tmp/eos-test:rw,nosuid,nodev
-          --mount type=bind,source="$RUNNER_TEMP",target=/artifact
-          --entrypoint python eos-pv-helper:eos-test
-          scripts/economics_smoke.py --html /artifact/economics-synthetic.html
+        run: |
+          set -o noclobber
+          docker run --rm --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev \
+            --tmpfs /tmp/eos-test:rw,nosuid,nodev \
+            --entrypoint python eos-pv-helper:eos-test \
+            scripts/economics_smoke.py --html - > "$RUNNER_TEMP/economics-synthetic.html"
       - name: Browser-check calculated economics, slot costs and end-SoC fairness
         run: node scripts/plan_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/economics-synthetic.html" --economic

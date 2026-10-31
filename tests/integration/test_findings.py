@@ -11,6 +11,7 @@ import pytest
 pytest.importorskip("akkudoktoreos", reason="Run the isolated EOS integration image")
 
 
+@pytest.mark.genetic_execution
 def test_partial_pv_history_trim_verified_evcc_soc_and_native_optimization(tmp_path, monkeypatch):
     import numpy as np
     from akkudoktoreos.core.coreabc import get_config, get_ems, get_prediction, singletons_init

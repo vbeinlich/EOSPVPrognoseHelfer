@@ -1,5 +1,8 @@
 # EOS PV-Prognose-Helfer
 
+Neu im Review: [optionale automatische GENETIC-Beweisarchivierung](docs/GENETIC_EVIDENCE.md).
+Standardmäßig deaktiviert; keine zusätzlichen Optimierungen, kein Backfill.
+
 Validiert vorhandene Forecast.Solar-Prognosen für Akkudoktor EOS und stellt eine zentrale
 UTC-Viertelstundenreihe bereit. Keine Gerätebefehle, keine neue Wetter-API und kein eigener
 Forecast.Solar-Client: verwendet wird der originale EOS-Provider `PVForecastForecastSolar`.

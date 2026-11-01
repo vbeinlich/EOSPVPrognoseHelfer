@@ -41,14 +41,13 @@ def bundle(artifacts, *, captured=NOW, mutate=None):
     return path
 
 
-def test_archived_snapshot_is_historical_not_current_soc_freshness(artifacts):
+def test_legacy_snapshot_without_saved_soc_and_pv_is_not_full_historical_acceptance(artifacts):
     path = bundle(artifacts)
     evidence, status = snapshot_acceptance(path, now=NOW+timedelta(days=1))
-    assert status == 0 and evidence["accepted"]
+    assert status == 1 and not evidence["accepted"]
     assert evidence["evidence_mode"] == "historical_snapshot"
     assert evidence["current_freshness_verified"] is False
-    assert evidence["captured_at_utc"] == NOW.isoformat()
-    assert len(evidence["capture_manifest_sha256"]) == 64
+    assert "incomplete" in evidence["reason"]
     # Normal live validation keeps the original strict freshness boundary.
     assert acceptance(artifacts[1], now=NOW+timedelta(days=1))[1] == 1
 
@@ -108,7 +107,7 @@ def test_export_does_not_wait_for_or_interrupt_active_sync(artifacts):
 def test_cli_historical_check_does_not_require_or_read_live_configuration(artifacts, monkeypatch, capsys):
     path = bundle(artifacts)
     monkeypatch.setattr(sys, "argv", ["eos-pv-helper", "doctor", "--snapshot", str(path)])
-    assert main() == 0
+    assert main() == 1
     assert json.loads(capsys.readouterr().out)["current_freshness_verified"] is False
 
 

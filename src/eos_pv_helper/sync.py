@@ -11,6 +11,15 @@ from urllib.parse import urlencode
 
 from .app import atomic_json, eos_base, request_json, run_once, verify_contract
 from .evcc_source import evcc_soc_sample, ha_diagnostics
+from .evidence import (
+    EvidenceError,
+    archive_success,
+    capture_inputs,
+    diagnostic,
+    enabled,
+    inspect_archive,
+    recover_ready,
+)
 from .inputs import (
     PRICE_KEY,
     SOC_KEY,
@@ -122,6 +131,14 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
             raise ForecastError("EOS writes require write_enabled=true and --write-eos")
         if write:
             report["mode"] = "write"
+        archive_enabled = write and enabled(config)
+        if archive_enabled:
+            try:
+                recovered = recover_ready(output, config, state, clock)
+                if recovered:
+                    report["evidence_recovery"] = {"status": "recovered", "versions": recovered}
+            except Exception as exc:
+                report["evidence_recovery"] = {"status": "evidence_missing", "reason": diagnostic(exc)}
         origin = eos_base(config["eos"])
         settings = http(origin + "/v1/config")
         schema = http(origin + "/openapi.json")
@@ -263,8 +280,10 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
             frame = attempt("prices", sync_prices)
 
         trigger = config.get("trigger", {})
+        new_success, dispatch_inputs, capture_error = False, None, None
         if trigger.get("enabled") is True:
             def event():
+                nonlocal new_success, dispatch_inputs, capture_error
                 timeout = trigger.get("request_timeout_seconds", 300)
                 if isinstance(timeout, bool) or not isinstance(timeout, int) or not 10 <= timeout <= 1800:
                     raise ForecastError("Simulation request timeout must be 10..1800 seconds")
@@ -329,6 +348,12 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 readback(http, origin, "/v1/measurement/series?" + urlencode(
                     {"key": SOC_KEY, "processing": "raw", "dropna": "false"}),
                     {sample["source_timestamp"]: sample["factor"]})
+                if archive_enabled:
+                    try:
+                        dispatch_inputs = capture_inputs(output, report, frame, series, plan, clock)
+                    except Exception as exc:
+                        # Evidence failure never changes claim semantics or causes a retry.
+                        capture_error = diagnostic(exc)
                 actual_age = (clock() - timestamp(sample["source_timestamp"])).total_seconds()
                 if not 0 <= actual_age <= min(300, settings["optimization"]["genetic"].get(
                     "measurement_max_age_seconds", 300)):
@@ -350,13 +375,32 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 atomic_json(output / ("solution-" + version["version"] + ".json"), result)
                 claim["status"] = "succeeded"
                 report["event"]["status"] = "succeeded"
+                new_success = True
                 LOG.info("simulation_succeeded delivery_day=%s version=%s", version["delivery_day"],
                          version["version"])
             attempt("event", event)
 
         atomic_json(state_path, state)
         atomic_json(output / "sync-report.json", report)
-        atomic_json(output / "health.json", {"ok": not report["errors"], "checked_at": time.time(),
+        if archive_enabled and report.get("event", {}).get("status") == "succeeded":
+            try:
+                version = report["event"]["version"]
+                if new_success:
+                    if dispatch_inputs is None:
+                        raise EvidenceError(capture_error or "dispatch_inputs_not_captured")
+                    archived = archive_success(output, config, dispatch_inputs, state, report, clock)
+                else:
+                    # Never rebuild old evidence from this tick's newer inputs.
+                    from .historical import read
+                    solution_sha = hashlib.sha256(read(output, "solution-" + version + ".json")).hexdigest()
+                    archived = inspect_archive(output, config, version, state["events"][version], solution_sha, clock)
+                report["evidence"] = archived
+            except Exception as exc:
+                report["evidence"] = {"status": "evidence_missing", "reason": diagnostic(exc)}
+            atomic_json(output / "sync-report.json", report)
+        evidence_ok = all(report.get(key, {}).get("status") != "evidence_missing"
+                          for key in ("evidence", "evidence_recovery"))
+        atomic_json(output / "health.json", {"ok": not report["errors"] and evidence_ok, "checked_at": time.time(),
                     "mode": report["mode"]})
         LOG.info("sync_completed mode=%s errors=%s", report["mode"], ",".join(report["errors"]))
         return report

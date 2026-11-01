@@ -2,7 +2,10 @@
 
 The MIT license in `LICENSE` applies to original EOSPVPrognoseHelfer code and
 documentation. It does not relicense EOS, Python, Debian, dependencies or data.
-The helper has no bundled frontend at this stage.
+The static Plan-Inspector HTML/JavaScript uses original project code and browser
+APIs, with no third-party frontend libraries or remote assets. The optional offline
+economic comparison imports the pinned EOS simulation from the separately built
+diagnostic environment; its code-only NAS bundle contains no EOS source or wheels.
 
 The `eos-source` image includes the unmodified Akkudoktor EOS source at the commit
 pinned in `Dockerfile`, under Apache-2.0. EOS attribution is preserved at

@@ -1,0 +1,19 @@
+{
+  "oci_image_digest": "sha256:69d4e1974bb5190d6fd63b2533c5e1c71e23589dd1e1314c6744659dcbded61a",
+  "config_digest": "sha256:93a64948ffe62a5462422b5a880d7d388be7ee68f46b63cb8c88fde87e1650ff",
+  "oci_archive_sha256": "6b7f4a79272fe732e57da7929c1efcef75277c55b62adbf29d87eaedc67cf265",
+  "oci_archive_bytes": 323192832,
+  "all_oci_blobs_verified": true,
+  "source_revision": "47bd42468ffbf2876143ba950512e968825a5f53",
+  "inventory_sha256": "222261b5a20a816a335fb2011fccdbb57c20fe34fc08b6f86c6b2e9fc3b6b93f",
+  "source_material_sha256": "ecdf8cbc6ac27e892713af1cf1ffef43fbb9c4fb0f6f3118c64a34463fcf3308",
+  "source_material_bytes": 510626673,
+  "source_material_payloads": 615,
+  "source_coverage_verified": true,
+  "config_and_rootfs_match_local_image": true,
+  "published": false,
+  "approved": false,
+  "observed_at_utc": "2026-10-30T15:10:24Z",
+  "artifact_changes_performed": false,
+  "release_candidate_rebuilt": false
+}

@@ -3,7 +3,6 @@
 import hashlib
 import json
 import re
-import zipfile
 from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
@@ -150,6 +149,16 @@ def acceptance(config, *, now=None, _reader=None):
                 "control_hours": claim["control_hours"], "interval_seconds": claim["interval_seconds"],
                 "effective_tail_hours": claim["effective_tail_hours"],
                 "total_costs": number(solution["result"]["total_costs"])}
+            if config.get("evidence", {}).get("enabled") is True:
+                from .evidence import inspect_archive
+                try:
+                    archived = inspect_archive(directory, config, version, claim,
+                        evidence["artifact_sha256"]["solution-" + version + ".json"], lambda: now)
+                except Exception:
+                    checks["event_archive_verified"] = False
+                    raise ForecastError("Event archive missing or invalid; never retry optimization or reconstruct old inputs") from None
+                checks["event_archive_verified"] = archived["status"] == "archived"
+                evidence["event_archive_sha256"] = archived["sha256"]
             evidence["accepted"] = all(checks.values())
             evidence["status"] = "accepted" if evidence["accepted"] else "blocked"
     except Exception as exc:
@@ -159,61 +168,28 @@ def acceptance(config, *, now=None, _reader=None):
 
 
 def snapshot_acceptance(path, *, now=None):
-    """Historical evidence at its declared capture time; never current freshness.
+    """Complete historical evidence at its persisted claim time; never live freshness.
 
     Hashes protect consistency, not authenticity. An operator must review capture
     provenance. No extraction, source config, token access or network calls.
     """
+    from .historical import ForecastError as HistoricalError
+    from .historical import manifest_digest, unpack, validate
+
     current = now or datetime.now(UTC)
     failure = {"schema_version": 1, "read_only": True, "accepted": False,
                "status": "blocked", "evidence_mode": "historical_snapshot",
                "current_freshness_verified": False}
     try:
         path = Path(path)
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > 40_000_000:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 60_000_000:
             raise ForecastError("Missing, unsafe or oversized private snapshot")
-        with zipfile.ZipFile(path) as archive:
-            infos = archive.infolist()
-            if (len(infos) != 5 or len({i.filename for i in infos}) != 5
-                    or any(i.file_size > MAX_ARTIFACT_BYTES for i in infos)):
-                raise ForecastError("Unexpected private snapshot contents")
-            raw_manifest = archive.read("snapshot.json")
-            manifest = json.loads(raw_manifest)
-            captured = timestamp(manifest["captured_at_utc"])
-            if captured > current or manifest.get("schema_version") != 1:
-                raise ForecastError("Invalid or future snapshot capture time")
-            version = manifest.get("event_version", "")
-            if not isinstance(version, str) or not re.fullmatch(r"[0-9a-f]{64}", version):
-                raise ForecastError("Invalid snapshot event version")
-            expected = {"sync-report.json", "sync-state.json", "prices.json",
-                        "solution-" + version + ".json"}
-            if set(manifest["files"]) != expected or {i.filename for i in infos} != expected | {"snapshot.json"}:
-                raise ForecastError("Snapshot names do not match the declared event")
-            limits = manifest["validation_constraints"]
-            age, power = limits["max_age_seconds"], limits["max_abs_power_w"]
-            if (isinstance(age, bool) or not isinstance(age, (int, float)) or not 0 < age <= 300
-                    or isinstance(power, bool) or not isinstance(power, (int, float)) or not 0 < power <= 100000):
-                raise ForecastError("Invalid historical validation constraints")
-
-            def read(name):
-                if name not in expected:
-                    raise ForecastError("Snapshot requested an undeclared file")
-                raw = archive.read(name)
-                digest = hashlib.sha256(raw).hexdigest()
-                if digest != manifest["files"][name]:
-                    raise ForecastError("Private snapshot artifact hash differs")
-                value = json.loads(raw)
-                if not isinstance(value, dict):
-                    raise ForecastError("Private snapshot artifact must be an object")
-                return value, digest
-
-            evidence, status = acceptance({"timezone": manifest["timezone"], "soc": limits},
-                                           now=captured, _reader=read)
-            evidence.update(evidence_mode="historical_snapshot", current_freshness_verified=False,
-                evaluated_at_utc=current.isoformat(), captured_at_utc=captured.isoformat(),
-                capture_manifest_sha256=hashlib.sha256(raw_manifest).hexdigest(),
-                provenance="Operator must confirm origin; hashes alone do not authenticate an export")
-            return evidence, status
-    except Exception:
-        failure["reason"] = "Invalid private snapshot; no files changed or extracted"
+        with path.open("rb") as handle:
+            raw = handle.read(60_000_001)
+        manifest, files = unpack(raw)
+        evidence = validate(manifest, files, now=current)
+        evidence["capture_manifest_sha256"] = manifest_digest(raw)
+        return evidence, 0
+    except Exception as exc:
+        failure["reason"] = str(exc) if isinstance(exc, (ForecastError, HistoricalError)) else "Invalid private snapshot; no files changed or extracted"
         return failure, 1

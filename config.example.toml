@@ -63,3 +63,9 @@ retail_prices_confirmed = false # Compare sample intervals to LUOX before live i
 enabled = false # Observe/validate new complete next-day price publications.
 run_enabled = false # Separate approval required for POST /v1/optimize.
 request_timeout_seconds = 300 # Ambiguous/failed dispatch is never retried automatically.
+
+# Future regular successful sync events only; no backfill or extra optimization.
+[evidence]
+enabled = false # Explicit opt-in after separate deployment/configuration approval.
+# Fixed private location: /output/genetic-evidence/<event-version>.zip.
+# No automatic retention deletion. See docs/GENETIC_EVIDENCE.md.

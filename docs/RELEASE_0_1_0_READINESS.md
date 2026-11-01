@@ -1,5 +1,10 @@
 # Release v0.1.0: Readiness und Freigabevorlage
 
+**Fortschreibung nach Merge von PR #8:** Main ist `5688084...`, CI grün und
+`47bd424...` Main-Vorfahre. [Aktuelle Restarbeiten](RELEASE_0_1_0_FINAL_GATES.md)
+enthalten den erneuten Hashcheck, Admin-/Reviewer-Vorlagen und geprüften Export-
+Wrapper. Die nachstehenden Kandidatenbytes bleiben unverändert gültig.
+
 Stand 30.10.2026. Diese Arbeiten erfolgen ausschließlich im Entwicklungsbranch
 `release/v0.1.0-readiness` mit eigenem PR. **Keine Veröffentlichung, kein neuer
 Tag, keine Admin-Einstellung und kein produktives System wurden verändert.**
@@ -307,8 +312,8 @@ Vorbereitungen, neue private Artefakte und automatisierten Nachweise sind vollst
 Die folgenden zwingenden Schritte erfordern den Betreiber/autorisierten Reviewer
 bzw. Admin und sind keine durch Codex erledigte Abnahme:
 
-1. PR #8 nach Review mit erhaltener Kandidatenrevision mergen; kein automatischer
-   Merge. Vor späterer Promotion muss `47bd424...` tatsächlich Main-Vorfahre sein.
+1. PR #8 ist mit erhaltener Kandidatenrevision gemergt; diese Bedingung ist erfüllt.
+   Den neuen Restarbeiten-PR separat prüfen, nicht automatisch mergen.
 2. Vollständigen privaten Doctor-Export liefern, Herkunft/Grenzen bestätigen und
    echten Bericht erfolgreich auswerten. Bei Fehlern: **BLOCKED**, erst diagnostizieren.
 3. Benanntes Lizenz-/Distributionsreview für exakt die oben angegebenen Bytes;

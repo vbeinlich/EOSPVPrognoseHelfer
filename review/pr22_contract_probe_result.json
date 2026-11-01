@@ -1,0 +1,35 @@
+{
+  "probe_exit": 2,
+  "result": {
+    "reviewed_commit": "db5b304e7dca19d175375283cad9775c7735cd2a",
+    "synthetic_only": true,
+    "network_forbidden": true,
+    "optimizer_invoked": false,
+    "productive_files_accessed": false,
+    "criteria": [
+      {
+        "id": "R1",
+        "criterion": "snapshot_matches_returned_solver_inputs",
+        "status": "BLOCKED",
+        "core_accepted": true,
+        "app_exit": 0,
+        "returned_model_inputs_present": true,
+        "saved_soc_percent": 55,
+        "returned_soc_percent": 0,
+        "saved_price_eur_wh": 0.0003,
+        "returned_price_eur_wh": 0.009,
+        "returned_pv_all_zero_despite_nonzero_source": true
+      },
+      {
+        "id": "R2",
+        "criterion": "same_archive_same_consumer_decision",
+        "status": "BLOCKED",
+        "core_accepted": true,
+        "app_accepted": false,
+        "app_exit": 1,
+        "inspector_inputs_status": "verified"
+      }
+    ],
+    "recommendation": "BLOCKED"
+  }
+}

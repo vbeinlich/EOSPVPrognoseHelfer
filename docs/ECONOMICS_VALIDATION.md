@@ -1,5 +1,10 @@
 # Phase-2-Review: konkrete Prüfnachweise
 
+> Historischer Nachweis von PR #15. Der neuere Integrationsstand und seine Counts
+> stehen in [EMS_READINESS.md](EMS_READINESS.md); aktueller Code-Bundlehash und
+> Operatoranleitung in [ECONOMICS_COMPARISON.md](ECONOMICS_COMPARISON.md).
+> Die unten genannten alten Hashes gelten nicht f?r die neue Plan-Ist-Ansicht.
+
 Stand 31.10.2026. Separater Review-Branch `release/issue-6-economics`, auf dem
 offenen Phase-1-PR #14 aufgebaut. Kein Merge, Release, Deployment oder Produktivtest.
 Vollständige [Modelldefinition und private Abnahme](ECONOMICS_COMPARISON.md).

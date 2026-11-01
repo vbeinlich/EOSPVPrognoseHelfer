@@ -126,7 +126,7 @@ vollständig. Das sind synthetische Benchmarks, keine Anlagenergebnisse.
 Nach Review den exakten PR-Commit auschecken. Bundle erzeugen (neuer Dateiname):
 
 Geprüftes deterministisches Code-Bundle:
-`ca3d2d8543ca9923b9024c3b1ad5d683fcd8cb5b01d84d13a180cdc47662a8a8`.
+`cfec2cf17c8654c0a511042ae1aae6dc0ac875d947bb7cdb493649e1c2103d2f`.
 Wrapper-SHA256 (UTF-8, LF):
 `aeb5a12796adf8a940c18ac289643e8fd4f54a2cd2e6ec2b1e1861bb4c31c1fd`.
 Die Hashes gelten ausschließlich für diesen Code-Stand, nicht für private Reports

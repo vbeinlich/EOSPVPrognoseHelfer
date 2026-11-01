@@ -1,5 +1,10 @@
 # Nächste Entwicklungsphase: Nutzen nachvollziehbar machen
 
+**Integrationsreview vom 01.11.2026:** [Gesamtstatus und Freigabegates](EMS_READINESS.md),
+[PR-Matrix](EMS_INTEGRATION.md), [Plan-Ist](PLAN_ACTUAL.md),
+[Architektur und Backlog #16–#21](EMS_ARCHITECTURE.md). Keine produktive Steuerung,
+kein Merge/Release/Deployment durch diesen Auftrag.
+
 **Phase 2 im separaten Review:** [nativer Offline-Wirtschaftlichkeitsvergleich](ECONOMICS_COMPARISON.md)
 auf PR #14. Gespeicherte GENETIC-Freigaben werden ohne neue Optimierung gegen
 PV-Eigenverbrauch verglichen. Identische historische Endwertkurve, sichtbare

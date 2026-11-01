@@ -82,6 +82,8 @@ def simulate(data, *, baseline, load_scale):
             "soc_start_percent": result["battery_soc_per_hour"][i], "soc_end_percent": next_soc,
             "grid_cost_eur": grid_cost, "wear_eur": wear, "feed_in_revenue_eur": result["revenue_per_hour"][i],
             "pv_wh": arrays["pv_forecast_wh"][i], "load_wh": arrays["total_load"][i],
+            "battery_charge_dc_wh": float(battery._charged_raw_wh_per_slot[i]),
+            "battery_discharge_dc_wh": float(battery.discharged_energy_wh(i)),
             "price_eur_kwh": arrays["electricity_price_per_wh"][i]*1000})
     # Fingerprints include the probabilistic intra-slot PV/load-overlap table.
     return {"result": result, "slots": slots, "end_soc_percent": battery.current_soc_percentage(),

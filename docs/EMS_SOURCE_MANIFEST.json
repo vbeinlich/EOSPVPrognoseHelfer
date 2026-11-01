@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "main": "5688084ad3ea7bdc7cd603c09ade65293e8609c7",
+  "reviewed_heads": {
+    "9": "d41d6fddd83b6f369480e28b598a80427d8ffc7f",
+    "10": "45ee76ced82f16e5c4e83f07320ef2ed9173323b",
+    "13": "ea55a6741a5403b17b590526ad463369a5266005",
+    "14": "093def132080c7a6c7d73e2d4ee28d7ec940d24a",
+    "15": "814676aac5152ad2d9249f13941631fcf8baa7b1"
+  },
+  "unchanged_controls_sha256": {
+    "docs/GENETIC_ACCEPTANCE.json": "6006f801ad32de2417fbd5b89d5f679b7d5e6bd85a21135132c1cf2b3f06bcc9",
+    "docs/RELEASE_0_1_0_CANDIDATE.json": "9c67d1f985993134dac9642a8cd1ccd7d0df7290d3bef8ebc33d094e2403907f",
+    ".github/workflows/promote.yaml": "0313450347b661548f40d3b68d4cad9e741629a5b6930d8798adc5bcab5611d9",
+    "scripts/doctor_snapshot.py": "56a950467d27482bf3361c0739f6cccab394dcbe04d3c0238255119d6bbc8ca5"
+  }
+}

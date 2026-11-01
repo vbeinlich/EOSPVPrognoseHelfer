@@ -173,6 +173,7 @@ def snapshot_acceptance(path, *, now=None):
     Hashes protect consistency, not authenticity. An operator must review capture
     provenance. No extraction, source config, token access or network calls.
     """
+    from .event_context import ContextError, verify_producer
     from .historical import ForecastError as HistoricalError
     from .historical import manifest_digest, unpack, validate
 
@@ -188,8 +189,10 @@ def snapshot_acceptance(path, *, now=None):
             raw = handle.read(60_000_001)
         manifest, files = unpack(raw)
         evidence = validate(manifest, files, now=current)
+        evidence["runtime_context"] = verify_producer(manifest.get("producer"),
+            json.loads(files["solution-" + manifest["event_version"] + ".json"]))
         evidence["capture_manifest_sha256"] = manifest_digest(raw)
         return evidence, 0
     except Exception as exc:
-        failure["reason"] = str(exc) if isinstance(exc, (ForecastError, HistoricalError)) else "Invalid private snapshot; no files changed or extracted"
+        failure["reason"] = str(exc) if isinstance(exc, (ForecastError, HistoricalError, ContextError)) else "Invalid private snapshot; no files changed or extracted"
         return failure, 1

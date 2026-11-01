@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 
 from .app import atomic_json, eos_base, request_json, run_once, verify_contract
 from .evcc_source import evcc_soc_sample, ha_diagnostics
+from .event_context import canonical_sha
 from .evidence import (
     EvidenceError,
     archive_success,
@@ -350,7 +351,7 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                     {sample["source_timestamp"]: sample["factor"]})
                 if archive_enabled:
                     try:
-                        dispatch_inputs = capture_inputs(output, report, frame, series, plan, clock)
+                        dispatch_inputs = capture_inputs(output, report, frame, series, plan, clock, settings)
                     except Exception as exc:
                         # Evidence failure never changes claim semantics or causes a retry.
                         capture_error = diagnostic(exc)
@@ -370,6 +371,8 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 # validated value so a queued request cannot silently fall back to assumed 0%.
                 body = {"soc": {SOC_KEY.removesuffix("-soc-factor"): int(sample["percent"])},
                         "forecasts": {"electricity_price_per_wh": runtime_prices}}
+                if dispatch_inputs is not None:
+                    dispatch_inputs["dispatched_request_sha256"] = canonical_sha(body)
                 result = http(origin + "/v1/optimize", method="POST", payload=body, timeout=timeout)
                 verify_solution(result, plan)
                 atomic_json(output / ("solution-" + version["version"] + ".json"), result)

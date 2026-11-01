@@ -1,5 +1,30 @@
 # Automatische GENETIC-Beweisarchivierung – Issue #12
 
+## Integrations-Ergänzung vom 01.11.2026
+
+Weiterhin **ein** Writer und sieben unveränderte Originalartefakte. Im optionalen
+`producer`-Objekt desselben Schema-2-Manifests kommen hinzu: `observed_options`
+mit SHA256, `dispatched_request_sha256` und `solution_inputs` mit Bindung an
+Originalparameter/EMS-Reihen sowie ausgewählten numerischen Batterieparametern.
+Keine zusätzliche API-Abfrage, Rohkonfiguration oder nachträgliche Ergänzung alter ZIPs.
+
+`observed_options` ist der sichere Ausschnitt des bereits gelesenen Config-GETs,
+keine atomare Bestätigung der später verwendeten Solveroptionen. Tatsächliche
+zurückgegebene Modelleingaben bleiben in der Lösung. Der globale Jahreslastwert
+und sämtliche Solveroptionen werden vom installierten Lösungsvertrag nicht als
+unveränderlicher Lauf-Snapshot geliefert: `exact_solver_options_proven=false`.
+Fehlende Angaben bleiben fehlend, auch bei erfolgreicher Kern-Doctor-Prüfung.
+
+Der integrierte Writer/Live-Doctor und Paket-Snapshot-Doctor prüfen zusätzlich
+die neuen Kontext-Hashes gegen die ursprüngliche Lösung. Alte Archive bleiben
+ohne diesen Zusatznachweis lesbar; es wird nichts rekonstruiert. Die unveränderte
+eigenständige Engine aus #10 prüft weiterhin ihren Schema-2-Kernvertrag (sieben
+Originale/Frische/Preis-/PV-/SoC-Zuordnung); ihr `accepted` ist keine neue formale
+Laufoptions- oder Steuerfreigabe. [Integrations- und Abnahmegates](EMS_INTEGRATION.md).
+
+Die folgenden ursprünglichen PR-#13-Nachweise beziehen sich auf dessen damaligen
+Head. Neue Integrationsnachweise und Code-Bundle-Hashes sind separat zu prüfen.
+
 Review-Implementierung, **nicht auf Unraid installiert oder aktiviert**. Standard
 ist `[evidence] enabled = false`. Das Feature startet keine Optimierungen und
 ändert weder Preis-/PV-Verarbeitung noch Dispatch-Payload, Zeitplan oder Claims.

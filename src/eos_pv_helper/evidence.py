@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from . import historical as doctor
+from .event_context import canonical_sha, observed_options, solution_inputs, verify_producer
 
 DIRECTORY = "genetic-evidence"
 INPUTS = {"prices.json", "soc.json", "forecast.json", "report.json"}
@@ -27,7 +28,7 @@ def enabled(config):
     return config.get("evidence", {}).get("enabled") is True
 
 
-def capture_inputs(output, report, frame, series, plan, clock):
+def capture_inputs(output, report, frame, series, plan, clock, settings=None):
     """Freeze bytes read for THIS dispatch, not files observed after the POST."""
     files = {name: doctor.read(Path(output), name) for name in INPUTS}
     values = {name: doctor.decode(raw) for name, raw in files.items()}
@@ -50,7 +51,8 @@ def capture_inputs(output, report, frame, series, plan, clock):
         if row.get("pvforecast_ac_power") is None:
             raise EvidenceError("dispatch_pv_interval_missing")
         position += timedelta(minutes=15)
-    return {"files": files, "captured_at_utc": clock().isoformat()}
+    return {"files": files, "captured_at_utc": clock().isoformat(),
+            "observed_options": observed_options(settings or {})}
 
 
 def _sync_directory(path):
@@ -105,6 +107,7 @@ def _verify(raw, config, version, claim, solution_sha, clock):
     if manifest["files"]["solution-" + version + ".json"] != solution_sha:
         raise EvidenceError("archive_solution_differ")
     doctor.validate(manifest, files, now=clock(), settings=config)
+    verify_producer(manifest.get("producer"), doctor.decode(files["solution-" + version + ".json"]))
     return manifest
 
 
@@ -178,6 +181,10 @@ def archive_success(output, config, captured, state, report, clock):
                      "claimed_at_utc": state["events"][version]["claimed_at_utc"],
                      "implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                      "doctor_engine_sha256": hashlib.sha256(Path(doctor.__file__).read_bytes().rstrip(b"\n")).hexdigest()}}
+    context = captured["observed_options"]
+    manifest["producer"].update(observed_options=context, observed_options_sha256=canonical_sha(context),
+        dispatched_request_sha256=captured.get("dispatched_request_sha256"),
+        solution_inputs=solution_inputs(doctor.decode(files["solution-" + version + ".json"])))
     if not doctor.timestamp(captured["captured_at_utc"]) <= doctor.timestamp(
         state["events"][version]["claimed_at_utc"]) <= now:
         raise EvidenceError("input_capture_dispatch_chronology_differ")

@@ -7,6 +7,8 @@
 !licenses/**
 !docs/
 !docs/GENETIC_ACCEPTANCE.json
+!docs/EMS_SOURCE_MANIFEST.json
+!docs/RELEASE_0_1_0_CANDIDATE.json
 !docs/release-admin/
 !docs/release-admin/**
 !docs/doctor-export-review/

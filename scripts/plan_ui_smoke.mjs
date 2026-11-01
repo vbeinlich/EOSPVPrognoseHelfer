@@ -32,6 +32,9 @@ try{
   await check("document.querySelector('#comparison').textContent.includes('Batterieverschleiß')");
   await check("document.querySelector('#comparison').textContent.includes('11.251')");
   await check("document.querySelector('#comparison table').rows.length===12");
+  await check("document.querySelector('#actuals').textContent.includes('Nicht nachgewiesen')");
+  await check("document.querySelector('#actuals table').rows.length===9");
+  await check("JSON.parse(document.querySelector('#report-data').textContent).plans[0].actuals.realized_savings_eur===null");
  }else await check("[...document.querySelectorAll('.card strong')].filter(n=>n.textContent==='Nicht berechenbar').length===3");
  await check("(()=>{const d=JSON.parse(document.querySelector('#report-data').textContent);const i=d.plans.findIndex(p=>p.interval_seconds===3600);const s=document.querySelector('#plans');s.value=i;s.dispatchEvent(new Event('change'));return document.querySelectorAll('#slots tbody tr').length===96;})()");
  await check("(()=>{const s=document.querySelector('#grid');s.value='native';s.dispatchEvent(new Event('change'));return document.querySelectorAll('#slots tbody tr').length===24;})()");

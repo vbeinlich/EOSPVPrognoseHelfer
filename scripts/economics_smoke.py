@@ -3,14 +3,17 @@
 import argparse
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"tests"))
 
 from test_economics import packet  # noqa: E402
+from test_plan_actual import measured  # noqa: E402
 
 from eos_pv_helper.economics_report import from_packet  # noqa: E402
+from eos_pv_helper.plan_actual import Actuals  # noqa: E402
 from eos_pv_helper.plan_view import render  # noqa: E402
 
 
@@ -18,12 +21,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--html", required=True, help="NEW synthetic HTML path outside input volumes")
     args = parser.parse_args()
-    report = from_packet(packet(), scaled_load=True)
+    report = from_packet(packet(), scaled_load=True,
+        actuals=Actuals(json.dumps(measured(count=96)).encode(), now=datetime(2026, 11, 2, tzinfo=UTC)))
     c = report["plans"][0]["comparison"]
     assert c["status"] == "calculated", c
     assert abs(c["additional_savings_eur"]) < 1e-9
     assert c["baseline"]["end_soc_percent"] == 10
     assert c["genetic"]["end_soc_percent"] == 40
+    assert report["plans"][0]["actuals"]["cash_coverage_complete"]
+    assert report["plans"][0]["actuals"]["realized_savings_eur"] is None
     if args.html == "-":
         sys.stdout.buffer.write(render(report).encode("utf-8"))
     else:

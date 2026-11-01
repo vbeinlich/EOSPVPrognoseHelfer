@@ -1,5 +1,9 @@
 # EOS PV-Prognose-Helfer
 
+Aktueller Integrationsreview: [Status, Abhängigkeiten und Merge-/Abnahmeplan](docs/EMS_INTEGRATION.md),
+[Plan-Ist-Auswertung](docs/PLAN_ACTUAL.md) und [Zielarchitektur mit priorisierten Issues](docs/EMS_ARCHITECTURE.md).
+Keine produktive Änderung oder Gerätesteuerung; alle Aktivierungs-/Freigabegates bleiben offen.
+
 Neu im Review: [optionale automatische GENETIC-Beweisarchivierung](docs/GENETIC_EVIDENCE.md).
 Standardmäßig deaktiviert; keine zusätzlichen Optimierungen, kein Backfill.
 

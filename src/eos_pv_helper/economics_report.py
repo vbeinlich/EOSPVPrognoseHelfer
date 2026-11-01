@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from . import economics, plan_inspector
 
 
-def from_packet(packet, *, scaled_load=False):
+def from_packet(packet, *, scaled_load=False, actuals=None):
     if (not isinstance(packet, dict) or packet.get("schema_version") != 1
             or packet.get("read_only") is not True or not isinstance(packet.get("plans"), list)
             or len(packet["plans"]) > plan_inspector.MAX_PLANS):
@@ -54,6 +54,9 @@ def from_packet(packet, *, scaled_load=False):
             plan["solution_sha256"] = export["source_sha256"]
             plan["comparison"]["source_solution_sha256"] = export["source_sha256"]
             plan["comparison"]["projection_sha256"] = export["projection_sha256"]
+            if actuals is not None:
+                from .plan_actual import analyze
+                plan["actuals"] = analyze(checked, plan["comparison"], actuals)
         plans.append(plan)
     return {"schema_version": 1, "phase": 2, "read_only": True, "timezone": "Europe/Berlin",
             "generated_at_utc": now.isoformat(), "latest_sync_status": packet.get("latest_sync_status")
@@ -70,12 +73,18 @@ def main():
     inputs.add_argument("--solution", action="append", help="Existing private original JSON; repeat for multiple plans")
     parser.add_argument("--format", choices=("json", "html"), default="json")
     parser.add_argument("--scaled-load-sensitivity", action="store_true")
+    parser.add_argument("--actuals", help="Existing private measured-interval export; no live acquisition")
     args = parser.parse_args()
     try:
+        actuals = None
+        if args.actuals:
+            from .plan_actual import Actuals
+            path = Path(args.actuals)
+            actuals = Actuals(plan_inspector.read(path.parent, path.name))
         if args.input_report:
             path = Path(args.input_report)
             raw = plan_inspector.read(path.parent, path.name, 32_000_000)
-            data = from_packet(json.loads(raw), scaled_load=args.scaled_load_sensitivity)
+            data = from_packet(json.loads(raw), scaled_load=args.scaled_load_sensitivity, actuals=actuals)
         else:
             if args.format != "json":
                 raise economics.ComparisonError("HTML benötigt einen privaten Inspector-Export mit Planversionen.")
@@ -95,6 +104,9 @@ def main():
                     "start_utc": plan_inspector.stamp(solution.get("start_solution_datetime")).isoformat()
                     if plan_inspector.stamp(solution.get("start_solution_datetime")) else None,
                     "comparison": comparison})
+                if actuals is not None and comparison.get("status") == "calculated":
+                    from .plan_actual import analyze
+                    data["plans"][-1]["actuals"] = analyze(economics.project(solution), comparison, actuals)
         if args.format == "html":
             from .plan_view import render
             output = render(data)
@@ -102,7 +114,8 @@ def main():
             output = json.dumps(data, ensure_ascii=False, allow_nan=False)
         sys.stdout.buffer.write(output.encode())
         return 0 if data["plans"] and all(p.get("comparison", {}).get("status") == "calculated"
-                                         for p in data["plans"]) else 2
+            and (actuals is None or p.get("actuals", {}).get("cash_coverage_complete") is True)
+            for p in data["plans"]) else 2
     except Exception as exc:
         reason = str(exc) if isinstance(exc, economics.ComparisonError) else "Privater Vergleichseingang ungültig; keine Quelldateien geändert."
         print(reason, file=sys.stderr)

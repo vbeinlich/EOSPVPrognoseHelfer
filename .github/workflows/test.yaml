@@ -9,14 +9,31 @@ permissions:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    env:
+      PYTEST_ADDOPTS: '-m "not genetic_execution"'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
       - run: pip install '.[test]'
       - run: ruff check src tests scripts
       - run: pytest -q
+      - name: Read immutable old image for read-only inspector compatibility
+        run: docker pull ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7
+      - name: Verify standalone historical Doctor in the unchanged production image
+        run: python scripts/doctor_container_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7 --expect-no-doctor
+      - name: Produce evidence through the real sync writer with a mocked optimizer response
+        run: python tests/make_evidence_fixture.py --destination "$RUNNER_TEMP/evidence-compat"
+      - name: Verify automatic evidence with the same standalone historical engine
+        run: python scripts/evidence_container_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7 --fixture "$RUNNER_TEMP/evidence-compat" --expect-no-doctor
+      - name: Test old-container bundle without installed helper modules
+        run: python scripts/plan_inspector_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7 --html "$RUNNER_TEMP/plan-inspector-synthetic.html"
+      - name: Test real static browser view without a webserver
+        run: node scripts/plan_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/plan-inspector-synthetic.html"
       - run: docker compose config --no-path-resolution
       - run: docker build --target eos-source -t eos-pv-helper:ci .
       - run: python scripts/unraid_smoke.py --image eos-pv-helper:ci
@@ -29,6 +46,8 @@ jobs:
           path: candidate-license-inventory.json
   eos-integration:
     runs-on: ubuntu-latest
+    env:
+      PYTEST_ADDOPTS: '-m "not genetic_execution"'
     permissions:
       contents: read
       issues: read
@@ -37,4 +56,17 @@ jobs:
         with:
           fetch-depth: 0
       - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
-      - run: docker run --rm --network none eos-pv-helper:eos-test
+      - run: docker run --rm --network none -e PYTEST_ADDOPTS eos-pv-helper:eos-test
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Native forward comparison only, read-only sources and isolated temporary configuration
+        run: |
+          set -o noclobber
+          docker run --rm --network none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev \
+            --tmpfs /tmp/eos-test:rw,nosuid,nodev \
+            --entrypoint python eos-pv-helper:eos-test \
+            scripts/economics_smoke.py --html - > "$RUNNER_TEMP/economics-synthetic.html"
+      - name: Browser-check calculated economics, slot costs and end-SoC fairness
+        run: node scripts/plan_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/economics-synthetic.html" --economic

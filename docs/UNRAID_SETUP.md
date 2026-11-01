@@ -1,5 +1,13 @@
 # Installation über Unraid: Docker → Add Container
 
+Die [optionale Beweisarchivierung aus Issue #12](GENETIC_EVIDENCE.md) ist eine
+separate Review-Änderung, noch nicht produktiv installiert. Neues Image und
+`[evidence] enabled=true` erfordern gesonderte Freigabe; keine automatische Migration.
+
+Für vorhandene GENETIC-Lösungen ist ein separater
+[rein lesender HTML-Plan-Inspector](PLAN_INSPECTOR.md) vorbereitet. Er nutzt den
+Interpreter des bestehenden Images, benötigt kein Containerupdate und öffnet keinen Port.
+
 Diese Anleitung verwendet die normale Unraid-Docker-Oberfläche. Compose und ein dauerhaft
 manuell gestarteter `docker run` sind nicht erforderlich. Zielsystem: Unraid 7.3.1 auf x86-64;
 das Image wird als `linux/amd64` gebaut. Die Erstfassung dieser Anleitung war vor der realen Abnahme entstanden;

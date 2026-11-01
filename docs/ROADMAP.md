@@ -1,5 +1,22 @@
 # Nächste Entwicklungsphase: Nutzen nachvollziehbar machen
 
+**Integrationsreview vom 01.11.2026:** [Gesamtstatus und Freigabegates](EMS_READINESS.md),
+[PR-Matrix](EMS_INTEGRATION.md), [Plan-Ist](PLAN_ACTUAL.md),
+[Architektur und Backlog #16–#21](EMS_ARCHITECTURE.md). Keine produktive Steuerung,
+kein Merge/Release/Deployment durch diesen Auftrag.
+
+**Phase 2 im separaten Review:** [nativer Offline-Wirtschaftlichkeitsvergleich](ECONOMICS_COMPARISON.md)
+auf PR #14. Gespeicherte GENETIC-Freigaben werden ohne neue Optimierung gegen
+PV-Eigenverbrauch verglichen. Identische historische Endwertkurve, sichtbare
+Kostenzerlegung und explizite Datenlücken. Kein produktives Deployment und keine
+realisierte Ersparnisbehauptung; private Abnahme aller drei Oktober-Pläne bleibt offen.
+
+**Betreiberpriorität 31.10.2026:** [Issue #6 Phase 1 – statischer Plan-Inspector](PLAN_INSPECTOR.md)
+darf jetzt unabhängig von Wizard #5 und stabilem Release in einem eigenen Review-PR
+vorbereitet werden. Keine Phase-2-Simulation, kein Dauer-Webserver und keine
+Produktionsänderung. Die folgende Reihenfolge gilt weiter für die vollständige
+integrierte Savings-GUI und die gesonderten Releasefreigaben.
+
 Verbindliche Betreiberreihenfolge vom 29.10.2026:
 
 1. **Issue #1:** endgültige Abnahme und Abschluss. Reales automatisches GENETIC-
@@ -14,7 +31,8 @@ Verbindliche Betreiberreihenfolge vom 29.10.2026:
 4. **Issue #6:** [Savings Dashboard](https://github.com/vbeinlich/EOSPVPrognoseHelfer/issues/6),
    eigener PR nach #5, auf derselben Weboberfläche und Doctor-/Status-Engine.
 
-Bis dahin keine vorgezogene Wizard-/Dashboard-Implementierung. Der produktive
+Bis dahin keine vorgezogene Wizard- oder vollständige Savings-Dashboard-Implementierung.
+Ausgenommen ist die ausdrücklich freigegebene statische Phase-1-Planübersicht. Der produktive
 Helfer bleibt unverändert; vorhandene Pläne werden lesend ausgewertet, keine
 neuen Produktionsoptimierungen für Benchmarks ausgelöst.
 

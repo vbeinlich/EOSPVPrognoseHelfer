@@ -218,24 +218,13 @@ def test_only_matching_valid_archive_enables_price_and_pv_overlay(tmp_path, monk
     validator = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(validator)
     monkeypatch.setitem(sys.modules, "historical_validator", validator)
-    from test_doctor import artifacts, inspect
-    base = artifacts.__wrapped__(tmp_path)
+    from test_historical_doctor import complete_artifacts
+    base = complete_artifacts(tmp_path)
     root, _, values = base
     version = next(iter(values["sync-state.json"]["events"]))
     solution = values["solution-"+version+".json"]
     solution["controls_start_at_now"] = True
-    start = NOW.replace(hour=0, minute=0)
-    pv = {"import_verified": True, "checked_at_utc": NOW.isoformat(), "count": 288,
-          "start_utc": start.isoformat(), "end_exclusive_utc": (start+timedelta(hours=72)).isoformat()}
-    values["sync-report.json"]["pv"] = pv
-    values["sync-report.json"]["prices"]["count"] = 192
-    values["sync-report.json"]["prices"]["unit"] = "EUR/Wh"
-    inspect(base)
     files = {name: (root / name).read_bytes() for name in values}
-    files["soc.json"] = json.dumps(values["sync-report.json"]["soc"]).encode()
-    files["report.json"] = json.dumps(pv).encode()
-    files["forecast.json"] = json.dumps({"data": {(start+timedelta(minutes=15*i)).isoformat():
-        {"pvforecast_ac_power": 1000} for i in range(288)}}).encode()
     manifest = {"schema_version": 2, "event_version": version, "captured_at_utc": NOW.isoformat(),
         "timezone": "Europe/Berlin", "configured_constraints_read": True,
         "validation_constraints": {"max_age_seconds": 300, "max_abs_power_w": 20000},

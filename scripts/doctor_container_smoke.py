@@ -15,13 +15,15 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from synthetic_binding import bind
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def fixtures():
     """Independent synthetic fixture; no installed helper imports on the host."""
     now = datetime(2026, 10, 29, 13, 5, tzinfo=UTC)
-    start = now.replace(hour=0, minute=0)
+    start = now.replace(hour=0, minute=0)-timedelta(hours=1)
     prices = {"data": {(start+timedelta(minutes=15*i)).isoformat():
                        {"elecprice_marketprice_wh": .0003} for i in range(192)}}
     # Fixed synthetic winter day; host Windows needs no timezone data package.
@@ -52,6 +54,7 @@ def fixtures():
               "solution-"+version+".json": {"interval_seconds": 3600, "start_solution_datetime": claim["start_utc"],
                   "ac_charge": [0]*24, "dc_charge": [1]*24, "discharge_allowed": [1]*24,
                   "result": {"total_costs": -1.25}}}
+    bind(values, origin=start)
     files = {name: json.dumps(value).encode() for name, value in values.items()}
     manifest = {"schema_version": 2, "event_version": version, "captured_at_utc": now.isoformat(),
                 "timezone": "Europe/Berlin", "configured_constraints_read": True,
@@ -139,7 +142,10 @@ print(json.dumps({'python':sys.version.split()[0],
                              (root / "snapshot.zip", "/snapshot.zip"), (root / "invalid.zip", "/invalid.zip")):
             mounts += ["--mount", f"type=bind,source={host},target={target},readonly"]
         def run(*args):
-            result = docker(*secure, *mounts, image_id, "-I", "-S", "-B", "-c", engine, *args)
+            # Engine growth must not hit Windows CreateProcess's 32K command line.
+            # Snapshot files stay separate read-only mounts; stdin carries code only.
+            result = docker(*secure, "-i", *mounts, image_id, "-I", "-S", "-B", "-", *args,
+                            input=engine.encode())
             if b"Traceback" in result.stderr or b"ModuleNotFoundError" in result.stderr:
                 raise ValueError("Engine emitted a traceback in the real container")
             return result

@@ -1,5 +1,7 @@
 # Unabhängiger Doctor-Review – 31.10.2026
 
+> Historischer Nachweisstand. Die aktuellen R1/R2/R3-Korrekturen, Transporthashes und erneuten Tests stehen im [neuen Gate-Bericht](../PR22_INPUT_BINDING_FIX_REVIEW.md). Alte Ergebnisse sind keine Freigabe der neuen Engine.
+
 PR #10 baut auf PR #9 auf. Kein automatischer Merge und keine reale private
 Doctor-Abnahme durch die synthetischen Tests.
 

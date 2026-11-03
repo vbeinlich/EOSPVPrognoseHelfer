@@ -83,8 +83,8 @@ Verbindliche SHA256 dieses Review-Stands:
 
 | Datei | SHA256 |
 | --- | --- |
-| Code-Bundle | `7db2600123edf8d5ffde248cfc36794dc24097cef4eac4cf68b0431a54fb41c1` |
-| Unraid-Wrapper | `3a40a965a5a7b83e2c639135b8852814b9dc9daeec1d35d07e08014b200a14ba` |
+| Code-Bundle | `d96b7c463cd3e6f6c390c4c152d7cb1f5931e44ce8da6ca9a17aeeb07fad6064` |
+| Unraid-Wrapper | `aeb5a12796adf8a940c18ac289643e8fd4f54a2cd2e6ec2b1e1861bb4c31c1fd` |
 
 Bei abweichendem Hash nicht ausführen. Nach einem späteren Code-Review müssen neue
 Hashes explizit geprüft werden; keine bewegliche Branch-URL ungeprüft ausführen.
@@ -134,8 +134,8 @@ Zurück in der Unraid-Konsole, tatsächlichen Arbeitsordner einsetzen:
 cd /tmp/eos-plan-inspector.ACTUAL
 umask 077
 printf '%s  %s\n' \
-  7db2600123edf8d5ffde248cfc36794dc24097cef4eac4cf68b0431a54fb41c1 plan-inspector-reviewed.pyz \
-  3a40a965a5a7b83e2c639135b8852814b9dc9daeec1d35d07e08014b200a14ba unraid-plan-inspector-reviewed.sh | sha256sum -c -
+  d96b7c463cd3e6f6c390c4c152d7cb1f5931e44ce8da6ca9a17aeeb07fad6064 plan-inspector-reviewed.pyz \
+  aeb5a12796adf8a940c18ac289643e8fd4f54a2cd2e6ec2b1e1861bb4c31c1fd unraid-plan-inspector-reviewed.sh | sha256sum -c -
 ```
 
 Nur wenn beide Hashes passen, im selben **neuen** Ordner fortfahren:
@@ -143,7 +143,7 @@ Nur wenn beide Hashes passen, im selben **neuen** Ordner fortfahren:
 ```sh
 set -C
 if bash ./unraid-plan-inspector-reviewed.sh ./plan-inspector-reviewed.pyz \
-  7db2600123edf8d5ffde248cfc36794dc24097cef4eac4cf68b0431a54fb41c1 \
+  d96b7c463cd3e6f6c390c4c152d7cb1f5931e44ce8da6ca9a17aeeb07fad6064 \
   > plan.html.partial && ln -- plan.html.partial plan.html; then
   printf 'HTML erfolgreich: %s/plan.html\n' "$PWD"
   sha256sum plan.html

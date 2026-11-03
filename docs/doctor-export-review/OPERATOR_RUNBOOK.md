@@ -1,13 +1,15 @@
 # Doctor: aktueller und historischer Nachweis
 
-Stand 31.10.2026. Keine Befehle hier auf Unraid ausgeführt. Kein Export ist eine Releasefreigabe.
+Stand 03.11.2026. Keine Befehle hier auf Unraid ausgeführt. Kein Export ist eine Releasefreigabe.
+
+> Aktualisiert fuer [Pruefvertrag v2](../INPUT_BINDING_CONTRACT.md). Legacy ohne vollstaendige Request-Bindung: lesbar mit Exit 2, keine vollstaendige Abnahme. Vorhandene Beschaedigung: Exit 1. Issue #21 bleibt offen. Die folgenden Operatorbefehle sind nur vorbereitet, nicht freigegeben oder hier ausgefuehrt.
 
 ## Geprüften Wrapper bereitstellen
 
-Quellcommit: `8a2b5d430bd901cd657385a3a772a8d0cd30baa8`.
-Wrapper-SHA256: `5645bac00aa0f2d1c3480ce9e8b4c7dee5a4ebe2fbe68f80d195af695b9c63c3`.
+Quellcommit: `2dee57de836334c585ed4adb393a7e758eacb1d9`.
+Wrapper-SHA256: `6e1d3c84f5369744f24ba4735a2e39af7338a25bdf30fe7b46e529c836a228d8`.
 Engine-SHA256 ohne abschließenden Zeilenumbruch:
-`d4d713cd53c3a94621032ea7aeb2c76b5787b96e53ec8658544ab248c896a564`.
+`4fb311a4ac92f0d8fd37df7fb1746edb76b0ee8cdb85f22641b3a06c94aa30aa`.
 
 Die neue Engine wird bytegleich eingebettet, vor Ausführung hashgeprüft und mit
 `python -I -S -B -c` im bestehenden Container ausgeführt. Ausschließlich Python-3.11-Standardbibliothek
@@ -25,9 +27,9 @@ Nach unabhängigem Review den Wrapper privat kopieren oder den festen Stand lade
 umask 077
 wrapper_dir=$(mktemp -d /tmp/eos-doctor-reviewed.XXXXXXXX)
 curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --max-time 60 \
-  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/8a2b5d430bd901cd657385a3a772a8d0cd30baa8/scripts/unraid-doctor-export.sh \
+  https://raw.githubusercontent.com/vbeinlich/EOSPVPrognoseHelfer/2dee57de836334c585ed4adb393a7e758eacb1d9/scripts/unraid-doctor-export.sh \
   --output "$wrapper_dir/unraid-doctor-export.sh"
-printf '%s  %s\n' 5645bac00aa0f2d1c3480ce9e8b4c7dee5a4ebe2fbe68f80d195af695b9c63c3 "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
+printf '%s  %s\n' 6e1d3c84f5369744f24ba4735a2e39af7338a25bdf30fe7b46e529c836a228d8 "$wrapper_dir/unraid-doctor-export.sh" | sha256sum -c -
 ```
 
 Bei Curl-/Hashfehler nicht ausführen. Im Folgenden `/PRIVATE/unraid-doctor-export.sh`

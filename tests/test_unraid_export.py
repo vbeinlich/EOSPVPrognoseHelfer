@@ -140,7 +140,8 @@ def test_preflight_reads_under_lock_without_export_download_or_private_output(ha
     assert result.returncode == 0, result.stderr.decode()
     assert json.loads(result.stdout) == {"preflight": "passed", "read_only": True,
         "shared_lock_verified": True, "artifact_count": 7, "export_created": False,
-        "doctor_acceptance": False}
+        "doctor_acceptance": False, "validation_contract": "eos-pv-helper/event-evidence-v2",
+        "validation_scope": "request_solver_inputs", "input_binding_complete": True}
     assert list(exports.iterdir()) == []
     commands = [json.loads(line) for line in Path(env["COMMAND_LOG"]).read_text().splitlines()]
     assert all(command[0] in {"ps", "inspect", "exec"} for command in commands)

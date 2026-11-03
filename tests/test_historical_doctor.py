@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 import test_doctor as legacy
+from synthetic_binding import bind
 
 from eos_pv_helper.doctor import snapshot_acceptance
 from eos_pv_helper.historical import ForecastError, pack, prepare, unpack, validate
@@ -22,7 +23,9 @@ NOW = legacy.NOW
 
 def complete_artifacts(directory):
     root, config, files = legacy.artifacts.__wrapped__(directory)
-    start = NOW.replace(hour=0, minute=0)
+    start = NOW.replace(hour=0, minute=0)-timedelta(hours=1)  # Synthetic Berlin winter midnight.
+    files["prices.json"] = {"data": {(start+timedelta(minutes=15*i)).isoformat():
+        {legacy.PRICE_KEY: .0003} for i in range(192)}}
     forecast = {"data": {(start + timedelta(minutes=15*i)).isoformat():
                            {"pvforecast_ac_power": 1000 if 6 <= i % 96 < 72 else 0}
                           for i in range(288)}}
@@ -34,6 +37,7 @@ def complete_artifacts(directory):
     files["sync-report.json"]["prices"].update(count=192, unit="EUR/Wh")
     files["report.json"], files["forecast.json"] = copy.deepcopy(pv), forecast
     files["soc.json"] = {k: v for k, v in files["sync-report.json"]["soc"].items() if k != "import_verified"}
+    bind(files)
     for name, value in files.items():
         (root / name).write_text(json.dumps(value))
     return root, config, files

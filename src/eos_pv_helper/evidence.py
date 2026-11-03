@@ -14,7 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from . import historical as doctor
-from .event_context import canonical_sha, observed_options, solution_inputs, verify_producer
+from .event_context import canonical_sha, observed_options, solution_inputs
 
 DIRECTORY = "genetic-evidence"
 INPUTS = {"prices.json", "soc.json", "forecast.json", "report.json"}
@@ -106,8 +106,8 @@ def _verify(raw, config, version, claim, solution_sha, clock):
         raise EvidenceError("archive_persisted_success_differ")
     if manifest["files"]["solution-" + version + ".json"] != solution_sha:
         raise EvidenceError("archive_solution_differ")
-    doctor.validate(manifest, files, now=clock(), settings=config)
-    verify_producer(manifest.get("producer"), doctor.decode(files["solution-" + version + ".json"]))
+    if not doctor.validate(manifest, files, now=clock(), settings=config)["input_binding_complete"]:
+        raise EvidenceError("archive_legacy_limited_request_binding_missing")
     return manifest
 
 
@@ -119,7 +119,9 @@ def inspect_archive(output, config, version, claim, solution_sha, clock):
     raw = _raw(root / (version + ".zip"))
     manifest = _verify(raw, config, version, claim, solution_sha, clock)
     return {"status": "archived", "archive": DIRECTORY + "/" + version + ".zip",
-            "sha256": hashlib.sha256(raw).hexdigest(), "captured_at_utc": manifest["captured_at_utc"]}
+            "sha256": hashlib.sha256(raw).hexdigest(), "captured_at_utc": manifest["captured_at_utc"],
+            "validation_contract": doctor.VALIDATION_CONTRACT, "validation_scope": "request_solver_inputs",
+            "input_binding_complete": True}
 
 
 def _publish(root, pending, raw, version, verify):

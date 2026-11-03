@@ -1,5 +1,9 @@
 # EOS PV-Prognose-Helfer
 
+Korrekturreview zu PR #22: [R1/R2/R3-Gates und Nachweise](docs/PR22_INPUT_BINDING_FIX_REVIEW.md),
+[gemeinsamer Prüfvertrag v2 und Legacy-Grenzen](docs/INPUT_BINDING_CONTRACT.md).
+Issue #21 und sämtliche Produktiv-/Gerätefreigaben bleiben offen.
+
 Aktueller Integrationsreview: [Status, Abhängigkeiten und Merge-/Abnahmeplan](docs/EMS_INTEGRATION.md),
 [Plan-Ist-Auswertung](docs/PLAN_ACTUAL.md) und [Zielarchitektur mit priorisierten Issues](docs/EMS_ARCHITECTURE.md).
 Keine produktive Änderung oder Gerätesteuerung; alle Aktivierungs-/Freigabegates bleiben offen.

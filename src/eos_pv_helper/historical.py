@@ -25,10 +25,178 @@ MAX_FILE = 8_000_000
 MAX_ZIP = 60_000_000
 VERSION = re.compile(r"[0-9a-f]{64}")
 PRICE_KEY = "elecprice_marketprice_wh"
+VALIDATION_CONTRACT = "eos-pv-helper/event-evidence-v2"
+BINDING_CONTRACT = "eos-pv-helper/solver-input-binding-v1"
+SOC_DEVICE = "e3dc_s10e_pro"
+REL_TOL = 1e-9
+PRICE_ABS_TOL = 1e-12  # EUR/Wh, same bound as the existing import readback.
+ENERGY_ABS_TOL = 1e-6  # Wh; floating integration only, not meter rounding.
 
 
 class ForecastError(ValueError):
     """Sanitized evidence error; no runtime project exception dependency."""
+
+
+def canonical_sha(value):
+    try:
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
+                                         allow_nan=False).encode()).hexdigest()
+    except (ValueError, TypeError, OverflowError):
+        raise ForecastError("Invalid canonical evidence value") from None
+
+
+def numeric(value):
+    return value if (not isinstance(value, bool) and isinstance(value, (int, float))
+                     and math.isfinite(value)) else None
+
+
+def solution_inputs(solution):
+    """Summary of original returned bytes, never a substitute for cross-artifact checks."""
+    p = solution.get("parameters") or {}
+    ems, battery, inverter = p.get("ems") or {}, p.get("pv_battery") or {}, p.get("inverter") or {}
+    series = {}
+    for key in ("total_load", "pv_forecast_wh", "electricity_price_per_wh", "feed_in_tariff_per_wh"):
+        values = ems.get(key)
+        if isinstance(values, list) and values and all(numeric(v) is not None for v in values):
+            series[key] = {"sha256": canonical_sha(values), "slots": len(values)}
+    result = {"scope": "original_returned_solution_parameters",
+        "parameters_sha256": canonical_sha(p) if p else None, "series": series,
+        "battery": {k: numeric(battery.get(k)) for k in ("capacity_wh", "initial_soc_percentage",
+            "min_soc_percentage", "max_soc_percentage", "charging_efficiency", "discharging_efficiency",
+            "max_charge_power_w", "levelized_cost_of_storage_kwh")},
+        "inverter": {k: numeric(inverter.get(k)) for k in ("ac_to_dc_efficiency", "dc_to_ac_efficiency",
+            "max_power_wh", "max_ac_charge_power_w")},
+        "annual_load_exact_binding": "not_reported_by_solution",
+        "optimizer_options_exact_binding": "not_reported_by_solution"}
+    result["selected_model_inputs_present"] = (len(series) == 4
+        and all(v is not None for v in result["battery"].values())
+        and all(v is not None for v in result["inverter"].values()))
+    return result
+
+
+def verify_producer(producer, solution):
+    """One validation policy for ALL consumers; absent and corrupt are different."""
+    if producer is None:
+        return {"status": "not_available", "exact_solver_options_proven": False}
+    if not isinstance(producer, dict):
+        raise ForecastError("Invalid evidence producer metadata")
+    fields = {"observed_options", "observed_options_sha256", "solution_inputs", "dispatched_request_sha256"}
+    if not fields.intersection(producer):
+        return {"status": "not_available", "exact_solver_options_proven": False}
+    if (not fields.issubset(producer) or not isinstance(producer["observed_options"], dict)
+            or canonical_sha(producer["observed_options"]) != producer["observed_options_sha256"]
+            or solution_inputs(solution) != producer["solution_inputs"]
+            or not isinstance(producer["dispatched_request_sha256"], str)
+            or not VERSION.fullmatch(producer["dispatched_request_sha256"])):
+        raise ForecastError("Event context hash or original solution binding differs")
+    return {"status": "consistent_observation_and_returned_inputs", "exact_solver_options_proven": False,
+        "returned_model_inputs_present": producer["solution_inputs"]["selected_model_inputs_present"],
+        "annual_load_exact_binding": "not_reported_by_solution"}
+
+
+def request_binding(payload, timezone, start):
+    """Record the exact existing request before POST. No mutation or additional IO."""
+    zone = ZoneInfo(timezone)
+    origin = timestamp(start).astimezone(zone).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Round-trip detaches the receipt from later mutation of the caller's dictionary.
+    return {"contract": BINDING_CONTRACT, "timezone": timezone,
+        "origin_utc": origin.astimezone(UTC).isoformat(),
+        "request": json.loads(json.dumps(payload, allow_nan=False)),
+        "request_sha256": canonical_sha(payload)}
+
+
+def close_values(actual, expected, *, energy=False):
+    return math.isclose(number(actual), number(expected), rel_tol=REL_TOL,
+                        abs_tol=ENERGY_ABS_TOL if energy else PRICE_ABS_TOL)
+
+
+def solver_binding(manifest, values, pv_series, price_series, start, slots, seconds):
+    """Pinned EOS 8a8cd43 native contract: request at midnight, response at run.
+
+    Only source-covered control+tail PV slots are compared. Unused past PV may be
+    missing/null; it is never filled. Request prices are finite from site midnight.
+    Legacy absence is readable but not accepted as complete dispatch evidence.
+    """
+    version = manifest["event_version"]
+    report, solution = values["sync-report.json"], values["solution-" + version + ".json"]
+    context = verify_producer(manifest.get("producer"), solution)
+    event = report["event"]
+    receipt = event.get("request_binding")
+    present = "request_binding" in event
+    timezone = manifest["timezone"]
+    origin = start.astimezone(ZoneInfo(timezone)).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
+    elapsed = (start-origin).total_seconds()
+    if elapsed < 0 or elapsed % seconds:
+        raise ForecastError("Solver run does not align with site-midnight time grid")
+    first, count = int(elapsed/seconds), int(elapsed/seconds)+slots
+    expected_prices = interval_averages(price_series, origin, count, seconds)
+    expected_soc = int(number(values["soc.json"]["percent"]))
+    if present:
+        if (not isinstance(receipt, dict) or set(receipt) != {
+                "contract", "timezone", "origin_utc", "request", "request_sha256"}
+                or receipt["contract"] != BINDING_CONTRACT or receipt["timezone"] != timezone
+                or timestamp(receipt["origin_utc"]) != origin):
+            raise ForecastError("Invalid solver request binding contract or time basis")
+        request = receipt["request"]
+        if (not isinstance(request, dict) or set(request) != {"soc", "forecasts"}
+                or request["soc"] != {SOC_DEVICE: expected_soc}
+                or type(request["soc"].get(SOC_DEVICE)) is not int
+                or not isinstance(request["forecasts"], dict)
+                or set(request["forecasts"]) != {"electricity_price_per_wh"}
+                or canonical_sha(request) != receipt["request_sha256"]):
+            raise ForecastError("Dispatched request differs from original SoC or payload hash")
+        prices = request["forecasts"]["electricity_price_per_wh"]
+        if (not isinstance(prices, list) or len(prices) != count
+                or any(v is None for v in expected_prices)
+                or any(not close_values(a, b) for a, b in zip(prices, expected_prices))):
+            raise ForecastError("Dispatched prices differ from original price snapshot or horizon")
+        producer = manifest.get("producer") or {}
+        if ("dispatched_request_sha256" in producer
+                and producer["dispatched_request_sha256"] != receipt["request_sha256"]):
+            raise ForecastError("Producer and original report request hashes differ")
+    params = solution.get("parameters")
+    recognized = (isinstance(params, dict) and "ems" in params and "pv_battery" in params)
+    if not recognized:
+        if present:
+            raise ForecastError("Returned solver parameters missing for bound request")
+        return False, context
+    if (solution.get("controls_start_at_now") is not True
+            or type(params.get("forecast_interval_seconds")) is not int
+            or params["forecast_interval_seconds"] != seconds):
+        if present:
+            raise ForecastError("Returned solver time basis or interval differs")
+        # Unknown legacy parameter/time semantics cannot establish complete binding.
+        return False, context
+    battery, ems = params["pv_battery"], params["ems"]
+    if not isinstance(battery, dict) or not isinstance(ems, dict):
+        raise ForecastError("Invalid original returned solver parameters")
+    if not present and ("initial_soc_percentage" not in battery or any(k not in ems
+            for k in ("pv_forecast_wh", "electricity_price_per_wh", "total_load", "feed_in_tariff_per_wh"))):
+        return False, context
+    if number(battery.get("initial_soc_percentage")) != expected_soc:
+        raise ForecastError("Returned solver SoC differs from original quantized SoC")
+    if present and battery.get("device_id") != SOC_DEVICE:
+        raise ForecastError("Returned solver battery differs from dispatched SoC target")
+    expected_pv = [v * seconds / 3600 for v in interval_averages(pv_series, start, slots, seconds)]
+    for key, expected, energy in (("pv_forecast_wh", expected_pv, True),
+                                  ("electricity_price_per_wh", expected_prices[first:], False)):
+        array = ems.get(key)
+        if (not isinstance(array, list) or len(array) < slots or present and len(array) != slots
+                or any(not close_values(a, b, energy=energy)
+                       for a, b in zip(array[:slots], expected))):
+            raise ForecastError("Returned solver input differs from original " + key)
+        if present and key == "electricity_price_per_wh" and any(
+                not close_values(a, b) for a, b in zip(array, prices[first:])):
+            raise ForecastError("Returned solver prices differ from dispatched request")
+    # Load and feed-in tariff original arrays stay in solution.json. Validate used
+    # slices but do not claim external-source or annual-setting provenance (#21).
+    for key in ("total_load", "feed_in_tariff_per_wh"):
+        array = ems.get(key)
+        if (not isinstance(array, list) or len(array) < slots or present and len(array) != slots
+                or any(numeric(v) is None or key == "total_load" and v < 0 for v in array[:slots])):
+            raise ForecastError("Returned solver used model series incomplete")
+    context.update(returned_used_model_series_valid=True)
+    return present, context
 
 
 def timestamp(value):
@@ -205,7 +373,16 @@ def privacy(value):
 def decode(raw):
     if len(raw) > MAX_FILE:
         raise ForecastError("Oversized historical artifact")
-    value = json.loads(raw)
+    def invalid_constant(value):
+        raise ForecastError("Nonfinite JSON evidence")
+    def unique_pairs(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ForecastError("Duplicate JSON evidence key")
+            result[key] = value
+        return result
+    value = json.loads(raw, parse_constant=invalid_constant, object_pairs_hook=unique_pairs)
     if not isinstance(value, dict):
         raise ForecastError("Historical artifact must be an object")
     privacy(value)
@@ -336,8 +513,13 @@ def validate(manifest, files, *, now=None, settings=None):
                     evaluated_at_utc=now.isoformat(), captured_at_utc=captured.isoformat(),
                     historical_reference_utc=claimed.isoformat(), event_version=version,
                     provenance="Operator must confirm unchanged historical capture origin; hashes are not authentication")
+    bound, context = solver_binding(manifest, values, series, price_series, start, slots, seconds)
     evidence["checks"].update(historical_soc_matches=True, historical_pv_matches=True,
-                              historical_price_coverage=True, historical_inputs_complete=True)
+                              historical_price_coverage=True, historical_inputs_complete=bound)
+    evidence.update(validation_contract=VALIDATION_CONTRACT, artifact_integrity_verified=True,
+        input_binding_complete=bound, runtime_context=context, readable=True,
+        validation_scope="request_solver_inputs" if bound else "event_artifacts_only",
+        accepted=bound, status="accepted" if bound else "legacy_limited")
     evidence["artifact_sha256"] = dict(manifest["files"])
     return evidence
 
@@ -447,18 +629,24 @@ def main():
         if args.emit:
             if args.check_only:
                 raise ForecastError("Choose preflight or export, not both")
+            if not evidence["accepted"]:
+                raise ForecastError("Legacy evidence is readable but lacks complete request/solver binding; no accepted export")
             sys.stdout.buffer.write(raw)
         elif args.check_only:
-            print(json.dumps({"preflight": "passed", "read_only": True,
+            print(json.dumps({"preflight": "passed" if evidence["accepted"] else "legacy_limited", "read_only": True,
                 "shared_lock_verified": evidence.get("shared_lock_verified", False),
-                "artifact_count": 7, "export_created": False, "doctor_acceptance": False}))
+                "artifact_count": 7, "export_created": False, "doctor_acceptance": False,
+                "validation_contract": VALIDATION_CONTRACT, "validation_scope": evidence["validation_scope"],
+                "input_binding_complete": evidence["input_binding_complete"]}))
         else:
             print(json.dumps(evidence))
     except Exception as exc:
         reason = str(exc) if isinstance(exc, ForecastError) else "Invalid historical artifacts; no files changed"
-        print(json.dumps({"accepted": False, "read_only": True, "status": "blocked", "reason": reason}), file=sys.stderr)
+        print(json.dumps({"accepted": False, "read_only": True, "status": "blocked", "reason": reason,
+            "validation_contract": VALIDATION_CONTRACT, "validation_scope": "none",
+            "input_binding_complete": False}), file=sys.stderr)
         return 1
-    return 0
+    return 0 if evidence["accepted"] else 2
 
 
 if __name__ == "__main__":

@@ -1,9 +1,15 @@
 # Private Doctor-Abnahme ohne neuen Produktionslauf
 
-> Integration: Neue regul?re Erfolge k?nnen nach gesonderter Aktivierung ?ber
-> [PR #13 / Issue #12](GENETIC_EVIDENCE.md) unver?ndert archiviert werden.
+Aktuell gilt [Prüfvertrag v2](INPUT_BINDING_CONTRACT.md): vollständige Request-/Solver-
+Bindung nur mit dem im ursprünglichen Report gespeicherten Beleg. Konsistente
+sieben Dateien ohne diesen Beleg bleiben lesbar (`legacy_limited`, Exit 2), aber
+nicht vollständig verifiziert. Vorhandene beschädigte Metadaten werden abgelehnt.
+Die reale private Abnahme und #21 bleiben offen; keine historischen Belege ergänzen.
+
+> Integration: Neue reguläre Erfolge können nach gesonderter Aktivierung über
+> [PR #13 / Issue #12](GENETIC_EVIDENCE.md) unverändert archiviert werden.
 > Alte fehlende Originale werden nicht nacherzeugt. Der Schema-2-Doctor bleibt
-> die gemeinsame Pr?fengine f?r Archive, Export und Plan-Inspector.
+> die gemeinsame Prüfengine für Archive, Export und Plan-Inspector.
 
 Stand 31.10.2026. Die GENETIC-End-to-End-Abnahme aus Issue #1 bleibt gültig;
 die vollständige private Doctor-Abnahme für den Release ist weiterhin offen.

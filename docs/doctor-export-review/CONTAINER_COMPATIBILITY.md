@@ -1,5 +1,7 @@
 # Doctor: Nachweis gegen tatsächliche Containerstände
 
+> Historischer Nachweisstand. Die aktuellen R1/R2/R3-Korrekturen, Transporthashes und erneuten Tests stehen im [neuen Gate-Bericht](../PR22_INPUT_BINDING_FIX_REVIEW.md). Alte Ergebnisse sind keine Freigabe der neuen Engine.
+
 Stand 31.10.2026. Ausschließlich lokale Docker-Desktop-Kopien, keine Verbindung
 zu Unraid, keine produktiven Dateien, keine neue Optimierung. Alle Eingaben der
 Kompatibilitätstests sind synthetisch. Kein realer privater Abnahmebeleg.

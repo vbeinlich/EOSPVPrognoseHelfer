@@ -42,7 +42,7 @@ def test_existing_archive_adds_context_but_still_has_seven_unchanged_originals(c
     manifest, files = unpack(archive(case).read_bytes())
     assert len(files) == 7
     assert manifest["producer"]["observed_options"]["annual_load_kwh"] == 11251
-    assert manifest["producer"]["solution_inputs"]["selected_model_inputs_present"] is False
+    assert manifest["producer"]["solution_inputs"]["selected_model_inputs_present"] is True
     assert len(manifest["producer"]["dispatched_request_sha256"]) == 64
     assert "DO-NOT-EXPORT" not in json.dumps(manifest)
     assert validate(manifest, files, now=case["now"])["accepted"]

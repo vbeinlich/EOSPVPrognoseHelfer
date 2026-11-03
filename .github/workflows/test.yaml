@@ -21,7 +21,15 @@ jobs:
           node-version: '22'
       - run: pip install '.[test]'
       - run: ruff check src tests scripts
+      - name: Validate every workflow with pinned Actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 -shellcheck= -pyflakes=
+      - name: Check standalone engine embedding, wrapper and code-bundle hashes
+        run: python scripts/update_evidence_transports.py
       - run: pytest -q
+      - name: Independent PR22 review counterexamples must now be rejected
+        env:
+          PYTHONPATH: src:scripts:tests
+        run: python review/pr22_contract_probe.py
       - name: Read immutable old image for read-only inspector compatibility
         run: docker pull ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7
       - name: Verify standalone historical Doctor in the unchanged production image
@@ -57,6 +65,13 @@ jobs:
           fetch-depth: 0
       - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
       - run: docker run --rm --network none -e PYTEST_ADDOPTS eos-pv-helper:eos-test
+      - name: Non-root read-only writer, shared contract and pipeline regression gate
+        run: |
+          docker run --rm --network none --read-only --user 10001:10001 --cap-drop=ALL \
+            --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
+            --tmpfs /tmp/eos-test:rw,nosuid,nodev,mode=1777 -e PYTEST_ADDOPTS \
+            eos-pv-helper:eos-test -q -p no:cacheprovider \
+            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'

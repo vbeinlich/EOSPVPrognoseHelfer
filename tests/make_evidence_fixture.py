@@ -7,13 +7,17 @@ No real measurements, archives, configuration or credentials are consumed.
 import argparse
 import json
 import shutil
+import sys
 from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import conftest
-import pytest
-from test_evidence import archive, build_case, tick
+# Direct entrypoint (not pytest): never rely on pytest's pythonpath setting.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+import conftest  # noqa: E402
+import pytest  # noqa: E402
+from test_evidence import archive, build_case, tick  # noqa: E402
 
 
 def create(destination):

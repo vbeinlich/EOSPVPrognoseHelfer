@@ -57,6 +57,8 @@ def test_archive_doctor_inspector_economics_actuals_after_waiting(config, monkey
         s = saved()
         s["start_solution_datetime"] = start.isoformat()
         s["parameters"]["pv_battery"]["initial_soc_percentage"] = 55
+        s["parameters"]["pv_battery"]["device_id"] = "e3dc_s10e_pro"
+        s["parameters"]["inverter"]["battery_id"] = "e3dc_s10e_pro"
         s["parameters"]["ems"].update(pv_forecast_wh=average("pvforecast_ac_power"),
             total_load=average("loadforecast_power_w"), electricity_price_per_wh=average("elecprice_marketprice_wh"),
             feed_in_tariff_per_wh=average("feed_in_tariff_wh"))

@@ -9,8 +9,11 @@ import hashlib
 import io
 import json
 import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
+
+from evidence_vectors import pack, vectors
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,10 +74,40 @@ print(json.dumps({'doctor_present':bool(p and (p/'doctor.py').is_file())}))
     assert emitted.returncode == 0 and emitted.stdout == original
     wrong = run(*base, "--snapshot", "/snapshot.zip", "--event-version", "f"*64)
     assert wrong.returncode == 1 and b"version differs" in wrong.stderr
+    # Independent vectors are generated on the host, consumed by ONLY the exact
+    # standalone engine in the unchanged old image (-I -S, no source mounts).
+    negatives = []
+    with tempfile.TemporaryDirectory(prefix="evidence-negative-synthetic-") as temporary:
+        negative_root = Path(temporary)
+        negative_root.chmod(0o755)
+        with zipfile.ZipFile(io.BytesIO(original)) as source:
+            files = {name: source.read(name) for name in manifest["files"]}
+        for name, raw in vectors(manifest, files):
+            p = negative_root/(name+".zip")
+            p.write_bytes(raw)
+            p.chmod(0o444)
+            mounts += ["--mount", f"type=bind,source={p},target=/negative-{name}.zip,readonly"]
+            result = run("--snapshot", "/negative-"+name+".zip")
+            assert result.returncode == 1, (name, result.stdout, result.stderr)
+            decision = json.loads(result.stderr)
+            assert decision["accepted"] is False and decision["validation_scope"] == "none"
+            assert decision["validation_contract"] == "eos-pv-helper/event-evidence-v2"
+            negatives.append(name)
+        legacy_values = {n: json.loads(raw) for n, raw in files.items()}
+        del legacy_values["sync-report.json"]["event"]["request_binding"]
+        legacy = negative_root/"legacy.zip"
+        legacy.write_bytes(pack(json.loads(json.dumps(manifest)), legacy_values))
+        legacy.chmod(0o444)
+        mounts += ["--mount", f"type=bind,source={legacy},target=/legacy.zip,readonly"]
+        result = run("--snapshot", "/legacy.zip")
+        assert result.returncode == 2 and not result.stderr, result.stderr
+        limited = json.loads(result.stdout)
+        assert limited["readable"] and not limited["accepted"] and limited["status"] == "legacy_limited"
     after = {str(p.relative_to(fixture)): (p.stat().st_mtime_ns, hashlib.sha256(p.read_bytes()).hexdigest())
              for p in fixture.rglob("*") if p.is_file()}
     assert before == after
-    return {"passed": True, "scenarios": 5, "synthetic_only": True, "image_id": image_id,
+    return {"passed": True, "scenarios": 6+len(negatives), "negative_scenarios": negatives,
+            "legacy_limited_verified": True, "synthetic_only": True, "image_id": image_id,
             "repo_digests": info.get("RepoDigests", []), "runtime": runtime,
             "source_revision": info["Config"].get("Labels", {}).get("org.opencontainers.image.revision"),
             "engine_sha256": hashlib.sha256(engine).hexdigest(), "archive_sha256": hashlib.sha256(original).hexdigest(),

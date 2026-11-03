@@ -7,6 +7,7 @@ from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .historical import VALIDATION_CONTRACT
 from .inputs import day_ahead_version, number
 from .normalize import ForecastError, timestamp
 from .sync import verify_solution
@@ -60,7 +61,8 @@ def acceptance(config, *, now=None, _reader=None):
     now = now or datetime.now(UTC)
     evidence = {"schema_version": 1, "checked_at_utc": now.isoformat(),
                 "read_only": True, "accepted": False, "status": "blocked", "checks": {},
-                "artifact_sha256": {}}
+                "artifact_sha256": {}, "validation_contract": VALIDATION_CONTRACT,
+                "validation_scope": "live_status_only", "input_binding_complete": False}
     checks = evidence["checks"]
     try:
         directory = Path(config.get("output", {}).get("directory", "/output"))
@@ -159,6 +161,7 @@ def acceptance(config, *, now=None, _reader=None):
                     raise ForecastError("Event archive missing or invalid; never retry optimization or reconstruct old inputs") from None
                 checks["event_archive_verified"] = archived["status"] == "archived"
                 evidence["event_archive_sha256"] = archived["sha256"]
+                evidence.update(validation_scope=archived["validation_scope"], input_binding_complete=True)
             evidence["accepted"] = all(checks.values())
             evidence["status"] = "accepted" if evidence["accepted"] else "blocked"
     except Exception as exc:
@@ -173,14 +176,14 @@ def snapshot_acceptance(path, *, now=None):
     Hashes protect consistency, not authenticity. An operator must review capture
     provenance. No extraction, source config, token access or network calls.
     """
-    from .event_context import ContextError, verify_producer
     from .historical import ForecastError as HistoricalError
     from .historical import manifest_digest, unpack, validate
 
     current = now or datetime.now(UTC)
     failure = {"schema_version": 1, "read_only": True, "accepted": False,
                "status": "blocked", "evidence_mode": "historical_snapshot",
-               "current_freshness_verified": False}
+               "current_freshness_verified": False, "validation_contract": VALIDATION_CONTRACT,
+               "validation_scope": "none", "input_binding_complete": False}
     try:
         path = Path(path)
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 60_000_000:
@@ -189,10 +192,8 @@ def snapshot_acceptance(path, *, now=None):
             raw = handle.read(60_000_001)
         manifest, files = unpack(raw)
         evidence = validate(manifest, files, now=current)
-        evidence["runtime_context"] = verify_producer(manifest.get("producer"),
-            json.loads(files["solution-" + manifest["event_version"] + ".json"]))
         evidence["capture_manifest_sha256"] = manifest_digest(raw)
-        return evidence, 0
+        return evidence, 0 if evidence["accepted"] else 2
     except Exception as exc:
-        failure["reason"] = str(exc) if isinstance(exc, (ForecastError, HistoricalError, ContextError)) else "Invalid private snapshot; no files changed or extracted"
+        failure["reason"] = str(exc) if isinstance(exc, (ForecastError, HistoricalError)) else "Invalid private snapshot; no files changed or extracted"
         return failure, 1

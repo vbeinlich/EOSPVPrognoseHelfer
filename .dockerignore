@@ -9,6 +9,7 @@
 !docs/GENETIC_ACCEPTANCE.json
 !docs/EMS_SOURCE_MANIFEST.json
 !docs/RELEASE_0_1_0_CANDIDATE.json
+!docs/INPUT_BINDING_TRANSPORTS.json
 !docs/release-admin/
 !docs/release-admin/**
 !docs/doctor-export-review/

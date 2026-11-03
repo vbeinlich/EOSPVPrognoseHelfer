@@ -85,6 +85,7 @@ function extra(p){
  if(Object.keys(p.unmapped_ev_arrays).length){const d=make('details',undefined,n);make('summary','Zusätzliche EV-Arrays ohne belegte Zeitbasis',d);for(const [k,v]of Object.entries(p.unmapped_ev_arrays))make('p',k+': '+v.map(val).join(', '),d);}
  if(p.legacy_washingstart!==null&&p.legacy_washingstart!==undefined)make('p','Legacy washingstart (Originalzahl, keine Zeitzuordnung): '+val(p.legacy_washingstart),n);
  const proof=make('details',undefined,n);make('summary','Herkunft und Datenbindung',proof);dl(proof,[['Version',p.version],['Quelldatei',p.file],['Lösungs-SHA256',p.solution_sha256||'nicht verfügbar'],['Claim-Zeitpunkt',p.claimed_at_utc||'nicht zugeordnet'],['Eingaben',p.inputs.message],['Archiv-SHA256',p.inputs.archive_sha256||'nicht vorhanden'],['Originale Erhebung',p.inputs.captured_at_utc||'nicht vorhanden']]);
+ dl(proof,[['Prüfvertrag',p.inputs.validation_contract||'nicht verfügbar'],['Prüfumfang',p.inputs.validation_scope||'nicht belegt'],['Request-/Solver-Bindung',p.inputs.input_binding_complete===true?'belegt':'nicht vollständig belegt'],['Globale Solveroptionen / Gerätefreigabe','nicht durch diesen Bericht nachgewiesen']]);
  if(p.inputs.status==='verified')dl(proof,[['Historischer Anfangs-SoC',val(p.inputs.initial_soc_percent)+' %'],['Quellzeitpunkt SoC',p.inputs.soc_source_timestamp],['Aktuelle Frische geprüft','nein']]);
 }
 function economics(p){

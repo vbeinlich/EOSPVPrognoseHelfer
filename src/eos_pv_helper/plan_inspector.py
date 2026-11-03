@@ -110,22 +110,24 @@ def permissions(values):
 
 def archived_inputs(root, version, claim, solution_raw, now):
     """Current prices/soc/forecast are NEVER opened as historical substitutes."""
-    missing = {"status": "unproven", "message": "Historische Eingabe nicht belegbar", "values": {}}
+    if __package__:
+        from . import historical as validator
+    else:
+        import historical_validator as validator
+    missing = {"status": "unproven", "message": "Historische Eingabe nicht belegbar", "values": {},
+        "validation_contract": validator.VALIDATION_CONTRACT, "validation_scope": "none",
+        "input_binding_complete": False}
     directory = root / "genetic-evidence"
     if directory.is_symlink() or not directory.is_dir():
         return missing
     try:
-        if __package__:
-            from . import historical as validator
-        else:
-            import historical_validator as validator
         raw = read(directory, version + ".zip", MAX_ZIP)
         manifest, files = validator.unpack(raw)
         if (manifest["event_version"] != version or not isinstance(claim, dict)
                 or obj(files["sync-state.json"]).get("events", {}).get(version) != claim
                 or files["solution-" + version + ".json"] != solution_raw):
             raise InspectorError("Archiv passt nicht zum ausgewählten Plan.")
-        validator.validate(manifest, files, now=now)
+        validation = validator.validate(manifest, files, now=now)
         prices, pv = obj(files["prices.json"])["data"], obj(files["forecast.json"])["data"]
         values = {}
         for key, row in prices.items():
@@ -137,7 +139,10 @@ def archived_inputs(root, version, claim, solution_raw, now):
             if dt and number is not None:
                 values.setdefault(dt.isoformat(), {})["pv_w"] = number
         soc = obj(files["soc.json"])
-        return {"status": "verified", "message": "Historische Eingaben durch vollständiges Event-Archiv zugeordnet",
+        return {"status": "verified" if validation["accepted"] else "legacy_limited",
+                "message": "Historische Eingaben mit Request und Solver gebunden" if validation["accepted"] else
+                    "Legacy-Archiv lesbar; Request-/Solver-Bindung nicht vollständig belegt",
+                **{key: validation[key] for key in ("validation_contract", "validation_scope", "input_binding_complete")},
                 "archive_sha256": hashlib.sha256(raw).hexdigest(), "captured_at_utc": manifest["captured_at_utc"],
                 "initial_soc_percent": numeric(soc.get("percent")),
                 "soc_source_timestamp": soc.get("source_timestamp") if stamp(soc.get("source_timestamp")) else None,

@@ -5,9 +5,11 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 import test_sync
+from synthetic_binding import averages, parameters
 
 from eos_pv_helper import evidence
 from eos_pv_helper.doctor import acceptance, snapshot_acceptance
@@ -24,6 +26,13 @@ def build_case(config, monkeypatch):
         value = original(url, **kwargs)
         if url.endswith("/v1/optimize"):
             value["start_solution_datetime"] = case["now"].replace(minute=0, second=0).isoformat()
+            origin = case["now"].astimezone(ZoneInfo("Europe/Berlin")).replace(
+                hour=0, minute=0, second=0, microsecond=0).astimezone(test_sync.UTC)
+            prices = kwargs["payload"]["forecasts"]["electricity_price_per_wh"]
+            first = int((case["now"].replace(minute=0, second=0)-origin).total_seconds()/3600)
+            source = {key: {"pvforecast_ac_power": v} for key, v in case["series"]["pvforecast_ac_power"].items()}
+            value.update(controls_start_at_now=True, parameters=parameters(prices[first:],
+                averages(source, "pvforecast_ac_power", origin, len(prices))[first:], 55))
         return value
     case["http"] = http
     def pv_runner(*args, **kwargs):
@@ -380,4 +389,29 @@ def test_input_capture_cannot_bypass_final_soc_freshness_check(case, monkeypatch
     report = tick(case)
     assert "expired" in report["errors"]["event"]
     assert not test_sync.writes(case, "POST")
+
+
+def test_receipt_error_never_changes_dispatch_or_retries_success(case, monkeypatch):
+    def broken(*args):
+        raise RuntimeError("synthetic receipt failure")
+    monkeypatch.setattr("eos_pv_helper.sync.request_binding", broken)
+    report = tick(case)
+    assert report["event"]["status"] == "succeeded"
+    assert report["evidence"]["status"] == "evidence_missing"
+    tick(case)
+    assert len(test_sync.writes(case, "POST")) == 1
+
+
+def test_slow_receipt_still_passes_through_final_age_and_claim_guards(case, monkeypatch):
+    from eos_pv_helper.sync import request_binding
+    def delayed(*args):
+        value = request_binding(*args)
+        case["now"] += timedelta(seconds=301)
+        return value
+    monkeypatch.setattr("eos_pv_helper.sync.request_binding", delayed)
+    report = tick(case)
+    assert "expired" in report["errors"]["event"]
+    assert not test_sync.writes(case, "POST")
+    state = json.loads((Path(case["config"]["output"]["directory"])/"sync-state.json").read_bytes())
+    assert state["events"] == {}
     assert not list((Path(case["config"]["output"]["directory"]) / evidence.DIRECTORY).glob("*.zip"))

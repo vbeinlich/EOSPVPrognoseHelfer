@@ -21,6 +21,7 @@ from .evidence import (
     inspect_archive,
     recover_ready,
 )
+from .historical import request_binding
 from .inputs import (
     PRICE_KEY,
     SOC_KEY,
@@ -355,6 +356,17 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                     except Exception as exc:
                         # Evidence failure never changes claim semantics or causes a retry.
                         capture_error = diagnostic(exc)
+                # EOS quantizes SoC to integer percent. Record the exact unchanged
+                # request BEFORE the final age/slot guards and durable claim.
+                body = {"soc": {SOC_KEY.removesuffix("-soc-factor"): int(sample["percent"])},
+                        "forecasts": {"electricity_price_per_wh": runtime_prices}}
+                if dispatch_inputs is not None:
+                    try:
+                        dispatch_inputs["dispatched_request_sha256"] = canonical_sha(body)
+                        report["event"]["request_binding"] = request_binding(
+                            body, config.get("timezone", "Europe/Berlin"), plan["start_utc"])
+                    except Exception as exc:
+                        capture_error, dispatch_inputs = diagnostic(exc), None
                 actual_age = (clock() - timestamp(sample["source_timestamp"])).total_seconds()
                 if not 0 <= actual_age <= min(300, settings["optimization"]["genetic"].get(
                     "measurement_max_age_seconds", 300)):
@@ -367,12 +379,6 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 state["events"][version["version"]] = claim
                 atomic_json(state_path, state)  # Crash/network ambiguity: never automatically retry.
                 report["event"]["status"] = "uncertain"
-                # EOS itself quantizes initial SoC to integer percent. Explicitly pass the
-                # validated value so a queued request cannot silently fall back to assumed 0%.
-                body = {"soc": {SOC_KEY.removesuffix("-soc-factor"): int(sample["percent"])},
-                        "forecasts": {"electricity_price_per_wh": runtime_prices}}
-                if dispatch_inputs is not None:
-                    dispatch_inputs["dispatched_request_sha256"] = canonical_sha(body)
                 result = http(origin + "/v1/optimize", method="POST", payload=body, timeout=timeout)
                 verify_solution(result, plan)
                 atomic_json(output / ("solution-" + version["version"] + ".json"), result)

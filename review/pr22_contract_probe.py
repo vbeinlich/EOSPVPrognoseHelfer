@@ -41,10 +41,12 @@ def payloads(root):
         "configured_constraints_read": True, "validation_constraints": historical.limits(settings),
         "files": {name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()}}
     observation = event_context.observed_options({})
+    receipt = original["sync-report.json"]["event"].get("request_binding")
+    request_sha = receipt["request_sha256"] if receipt else "a"*64
     manifest["producer"] = {"contract": "eos-pv-helper/automatic-evidence-v1",
         "observed_options": observation,
         "observed_options_sha256": event_context.canonical_sha(observation),
-        "dispatched_request_sha256": "a" * 64,
+        "dispatched_request_sha256": request_sha,
         "solution_inputs": event_context.solution_inputs(solution)}
     return directory, version, manifest, files, solution
 
@@ -54,14 +56,17 @@ def run():
     with tempfile.TemporaryDirectory(prefix="pr22-independent-review-") as temporary:
         root = Path(temporary)
         directory, version, manifest, files, solution = payloads(root)
-        core = historical.validate(manifest, files, now=NOW + timedelta(days=1))
+        try:
+            core = historical.validate(manifest, files, now=NOW + timedelta(days=1))
+        except historical.ForecastError:
+            core = {"accepted": False}
         path = root / "synthetic.zip"
         path.write_bytes(historical.pack(manifest, files))
         app, code = doctor.snapshot_acceptance(path, now=NOW + timedelta(days=1))
         results.append({"id": "R1", "criterion": "snapshot_matches_returned_solver_inputs",
-            "status": "BLOCKED" if core["accepted"] and app["accepted"] else "PASS",
+            "status": "PASS" if not core["accepted"] and code == 1 and not app["accepted"] else "BLOCKED",
             "core_accepted": core["accepted"], "app_exit": code,
-            "returned_model_inputs_present": app["runtime_context"]["returned_model_inputs_present"],
+            "returned_model_inputs_present": manifest["producer"]["solution_inputs"]["selected_model_inputs_present"],
             "saved_soc_percent": 55, "returned_soc_percent": 0,
             "saved_price_eur_wh": .0003, "returned_price_eur_wh": .009,
             "returned_pv_all_zero_despite_nonzero_source": True})
@@ -71,14 +76,17 @@ def run():
         altered["producer"] = {"contract": "eos-pv-helper/automatic-evidence-v1",
             "observed_options": observation,
             "observed_options_sha256": event_context.canonical_sha(observation),
-            "dispatched_request_sha256": "a" * 64,
+            "dispatched_request_sha256": manifest["producer"]["dispatched_request_sha256"],
             "solution_inputs": event_context.solution_inputs(solution)}
         # Corrupt optional context, preserving its original hash. All consumers
         # must agree about the exact same archive bytes.
         altered["producer"]["observed_options"]["annual_load_kwh"] = 8000
         raw = historical.pack(altered, files)
         path.write_bytes(raw)
-        core = historical.validate(altered, files, now=NOW + timedelta(days=1))
+        try:
+            core = historical.validate(altered, files, now=NOW + timedelta(days=1))
+        except historical.ForecastError:
+            core = {"accepted": False}
         app, code = doctor.snapshot_acceptance(path, now=NOW + timedelta(days=1))
         evidence_dir = directory / "genetic-evidence"
         evidence_dir.mkdir()
@@ -87,11 +95,13 @@ def run():
         view = plan_inspector.archived_inputs(directory, version, claim,
             files["solution-" + version + ".json"], NOW + timedelta(days=1))
         results.append({"id": "R2", "criterion": "same_archive_same_consumer_decision",
-            "status": "BLOCKED" if core["accepted"] and code == 1 and view["status"] == "verified" else "PASS",
+            "status": "PASS" if not core["accepted"] and code == 1 and view["status"] == "unproven" else "BLOCKED",
             "core_accepted": core["accepted"], "app_accepted": app["accepted"],
             "app_exit": code, "inspector_inputs_status": view["status"]})
 
-    return {"reviewed_commit": "db5b304e7dca19d175375283cad9775c7735cd2a",
+    return {"counterexamples_from": "1282d77754d29f271e700ec700d52e13c625b75c",
+        "validation_contract": historical.VALIDATION_CONTRACT,
+        "tested_engine_sha256": hashlib.sha256(Path(historical.__file__).read_bytes().rstrip(b"\n")).hexdigest(),
         "synthetic_only": True, "network_forbidden": True, "optimizer_invoked": False,
         "productive_files_accessed": False, "criteria": results,
         "recommendation": "BLOCKED" if any(r["status"] == "BLOCKED" for r in results) else "PASS"}

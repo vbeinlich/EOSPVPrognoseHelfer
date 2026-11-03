@@ -16,6 +16,7 @@ COPY pyproject.toml LICENSE README.md THIRD_PARTY_NOTICES.md ./
 COPY licenses ./licenses
 COPY docs/GENETIC_ACCEPTANCE.json ./docs/GENETIC_ACCEPTANCE.json
 COPY docs/EMS_SOURCE_MANIFEST.json docs/RELEASE_0_1_0_CANDIDATE.json ./docs/
+COPY docs/INPUT_BINDING_TRANSPORTS.json ./docs/
 COPY docs/release-admin ./docs/release-admin
 COPY docs/doctor-export-review ./docs/doctor-export-review
 COPY src ./src

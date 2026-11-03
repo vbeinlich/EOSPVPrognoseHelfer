@@ -4,6 +4,11 @@ Korrekturreview zu PR #22: [R1/R2/R3-Gates und Nachweise](docs/PR22_INPUT_BINDIN
 [gemeinsamer Prüfvertrag v2 und Legacy-Grenzen](docs/INPUT_BINDING_CONTRACT.md).
 Issue #21 und sämtliche Produktiv-/Gerätefreigaben bleiben offen.
 
+EMS Dashboard v1.0 im separaten Review: [statische Dark-Mode-Ansicht und private
+Unraid-Anleitung](docs/EMS_DASHBOARD.md), [Screenshots und Abnahmen](docs/DASHBOARD_REVIEW.md).
+Automatische Anzeige vorhandener Dry-Runs ohne zusätzlichen Optimierungslauf;
+keine Deploymentfreigabe vor Abschluss der Reviews.
+
 Aktueller Integrationsreview: [Status, Abhängigkeiten und Merge-/Abnahmeplan](docs/EMS_INTEGRATION.md),
 [Plan-Ist-Auswertung](docs/PLAN_ACTUAL.md) und [Zielarchitektur mit priorisierten Issues](docs/EMS_ARCHITECTURE.md).
 Keine produktive Änderung oder Gerätesteuerung; alle Aktivierungs-/Freigabegates bleiben offen.

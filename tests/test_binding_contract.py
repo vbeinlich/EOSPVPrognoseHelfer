@@ -187,3 +187,16 @@ def test_operator_instructions_use_current_engine_and_wrapper_hashes():
     instructions = (root/"docs/doctor-export-review/OPERATOR_RUNBOOK.md").read_text()
     for key in ("doctor_wrapper_sha256", "historical_embedded_sha256"):
         assert manifest[key] in instructions
+
+
+def test_direct_fixture_entrypoint_without_pytest_script_path(tmp_path):
+    import os
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": str(root/"src"), "PYTHONDONTWRITEBYTECODE": "1"}
+    result = subprocess.run([sys.executable, "-B", str(root/"tests/make_evidence_fixture.py"),
+        "--destination", str(tmp_path/"new-synthetic-fixture")], cwd=tmp_path,
+        env=env, capture_output=True, timeout=60)
+    assert result.returncode == 0, result.stderr.decode()
+    assert json.loads(result.stdout) == {"synthetic_only": True,
+        "archive_unchanged_after_waiting": True, "mocked_optimize_requests": 1}

@@ -69,6 +69,12 @@ R1/R2 PASS, Core/App lehnen ab, Inspector `unproven`; neuer Enginehash dokumenti
 Die getrennte Vektorsammlung rehashed absichtlich falsche Artefakte und
 Parameterzusammenfassungen, damit der semantische Check selbst geprüft wird.
 
+Der erste CI-Anlauf auf `1b7a37b` war **nicht erfolgreich**: Der direkte
+Fixture-Generator fand den Entwicklungshelper unter `scripts/` nicht. Dieser
+Einstiegspunkt setzt seinen Pfad nun explizit; ein eigener Subprozess-Test startet
+ihn ohne Pytest-Suchpfade und aus einem fremden Arbeitsverzeichnis. Die damaligen
+fehlgeschlagenen Runs werden nicht als endgültiger CI-Nachweis verwendet.
+
 ## Konkrete neue Codehashes
 
 Maßgeblich: [maschinenlesbares Manifest](INPUT_BINDING_TRANSPORTS.json).

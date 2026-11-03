@@ -1,7 +1,7 @@
 name: Tests and candidate inspection (no image publication)
 on:
   push:
-    branches: [main, 'release/**']
+    branches: [main, 'release/**', 'dashboard/**']
     tags: ['v*']
   pull_request:
 permissions:
@@ -42,6 +42,15 @@ jobs:
         run: python scripts/plan_inspector_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7 --html "$RUNNER_TEMP/plan-inspector-synthetic.html"
       - name: Test real static browser view without a webserver
         run: node scripts/plan_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/plan-inspector-synthetic.html"
+      - name: Verify static EMS dashboard and last-good recovery in old image
+        run: python scripts/dashboard_container_smoke.py --docker-context default --image ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7
+      - name: Generate synthetic stored dashboard events
+        run: |
+          python scripts/dashboard_fixture.py --destination "$RUNNER_TEMP/dashboard-source"
+          mkdir "$RUNNER_TEMP/dashboard-site"
+          python -m eos_pv_helper.dashboard --source "$RUNNER_TEMP/dashboard-source" --destination "$RUNNER_TEMP/dashboard-site"
+      - name: Browser-check dashboard, mobile view, ranges and automatic event refresh
+        run: node scripts/dashboard_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/dashboard-site/index.html" --expect-event --event-python python --event-source "$RUNNER_TEMP/dashboard-source"
       - run: docker compose config --no-path-resolution
       - run: docker build --target eos-source -t eos-pv-helper:ci .
       - run: python scripts/unraid_smoke.py --image eos-pv-helper:ci
@@ -71,7 +80,7 @@ jobs:
             --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
             --tmpfs /tmp/eos-test:rw,nosuid,nodev,mode=1777 -e PYTEST_ADDOPTS \
             eos-pv-helper:eos-test -q -p no:cacheprovider \
-            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py
+            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py tests/test_dashboard.py tests/test_dashboard_wrapper.py tests/integration/test_dashboard_cached.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'

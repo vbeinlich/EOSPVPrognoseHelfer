@@ -313,7 +313,7 @@ def parse_plan(root, version, raw, claim, zone, legacy_zone, now, *, archive_loo
             "comparison": comparison, **({"replay_inputs": export} if replay_inputs else {})}
 
 
-def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None, *, replay_inputs=False):
+def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None, *, replay_inputs=False, max_plans=MAX_PLANS, max_bytes=32_000_000, since=None):
     root, zone = Path(source), ZoneInfo(timezone)
     legacy_zone = ZoneInfo(legacy_timezone) if legacy_timezone else None
     now = now or datetime.now(UTC)
@@ -340,14 +340,18 @@ def collect(source, timezone="Europe/Berlin", legacy_timezone=None, now=None, *,
             status = "unknown"
         paths = {p.name[9:-5]: p for p in root.glob("solution-*.json") if VERSION.fullmatch(p.name[9:-5])}
         versions = set(paths) | {v for v in events if VERSION.fullmatch(v)}
-        if len(versions) > MAX_PLANS:
+        if since is not None:
+            versions = {v for v in versions if not isinstance(events.get(v), dict)
+                        or stamp(events[v].get("start_utc")) is None
+                        or stamp(events[v].get("start_utc")) >= since}
+        if len(versions) > max_plans:
             raise InspectorError("Zu viele Pläne für einen Report. Private Diagnosekopie eingrenzen, keine Originale löschen.")
         plans, budget = [], 0
         for version in sorted(versions):
             try:
                 raw = read(root, "solution-"+version+".json")
                 budget += len(raw)
-                if budget > 32_000_000:
+                if budget > max_bytes:
                     raise InspectorError("Datenbudget überschritten.")
                 plan = parse_plan(root, version, raw, events.get(version), zone, legacy_zone, now,
                                   replay_inputs=replay_inputs)

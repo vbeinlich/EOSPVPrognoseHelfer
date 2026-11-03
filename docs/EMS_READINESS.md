@@ -1,5 +1,7 @@
 # EMS-Abschlussbericht: Review vorbereitet, Produktivsteuerung gesperrt
 
+> Historischer Nachweisstand. Die aktuellen R1/R2/R3-Korrekturen, Transporthashes und erneuten Tests stehen im [neuen Gate-Bericht](PR22_INPUT_BINDING_FIX_REVIEW.md). Alte Ergebnisse sind keine Freigabe der neuen Engine.
+
 Stand 01.11.2026. Alle Änderungen liegen ausschließlich auf dem separaten
 Integrationsbranch. Keine Original-PRs/Main gemergt, kein Release/Tag, kein öffentliches
 Image, keine Unraid-/Geräteänderung und kein zusätzlicher produktiver GENETIC-Lauf.

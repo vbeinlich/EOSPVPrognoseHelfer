@@ -178,3 +178,12 @@ def test_real_http_serialization_matches_receipt_without_network(monkeypatch):
     decoded_wire = json.loads(captured[0].data)
     assert decoded_wire == receipt["request"]
     assert sha(decoded_wire) == receipt["request_sha256"]
+
+
+def test_operator_instructions_use_current_engine_and_wrapper_hashes():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((root/"docs/INPUT_BINDING_TRANSPORTS.json").read_bytes())
+    instructions = (root/"docs/doctor-export-review/OPERATOR_RUNBOOK.md").read_text()
+    for key in ("doctor_wrapper_sha256", "historical_embedded_sha256"):
+        assert manifest[key] in instructions

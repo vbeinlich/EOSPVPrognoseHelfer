@@ -1,5 +1,9 @@
 # Nächste Entwicklungsphase: Nutzen nachvollziehbar machen
 
+03.11.2026: R1/R2/R3-Korrekturreview gegen PR #22; siehe
+[erneute Merge-Gates](PR22_INPUT_BINDING_FIX_REVIEW.md). Keine Aktivierung und kein
+Abschluss von #21; unabhaengiger Review des neuen exakten Heads erforderlich.
+
 **Integrationsreview vom 01.11.2026:** [Gesamtstatus und Freigabegates](EMS_READINESS.md),
 [PR-Matrix](EMS_INTEGRATION.md), [Plan-Ist](PLAN_ACTUAL.md),
 [Architektur und Backlog #16–#21](EMS_ARCHITECTURE.md). Keine produktive Steuerung,

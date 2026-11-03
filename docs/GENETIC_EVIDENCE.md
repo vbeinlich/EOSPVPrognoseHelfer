@@ -1,5 +1,12 @@
 # Automatische GENETIC-Beweisarchivierung – Issue #12
 
+> Update 03.11.2026: [Prüfvertrag v2](INPUT_BINDING_CONTRACT.md) bindet den ursprünglichen
+> Request an SoC, Preis-/PV-Reihen und Solver-Zeitbasis. Nur die
+> [neuen Transporthashes](INPUT_BINDING_TRANSPORTS.json) gelten für diesen Code.
+> Die folgenden älteren Prüfergebnisse bleiben historische Nachweise. Sieben Dateien
+> ohne damaligen Request-Beleg sind jetzt `legacy_limited`, keine vollständige Abnahme.
+> Keine alten ZIPs ergänzen; #21 ist hierdurch nicht gelöst.
+
 ## Integrations-Ergänzung vom 01.11.2026
 
 Weiterhin **ein** Writer und sieben unveränderte Originalartefakte. Im optionalen

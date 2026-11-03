@@ -1,5 +1,7 @@
 # Phase-2-Review: konkrete Prüfnachweise
 
+> Historischer Nachweisstand. Die aktuellen R1/R2/R3-Korrekturen, Transporthashes und erneuten Tests stehen im [neuen Gate-Bericht](PR22_INPUT_BINDING_FIX_REVIEW.md). Alte Ergebnisse sind keine Freigabe der neuen Engine.
+
 > Historischer Nachweis von PR #15. Der neuere Integrationsstand und seine Counts
 > stehen in [EMS_READINESS.md](EMS_READINESS.md); aktueller Code-Bundlehash und
 > Operatoranleitung in [ECONOMICS_COMPARISON.md](ECONOMICS_COMPARISON.md).

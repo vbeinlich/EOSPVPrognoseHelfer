@@ -1,5 +1,11 @@
 # Private Doctor-Abnahme ohne neuen Produktionslauf
 
+Aktuell gilt [Prüfvertrag v2](INPUT_BINDING_CONTRACT.md): vollständige Request-/Solver-
+Bindung nur mit dem im ursprünglichen Report gespeicherten Beleg. Konsistente
+sieben Dateien ohne diesen Beleg bleiben lesbar (`legacy_limited`, Exit 2), aber
+nicht vollständig verifiziert. Vorhandene beschädigte Metadaten werden abgelehnt.
+Die reale private Abnahme und #21 bleiben offen; keine historischen Belege ergänzen.
+
 > Integration: Neue reguläre Erfolge können nach gesonderter Aktivierung über
 > [PR #13 / Issue #12](GENETIC_EVIDENCE.md) unverändert archiviert werden.
 > Alte fehlende Originale werden nicht nacherzeugt. Der Schema-2-Doctor bleibt

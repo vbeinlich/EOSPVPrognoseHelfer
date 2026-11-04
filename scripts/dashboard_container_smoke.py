@@ -34,6 +34,22 @@ def smoke(image, context, html=None):
         root = make(Path(temporary) / "source")
         Path(temporary).chmod(0o755)
         root.chmod(0o755)
+        original = (ROOT / "tests/fixtures/replay-synthetic-solution.json").read_bytes()
+        replay = (ROOT / "tests/fixtures/replay-synthetic-sidecar.json").read_bytes()
+        solution = json.loads(original)
+        state = json.loads((root / "sync-state.json").read_bytes())
+        version = "f" * 64
+        state["events"][version] = {
+            "version": version,
+            "status": "succeeded",
+            "start_utc": solution["start_solution_datetime"],
+            "claimed_at_utc": solution["start_solution_datetime"],
+            "control_hours": 24,
+            "effective_tail_hours": 0,
+            "interval_seconds": solution["interval_seconds"],
+        }
+        (root / ("solution-" + version + ".json")).write_bytes(original)
+        (root / "sync-state.json").write_text(json.dumps(state))
         for p in root.iterdir():
             p.chmod(0o444)
 
@@ -68,7 +84,9 @@ def smoke(image, context, html=None):
             bootstrap,
             sha,
             str(len(bundle)),
-            input=bundle,
+            "0",
+            str(len(replay)),
+            input=bundle + replay,
         )
         assert run.returncode == 0, run.stderr.decode()
         assert before == fingerprint()
@@ -81,7 +99,11 @@ def smoke(image, context, html=None):
                 re.S,
             )[1]
         )
-        assert len(report["plans"]) == 3 and not report["update_error"]
+        assert len(report["plans"]) == 4 and not report["update_error"]
+        replay_plan = next(p for p in report["plans"] if p["version"] == version)
+        assert replay_plan["rows"][0]["flow"]["proof"] == "posthoc_native_model_replay"
+        assert replay_plan["rows"][0]["flow"]["pv_wh"] > 0
+        assert replay_plan["rows"][0]["flow"]["grid_wh"] > 0
         assert report["plans"][0]["rows"][0]["flow"]["pv_wh"] is None
         assert b"PRIVATE-CANARY" not in rendered and b"NEVER-READ" not in rendered
         damaged = root / "sync-state.json"
@@ -100,7 +122,9 @@ def smoke(image, context, html=None):
             bootstrap,
             sha,
             str(len(bundle)),
-            input=bundle + rendered,
+            "0",
+            str(len(replay)),
+            input=bundle + replay + rendered,
         )
         assert run.returncode == 2, run.stderr.decode()
         fallback = json.loads(
@@ -123,6 +147,7 @@ def smoke(image, context, html=None):
         "network": "none",
         "source_files_unchanged": True,
         "last_good_recovery": True,
+        "replay_sidecar_validated": True,
         "project_source_mounted": False,
         "bundle_sha256": sha,
         "synthetic_only": True,

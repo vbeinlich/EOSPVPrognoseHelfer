@@ -25,6 +25,8 @@ jobs:
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 -shellcheck= -pyflakes=
       - name: Check standalone engine embedding, wrapper and code-bundle hashes
         run: python scripts/update_evidence_transports.py
+      - name: Check code-only dashboard and offline exporter hashes
+        run: python scripts/check_dashboard_hashes.py
       - run: pytest -q
       - name: Independent PR22 review counterexamples must now be rejected
         env:
@@ -80,7 +82,7 @@ jobs:
             --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
             --tmpfs /tmp/eos-test:rw,nosuid,nodev,mode=1777 -e PYTEST_ADDOPTS \
             eos-pv-helper:eos-test -q -p no:cacheprovider \
-            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py tests/test_dashboard.py tests/test_dashboard_wrapper.py tests/integration/test_dashboard_cached.py
+            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py tests/test_dashboard.py tests/test_dashboard_wrapper.py tests/integration/test_dashboard_cached.py tests/test_replay_contract.py tests/test_replay_wrapper.py tests/integration/test_replay_export.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
@@ -94,3 +96,18 @@ jobs:
             scripts/economics_smoke.py --html - > "$RUNNER_TEMP/economics-synthetic.html"
       - name: Browser-check calculated economics, slot costs and end-SoC fairness
         run: node scripts/plan_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/economics-synthetic.html" --economic
+      - name: Produce synthetic native replay time cases without optimizer search
+        run: |
+          mkdir "$RUNNER_TEMP/replay-time-cases"
+          docker run --rm --network none --read-only --user "$(id -u):$(id -g)" --cap-drop=ALL \
+            --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
+            --mount type=bind,source="$RUNNER_TEMP/replay-time-cases",target=/audit \
+            --entrypoint python eos-pv-helper:eos-test \
+            scripts/replay_time_cases.py --destination /audit/cases
+      - name: Browser-check native replay, DST, internal cycles, missing data and 1000+1000 Wh stack
+        run: |
+          for replay_case in spring-900 autumn-900 spring-3600 autumn-3600; do
+            node scripts/replay_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" \
+              --html "$RUNNER_TEMP/replay-time-cases/cases/$replay_case/site/index.html" \
+              --sidecar "$RUNNER_TEMP/replay-time-cases/cases/$replay_case/replays.json" --stack-regression
+          done

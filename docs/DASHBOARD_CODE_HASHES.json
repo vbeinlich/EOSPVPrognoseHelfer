@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "dashboard_bundle_sha256": "ec2666b596700595c34a1aeef058dda1edb0db713e0811451435c87038b2846c",
+  "unraid_wrapper_sha256": "312a9f748cf5e928eb665769b057ddfdb64005ce91707b16ad1ef8a13782f04e",
+  "offline_exporter_sha256": "7c8e8a1ff268a40eef23c4f4bdce6b654fafe82448b6713644db306c8f6daec0",
+  "contains_measurements": false,
+  "distribution_approved": false
+}

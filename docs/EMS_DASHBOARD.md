@@ -1,4 +1,8 @@
-﻿# EMS Dashboard v1.0 – privater Unraid-Betrieb
+# EMS Dashboard v1.0 – privater Unraid-Betrieb
+
+Aktueller Korrekturstand: [versionierter Offline-Replay und private Befehle](REPLAY_SIDECAR.md),
+[PASS/BLOCKED-Abschlussbericht](DASHBOARD_FINAL_REVIEW.md). Die nachstehenden
+Grundlagen bleiben gültig; interne Replay-Energie und Vollzyklen folgen dem neuen Vertrag.
 
 Status: **Reviewvorlage, keine Deploymentfreigabe.** Basis ist PR #23,
 `38d7ea31182cbcc5ed07e7b496bdcbbecad952fb`. Erst die notwendigen Reviews
@@ -67,10 +71,10 @@ Bisherige EOS-Dateien werden nicht als Produzenten dieses neuen optionalen Vertr
 behauptet. Synthetische Fixtures demonstrieren dessen positive und negative Fälle.
 
 Lade-/Entladefenster zählen zusammenhängende Intervalle mit positiver gespeicherter
-Energie; Freigaben erzeugen keine solchen Fenster. Äquivalente Vollzyklen sind hier
-DC-Entladung geteilt durch nutzbare DC-Kapazität
+Energie; Freigaben erzeugen keine solchen Fenster. Äquivalente Vollzyklen verwenden im korrigierten Stand ausschließlich
+interne Speicherentnahme geteilt durch nutzbare interne Kapazität
 `capacity_wh * (max_soc_percentage - min_soc_percentage) / 100`.
-Fehlende Kapazität/Entladung ergibt keinen Vollzykluswert.
+Fehlende Kapazität/interne Entnahme ergibt keinen Vollzykluswert; vorhandene DC-Ausgangsenergie allein genügt nicht.
 
 Bei überlappenden Plänen gewinnt pro Zeitpunkt der neueste schon verfügbare
 `status=succeeded`-Plan, frühestens ab `max(start_utc, claimed_at_utc)`.

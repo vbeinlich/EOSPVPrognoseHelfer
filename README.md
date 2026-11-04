@@ -4,6 +4,9 @@ Korrekturreview zu PR #22: [R1/R2/R3-Gates und Nachweise](docs/PR22_INPUT_BINDIN
 [gemeinsamer Prüfvertrag v2 und Legacy-Grenzen](docs/INPUT_BINDING_CONTRACT.md).
 Issue #21 und sämtliche Produktiv-/Gerätefreigaben bleiben offen.
 
+EMS Dashboard v1.0 – [Korrekturen R24-01 bis R24-04 und PASS/BLOCKED](docs/DASHBOARD_FINAL_REVIEW.md),
+[Offline-Replay-Sidecar und private Befehle](docs/REPLAY_SIDECAR.md).
+
 EMS Dashboard v1.0 im separaten Review: [statische Dark-Mode-Ansicht und private
 Unraid-Anleitung](docs/EMS_DASHBOARD.md), [Screenshots und Abnahmen](docs/DASHBOARD_REVIEW.md).
 Automatische Anzeige vorhandener Dry-Runs ohne zusätzlichen Optimierungslauf;

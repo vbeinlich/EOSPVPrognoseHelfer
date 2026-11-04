@@ -1,0 +1,87 @@
+{
+  "reviewed_head": "6af922e4e38bb12d49acbaf02bee0b1fd2da27db",
+  "full_acceptance": "BLOCKED",
+  "runtime_changed": false,
+  "personally_independent_second_reviewer": false,
+  "original_files_unchanged": true,
+  "original_dates": [
+    "2026-10-29",
+    "2026-10-31"
+  ],
+  "native_replay": [
+    {
+      "date": "2026-10-29",
+      "slots": 24,
+      "stored_flow_fields_present": {
+        "battery_charge_dc_wh_per_hour": false,
+        "battery_discharge_dc_wh_per_hour": false,
+        "battery_pv_charge_dc_wh_per_hour": false,
+        "battery_grid_charge_dc_wh_per_hour": false
+      },
+      "replay_matches_original": true,
+      "additional_fields_match": {
+        "load_wh_per_hour": true,
+        "ev_soc_per_hour": true,
+        "home_appliance_wh_per_hour": true
+      },
+      "trace_does_not_change_results": true,
+      "gross_simultaneous_charge_and_discharge": true,
+      "historical_request_binding_proven": false
+    },
+    {
+      "date": "2026-10-31",
+      "slots": 24,
+      "stored_flow_fields_present": {
+        "battery_charge_dc_wh_per_hour": false,
+        "battery_discharge_dc_wh_per_hour": false,
+        "battery_pv_charge_dc_wh_per_hour": false,
+        "battery_grid_charge_dc_wh_per_hour": false
+      },
+      "replay_matches_original": true,
+      "additional_fields_match": {
+        "load_wh_per_hour": true,
+        "ev_soc_per_hour": true,
+        "home_appliance_wh_per_hour": true
+      },
+      "trace_does_not_change_results": true,
+      "gross_simultaneous_charge_and_discharge": false,
+      "historical_request_binding_proven": false
+    }
+  ],
+  "real_browser": {
+    "soc_values_correct": true,
+    "forecast_values_correct": true,
+    "soc_at_correct_time": false,
+    "all_stored_energy_labels_unproven": true,
+    "empty_history_windows": {
+      "rows": 0,
+      "charge": "0",
+      "discharge": "0"
+    },
+    "stacked_synthetic_example": {
+      "minimum_bar_y": -45,
+      "viewbox_top": 0
+    },
+    "external_requests": 0,
+    "browser_errors": 0
+  },
+  "old_image": {
+    "passed": true,
+    "image_id": "sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7",
+    "uid": 10001,
+    "read_only": true,
+    "network": "none",
+    "source_files_unchanged": true,
+    "last_good_recovery": true,
+    "project_source_mounted": false,
+    "bundle_sha256": "b8fe60da4d3207a08a3509c979d21dc46552e1e6d90dd3fa2f120d3af4655c3a",
+    "synthetic_only": true
+  },
+  "oct30_original_and_claims_verified": false,
+  "findings": [
+    "R24-01 missing proven replay-sidecar integration",
+    "R24-02 SOC shifted half interval",
+    "R24-03 stacked charge clipped",
+    "R24-04 empty history displayed as zero windows"
+  ]
+}

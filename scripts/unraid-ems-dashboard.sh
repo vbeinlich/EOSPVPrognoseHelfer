@@ -3,16 +3,29 @@
 # No extra container, helper loop, optimization, network endpoint or device access.
 set -euo pipefail
 umask 077
-{ [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; } || { printf '%s\n' 'Usage: unraid-ems-dashboard.sh CODE_BUNDLE SHA256 PRIVATE_DASHBOARD_DIR [PRIVATE_ECONOMICS_JSON]' >&2; exit 2; }
+[ "$#" -ge 3 ] || { printf '%s\n' 'Usage: unraid-ems-dashboard.sh BUNDLE SHA256 DEST [ECONOMICS_JSON] [--replays PRIVATE_SIDECAR]' >&2; exit 2; }
 bundle=$1
 sha=$2
 dest=$3
-cache=${4:-}
+shift 3
+cache=''
+replays=''
+if [ "$#" -gt 0 ] && [ "$1" != --replays ]; then cache=$1; shift; fi
+while [ "$#" -gt 0 ]; do
+  [ "$1" = --replays ] && [ "$#" -eq 2 ] && [ -z "$replays" ] || exit 2
+  replays=$2; shift 2
+done
 cache_size=0
+replay_size=0
 if [ -n "$cache" ]; then
   [ -f "$cache" ] && [ ! -L "$cache" ] || exit 2
   cache_size=$(stat -c %s -- "$cache")
   [ "$cache_size" -le 32000000 ] || exit 2
+fi
+if [ -n "$replays" ]; then
+  [ -f "$replays" ] && [ ! -L "$replays" ] || exit 2
+  replay_size=$(stat -c %s -- "$replays")
+  [ "$replay_size" -le 32000000 ] || exit 2
 fi
 [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || exit 2
 [ -f "$bundle" ] && [ ! -L "$bundle" ] && [ -d "$dest" ] && [ ! -L "$dest" ] || exit 2
@@ -49,7 +62,7 @@ try:
     raw = sys.stdin.buffer.read(size)
     if hashlib.sha256(raw).hexdigest() != sys.argv[1]:
         raise ValueError()
-    names = ('historical', 'economics', 'economics_native', 'plan_inspector', 'dashboard_view', 'dashboard')
+    names = ('historical', 'economics', 'economics_native', 'plan_inspector', 'replay_contract', 'dashboard_view', 'dashboard')
     expected = {'__main__.py', 'eos_pv_helper/__init__.py'} | {'eos_pv_helper/'+n+'.py' for n in names}
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         infos = archive.infolist()
@@ -69,10 +82,20 @@ try:
     if not 0 <= cache_size <= 32_000_000:
         raise ValueError()
     cached = package.plan_inspector.obj(sys.stdin.buffer.read(cache_size)) if cache_size else None
+    replay_size = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+    if not 0 <= replay_size <= 32_000_000:
+        raise ValueError()
+    replays = None
+    replay_error = False
+    if replay_size:
+        try:
+            replays = package.replay_contract.decode(sys.stdin.buffer.read(replay_size))
+        except Exception:
+            replay_error = True
     previous = sys.stdin.buffer.read(128_000_001)
     if len(previous) > 128_000_000:
         raise ValueError()
-    html, valid = package.dashboard.render_refresh('/output', previous.decode('utf-8'), cached=cached)
+    html, valid = package.dashboard.render_refresh('/output' if not replay_error else '/invalid-replay-input', previous.decode('utf-8'), cached=cached, replays=replays)
     sys.stdout.buffer.write(html.encode('utf-8'))
 except Exception:
     raise SystemExit('Dashboard reader failed; no input files changed') from None
@@ -83,8 +106,8 @@ size=$(stat -c %s -- "$bundle")
 tmp=$(mktemp "$dest/.ems-XXXXXXXX")
 trap 'rm -f -- "$tmp"' EXIT
 status=0
-{ cat -- "$bundle"; if [ -n "$cache" ]; then cat -- "$cache"; fi; if [ -f "$dest/index.html" ]; then cat -- "$dest/index.html"; fi; } |
-  timeout 45s docker --host unix:///var/run/docker.sock exec -i "$helper" python -I -S -B -c "$bootstrap" "$sha" "$size" "$cache_size" > "$tmp" || status=$?
+{ cat -- "$bundle"; if [ -n "$cache" ]; then cat -- "$cache"; fi; if [ -n "$replays" ]; then cat -- "$replays"; fi; if [ -f "$dest/index.html" ]; then cat -- "$dest/index.html"; fi; } |
+  timeout 45s docker --host unix:///var/run/docker.sock exec -i "$helper" python -I -S -B -c "$bootstrap" "$sha" "$size" "$cache_size" "$replay_size" > "$tmp" || status=$?
 if { [ "$status" -eq 0 ] || [ "$status" -eq 2 ]; } &&
    head -c 15 "$tmp" | cmp -s - <(printf '<!doctype html>') &&
    tail -c 14 "$tmp" | cmp -s - <(printf '</body></html>'); then

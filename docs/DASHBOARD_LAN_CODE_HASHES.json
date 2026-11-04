@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "base_commit": "8011a6d2849f5f17479dd1293f5806d39b3456e7",
+  "activation_approved": false,
+  "files": {
+    "deploy/dashboard/compose.yaml": "907bf211c6af9856269984db5ac97098254884cc79d544d8508d21297845a49d",
+    "deploy/dashboard/nginx.conf": "c2b59ac3e655f129e119ddb79c1ea1d7c98305db21c621b7a7b0caa3d608f6dd",
+    "deploy/dashboard/user-script.sh": "745a77733849e98fcec56e3ca4e4c7ee4bbace608cee8b8e8a82c640e3940006",
+    "scripts/unraid-dashboard-preflight.sh": "c716f6ebbf48420b421874d7527ef8d7df73f2327ad8e360c035fd1ffb5916b0",
+    "scripts/unraid-dashboard-publish.sh": "186e04bc297d03ea452e5652593848c352a750c2cf35c08b51ebce9581c42c4a",
+    "scripts/dashboard_archive_hash_probe.py": "444254c0595f819caf69a2def8d3bd0b27cc5f6fc5b749068ed99fd90a9fdfba",
+    "scripts/build_dashboard_lan_package.py": "16cbce1e481110cb94d1f3234f4614c5e481cd35164fb09b5aae135da13263aa"
+  }
+}

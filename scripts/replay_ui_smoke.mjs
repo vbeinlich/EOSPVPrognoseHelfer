@@ -5,6 +5,8 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 const args=process.argv.slice(2), option=k=>args[args.indexOf(k)+1];
+const pageURL=args.includes('--url')?option('--url'):pathToFileURL(path.resolve(option('--html'))).href;
+const allowedRequest=url=>/^(file:|data:|about:)/.test(url)||(args.includes('--url')&&new URL(url).origin===new URL(pageURL).origin&&['/','/index.html','/favicon.ico'].includes(new URL(url).pathname));
 if(!args.includes('--browser')||!args.includes('--html'))throw Error('Usage: --browser EXECUTABLE --html SYNTHETIC_REPORT [--screenshot NEW_PNG]');
 if(typeof WebSocket!=='function')throw Error('Node 22+ with built-in WebSocket is required');
 const profile=mkdtempSync(path.join(tmpdir(),'eos-replay-ui-'));
@@ -14,13 +16,13 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try{
  const endpoint=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(Error('Browser startup timeout')),20000);browser.stderr.on('data',bytes=>{output+=bytes;const hit=output.match(/DevTools listening on (ws:\/\/127\.0\.0\.1:\d+\/\S+)/);if(hit){clearTimeout(timer);resolve(hit[1]);}});browser.on('error',reject);browser.on('exit',code=>reject(Error('Browser exited before connection: '+code)));});
  ws=new WebSocket(endpoint);await new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',reject,{once:true});});
- ws.addEventListener('message',e=>{const m=JSON.parse(String(e.data));if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(JSON.stringify(m.error))):p.resolve(m.result);}}else if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text);else if(m.method==='Log.entryAdded'&&m.params.entry.level==='error')errors.push(m.params.entry.text);else if(m.method==='Network.requestWillBeSent'&&!/^(file:|data:|about:)/.test(m.params.request.url))requests.push(m.params.request.url);});
+ ws.addEventListener('message',e=>{const m=JSON.parse(String(e.data));if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(JSON.stringify(m.error))):p.resolve(m.result);}}else if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.text);else if(m.method==='Log.entryAdded'&&m.params.entry.level==='error')errors.push(m.params.entry.text);else if(m.method==='Network.requestWillBeSent'&&!allowedRequest(m.params.request.url))requests.push(m.params.request.url);});
  const call=(method,params={},sessionId)=>new Promise((resolve,reject)=>{const id=++seq;const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},15000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});
  const {targetId}=await call('Target.createTarget',{url:'about:blank'});
  const {sessionId}=await call('Target.attachToTarget',{targetId,flatten:true});
  for(const method of ['Page.enable','Runtime.enable','Network.enable','Log.enable'])await call(method,{},sessionId);
  await call('Emulation.setDeviceMetricsOverride',{width:1280,height:1100,deviceScaleFactor:1,mobile:false},sessionId);
- await call('Page.navigate',{url:pathToFileURL(path.resolve(option('--html'))).href},sessionId);
+ await call('Page.navigate',{url:pageURL},sessionId);
  const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true},sessionId);if(r.exceptionDetails)throw Error(r.exceptionDetails.text);return r.result.value;};
 
 

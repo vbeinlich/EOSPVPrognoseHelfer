@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,22 @@ def test_public_cache_seeds_private_recovery(publication):
     (source / "sync-state.json").write_text("{")
     assert run().returncode == 2
     assert packet(public / "index.html")["plans"] == plans
+
+
+def test_synthetic_http_event_uses_real_private_to_public_reader(publication):
+    source, work, tools, public, env, run = publication
+    assert run().returncode == 0
+    previous = len(packet(public / "index.html")["plans"])
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/dashboard_event.py"), "--source", str(source),
+         "--destination", str(work), "--publication-tools", str(tools),
+         "--publication-destination", str(public)],
+        capture_output=True, env=env, timeout=40,
+    )
+    assert result.returncode == 0, result.stderr
+    assert len(packet(public / "index.html")["plans"]) == previous + 1
+    assert (public / "index.html").stat().st_mode & 0o777 == 0o644
+    assert (work / "index.html").stat().st_mode & 0o077 == 0
 
 
 @pytest.mark.parametrize("relative", ["", "nested"])

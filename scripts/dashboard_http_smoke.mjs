@@ -15,12 +15,17 @@ const env={...process.env,DASHBOARD_ROOT:temp,DASHBOARD_LAN_IP:'127.0.0.1',DASHB
 const compose=['compose','--project-name',project,'--file',path.resolve('deploy/dashboard/compose.yaml')];
 const run=(command,argv)=>new Promise((resolve,reject)=>{const child=spawn(command,argv,{env,windowsHide:true,stdio:['ignore','pipe','pipe']});let out='',err='';child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);child.on('error',reject);child.on('exit',code=>code===0?resolve(out):reject(Error(command+' failed ('+code+'): '+err+out)))});
 const docker=argv=>run('docker',argv),url=`http://127.0.0.1:${port}`;
+let reader='',localDocker=false;
 const assert=(ok,message)=>{if(!ok)throw Error(message)};
 // Docker Desktop can briefly hold a Windows share handle during a GET. Linux
 // rename is immediate; bounded retry preserves atomic replacement on Windows.
 const replace=async(from,to)=>{for(let attempt=0;;attempt++){try{renameSync(from,to);return}catch(error){if(attempt>=100||!['EPERM','EACCES','EBUSY'].includes(error.code))throw error;await new Promise(resolve=>setTimeout(resolve,25));}}};
 const get=async(route='/',options={})=>fetch(url+route,{...options,signal:AbortSignal.timeout(5000)});
 try{
+ const [context]=JSON.parse(await docker(['context','inspect']));
+ assert(/^(unix:\/\/\/|npipe:\/\/)/.test(context.Endpoints.docker.Host),'HTTP tests require a local Docker daemon');
+ assert(!env.DOCKER_HOST||/^(unix:\/\/\/|npipe:\/\/)/.test(env.DOCKER_HOST),'remote DOCKER_HOST forbidden in local tests');
+ localDocker=true;
  await docker([...compose,'up','--detach','--pull','never','--wait','--wait-timeout','30']);
  const id=(await docker([...compose,'ps','--quiet'])).trim();
  const [state]=JSON.parse(await docker(['inspect',id]));
@@ -59,12 +64,22 @@ try{
  const browserArgs=[driver,'--browser',option('--browser'),'--html',index,'--url',url+'/'];
  if(args.includes('--sidecar'))browserArgs.push('--sidecar',option('--sidecar'));
  if(args.includes('--screenshot'))browserArgs.push('--screenshot',option('--screenshot'));
- if(args.includes('--event-python'))browserArgs.push('--expect-event','--event-python',option('--event-python'),'--event-source',option('--event-source'));
+ if(args.includes('--event-python')){
+  const tools=path.join(temp,'tools'),work=path.join(temp,'work');mkdirSync(tools,{mode:0o700});mkdirSync(work,{mode:0o700});
+  copyFileSync('scripts/unraid-ems-dashboard.sh',path.join(tools,'unraid-ems-dashboard.sh'));
+  await run(option('--event-python'),['scripts/build_ems_dashboard.py','--output',path.join(tools,'ems-dashboard-final.pyz')]);
+  // Ephemeral sleeping test image, no EMS loop/search. Only a short stdin reader
+  // runs against the synthetic archive. Never use a remote Docker context.
+  reader=(await docker(['run','--rm','--detach','--pull','never','--name',project+'-reader','--network','none','--read-only','--user','10001:10001','--cap-drop','ALL','--security-opt','no-new-privileges:true','--tmpfs','/tmp:rw,nosuid,nodev,size=16m,mode=1777','--mount',`type=bind,source=${path.resolve(option('--event-source'))},target=/output,readonly`,'--entrypoint','sleep','ghcr.io/vbeinlich/eospvprognosehelfer@sha256:7e957da3e2fdb67456a46e5538ad3c74b43fa21892d2998e93bca9de83d9daf7','180'])).trim();
+  assert(/^[0-9a-f]{64}$/.test(reader),'invalid local test reader ID');
+  browserArgs.push('--expect-event','--event-python',option('--event-python'),'--event-source',option('--event-source'),'--event-work',work,'--event-tools',tools,'--event-publication',pub);
+ }
  console.log(await run(process.execPath,browserArgs));
  console.log(JSON.stringify({passed:true,local_only:true,port,nginx:state.Config.Image,only_html:true,non_root:101,read_only:true,dedicated_bridge:true,peer_isolation:true,atomic_http_reads:reads,ranges:[1,7,30],mobile_width:390}));
 }finally{
  // Scope deletion to this newly-created project and checked private test folder.
- await docker([...compose,'down','--timeout','3']).catch(error=>console.error(error.message));
+ if(reader&&/^[0-9a-f]{64}$/.test(reader))await docker(['rm','--force',reader]).catch(error=>console.error(error.message));
+ if(localDocker)await docker([...compose,'down','--timeout','3']).catch(error=>console.error(error.message));
  if(path.dirname(path.resolve(temp))!==root||!path.basename(temp).startsWith('lan-smoke-'))throw Error('Unsafe test cleanup');
  rmSync(temp,{recursive:true,force:true,maxRetries:5,retryDelay:100});
 }

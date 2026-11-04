@@ -12,7 +12,7 @@ import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from . import economics
+from . import economics, replay_contract
 from . import plan_inspector as inspector
 
 MAX_PLANS = 4096
@@ -189,7 +189,7 @@ def saved_comparison(plan, solution, cached):
         return unavailable
 
 
-def enrich(plan, solution, cached=None):
+def enrich(plan, solution, cached=None, *, replays=None, original_raw=None):
     start, seconds = inspector.stamp(plan.get("start_utc")), plan.get("interval_seconds")
     count = plan["source_slots"]
     for key in ("ac_charge", "dc_charge", "discharge_allowed"):
@@ -204,6 +204,32 @@ def enrich(plan, solution, cached=None):
         ):
             raise inspector.InspectorError("Originale Steuerarrays sind beschädigt.")
     flow = flows(solution, count, start, seconds)
+    sidecar = replay_contract.find(replays, plan["solution_sha256"])
+    if sidecar is not None:
+        if original_raw is None:
+            raise replay_contract.ReplayError("Originalbytes für Replay-Prüfung fehlen.")
+        replay_contract.validate(sidecar, original_raw, solution)
+        flow = [
+            {
+                "charge_wh": s["charge_internal_wh"],
+                "pv_wh": s["pv_charge_internal_wh"],
+                "grid_wh": s["grid_charge_internal_wh"],
+                "discharge_wh": s["discharge_internal_wh"],
+                "unknown_wh": 0,
+                "internal_discharge_wh": s["discharge_internal_wh"],
+                "proof": replay_contract.PROOF,
+                "energy_basis": replay_contract.BASIS,
+                "original_replay_values": s,
+            }
+            for s in sidecar["slots"]
+        ]
+        plan["flow_replay"] = {
+            "status": "verified",
+            "sha256": sidecar["sha256"],
+            "proof": sidecar["proof"],
+            "energy_basis": sidecar["energy_basis"],
+            "summary": sidecar["summary"],
+        }
     params = solution.get("parameters", {})
     ems = params.get("ems", {}) if isinstance(params, dict) else {}
     battery = params.get("pv_battery", {}) if isinstance(params, dict) else {}
@@ -249,12 +275,22 @@ def enrich(plan, solution, cached=None):
     return plan
 
 
-def collect(source, *, now=None, economics_file=None, legacy_timezone=None, cached=None):
+def collect(
+    source,
+    *,
+    now=None,
+    economics_file=None,
+    legacy_timezone=None,
+    cached=None,
+    replays=None,
+    replay_file=None,
+):
     root = Path(source).resolve(strict=True)
     now = now or datetime.now(UTC)
     if economics_file:
         path = Path(economics_file)
         cached = inspector.obj(inspector.read(path.parent, path.name, 32_000_000))
+    replays = load_replays(replays, replay_file)
     # Outer shared lock spans Inspector and enrichment; it uses the SAME existing lock as the writer.
     lock_path = root / "sync.lock"
     if lock_path.is_symlink() or not lock_path.is_file():
@@ -294,7 +330,7 @@ def collect(source, *, now=None, economics_file=None, legacy_timezone=None, cach
             ] == "unproven":
                 raise inspector.InspectorError("Vorhandener historischer Nachweis ist beschädigt.")
             solution = inspector.obj(raw)
-            enrich(plan, solution, cached)
+            enrich(plan, solution, cached, replays=replays, original_raw=raw)
             plan["synthetic_only"] = solution.get("synthetic_only") is True
     report.update(
         dashboard_schema=1,
@@ -307,9 +343,18 @@ def collect(source, *, now=None, economics_file=None, legacy_timezone=None, cach
     return report
 
 
-def timeline(plans, days, *, end=None):
+def timeline(plans, days, *, end=None, model_coverage=False):
     """Latest successful plan known at each instant wins. No future plan and no double counting."""
-    successful = [p for p in plans if p.get("claim_status") == "succeeded" and p.get("start_utc")]
+    successful = [
+        p
+        for p in plans
+        if p.get("start_utc")
+        and (
+            p.get("flow_replay", {}).get("status") == "verified"
+            if model_coverage
+            else p.get("claim_status") == "succeeded"
+        )
+    ]
     if not successful:
         return []
     anchor = max(inspector.stamp(p["start_utc"]) for p in successful)
@@ -319,11 +364,22 @@ def timeline(plans, days, *, end=None):
     for plan in successful:
         issued = max(
             inspector.stamp(plan["start_utc"]),
-            inspector.stamp(plan.get("claimed_at_utc")) or inspector.stamp(plan["start_utc"]),
+            inspector.stamp(plan["start_utc"])
+            if model_coverage
+            else inspector.stamp(plan.get("claimed_at_utc")) or inspector.stamp(plan["start_utc"]),
         )
         for row in plan["rows"]:
             a, b = inspector.stamp(row["start_utc"]), inspector.stamp(row["end_utc"])
-            if row["phase"] != "control" or not a or not b or b <= left or a >= right:
+            if (
+                (
+                    row["phase"] != "control"
+                    and not (model_coverage and row["phase"] == "undeclared")
+                )
+                or not a
+                or not b
+                or b <= left
+                or a >= right
+            ):
                 continue
             a = max(a, issued, left)
             b = min(b, right)
@@ -356,7 +412,11 @@ def timeline(plans, days, *, end=None):
                 "source_index": row["source_index"],
                 "fraction": fraction,
                 "flow": {
-                    k: (v * fraction if k != "proof" and v is not None else v)
+                    k: (
+                        v * fraction
+                        if isinstance(v, (int, float)) and not isinstance(v, bool)
+                        else v
+                    )
                     for k, v in row["flow"].items()
                 },
                 "grid_wh": None
@@ -369,7 +429,58 @@ def timeline(plans, days, *, end=None):
 
 def prepare(report):
     report["ranges"] = {str(days): timeline(report["plans"], days) for days in (1, 7, 30)}
+    report["model_ranges"] = {
+        str(days): timeline(report["plans"], days, model_coverage=True) for days in (1, 7, 30)
+    }
     return report
+
+
+def load_replays(value=None, filename=None):
+    if filename:
+        path = Path(filename)
+        return replay_contract.decode(
+            inspector.read(path.parent, path.name, replay_contract.MAX_BYTES)
+        )
+    return replay_contract.decode(replay_contract.canonical(value)) if value is not None else None
+
+
+def collect_originals(paths, *, replay_file=None, replays=None):
+    """Private saved responses without inventing sync-state or successful claims."""
+    replays = load_replays(replays, replay_file)
+    now = datetime.now(UTC)
+    plans = []
+    for filename in paths:
+        path = Path(filename)
+        raw = inspector.read(path.parent, path.name)
+        version = hashlib.sha256(raw).hexdigest()
+        plan = inspector.parse_plan(
+            None,
+            version,
+            raw,
+            None,
+            __import__("zoneinfo").ZoneInfo("Europe/Berlin"),
+            None,
+            now,
+            archive_lookup=False,
+        )
+        solution = inspector.obj(raw)
+        enrich(plan, solution, replays=replays, original_raw=raw)
+        plan["synthetic_only"] = solution.get("synthetic_only") is True
+        plans.append(plan)
+    if len({p["version"] for p in plans}) != len(plans):
+        raise inspector.InspectorError("Doppelte Originallösung.")
+    plans.sort(key=lambda p: p["start_utc"] or "", reverse=True)
+    return {
+        "dashboard_schema": 1,
+        "read_only": True,
+        "plans": plans,
+        "generated_at_utc": now.isoformat(),
+        "checked_at_utc": now.isoformat(),
+        "latest_sync_status": "unknown",
+        "synthetic_only": bool(plans) and all(p.get("synthetic_only") for p in plans),
+        "update_error": False,
+        "exact_solver_options_proven": False,
+    }
 
 
 def atomic_write(path, raw):
@@ -390,10 +501,20 @@ def atomic_write(path, raw):
             os.unlink(temporary)
 
 
-def refresh(source, destination, *, economics_file=None, legacy_timezone=None, cached=None):
-    root = Path(source).resolve(strict=True)
+def refresh(
+    source,
+    destination,
+    *,
+    economics_file=None,
+    legacy_timezone=None,
+    cached=None,
+    replays=None,
+    replay_file=None,
+    solutions=None,
+):
+    root = Path(source).resolve(strict=True) if source else None
     output = Path(destination).resolve(strict=True)
-    if root == output or root in output.parents or output in root.parents:
+    if root and (root == output or root in output.parents or output in root.parents):
         raise inspector.InspectorError("Dashboard-Ziel muss von den Originaldaten getrennt sein.")
     target = output / "index.html"
     if target.is_symlink() or (output / ".refresh.lock").is_symlink():
@@ -412,22 +533,39 @@ def refresh(source, destination, *, economics_file=None, legacy_timezone=None, c
             economics_file=economics_file,
             legacy_timezone=legacy_timezone,
             cached=cached,
+            replays=replays,
+            replay_file=replay_file,
+            solutions=solutions,
         )
         atomic_write(target, html.encode("utf-8"))
         return valid
 
 
-def render_refresh(source, previous="", *, economics_file=None, legacy_timezone=None, cached=None):
+def render_refresh(
+    source,
+    previous="",
+    *,
+    economics_file=None,
+    legacy_timezone=None,
+    cached=None,
+    replays=None,
+    replay_file=None,
+    solutions=None,
+):
     from .dashboard_view import render
 
     valid = True
     try:
         report = prepare(
-            collect(
+            collect_originals(solutions, replays=replays, replay_file=replay_file)
+            if solutions
+            else collect(
                 source,
                 economics_file=economics_file,
                 legacy_timezone=legacy_timezone,
                 cached=cached,
+                replays=replays,
+                replay_file=replay_file,
             )
         )
     except Exception:
@@ -452,9 +590,12 @@ def render_refresh(source, previous="", *, economics_file=None, legacy_timezone=
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--source", required=True, help="Existing read-only helper output directory"
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--source", help="Existing read-only helper output directory")
+    inputs.add_argument(
+        "--solution", action="append", help="Private original response; no invented claims"
     )
+    parser.add_argument("--replays", help="Existing private offline replay sidecar")
     parser.add_argument(
         "--destination", required=True, help="Separate existing private dashboard directory"
     )
@@ -471,6 +612,8 @@ def main():
                 args.destination,
                 economics_file=args.economics,
                 legacy_timezone=args.legacy_timezone,
+                replay_file=args.replays,
+                solutions=args.solution,
             )
             else 2
         )

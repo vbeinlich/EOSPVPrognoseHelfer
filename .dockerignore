@@ -10,6 +10,13 @@
 !docs/EMS_SOURCE_MANIFEST.json
 !docs/RELEASE_0_1_0_CANDIDATE.json
 !docs/INPUT_BINDING_TRANSPORTS.json
+!docs/DASHBOARD_CODE_HASHES.json
+!docs/DASHBOARD_LAN_CODE_HASHES.json
+!docs/DASHBOARD_UNRAID_LAN.md
+!docs/DASHBOARD_LAN_REVIEW.md
+!deploy/
+!deploy/dashboard/
+!deploy/dashboard/**
 !docs/release-admin/
 !docs/release-admin/**
 !docs/doctor-export-review/

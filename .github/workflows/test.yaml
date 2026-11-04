@@ -27,6 +27,8 @@ jobs:
         run: python scripts/update_evidence_transports.py
       - name: Check code-only dashboard and offline exporter hashes
         run: python scripts/check_dashboard_hashes.py
+      - name: Check separate LAN publication package code hashes
+        run: python scripts/check_dashboard_lan_hashes.py
       - run: pytest -q
       - name: Independent PR22 review counterexamples must now be rejected
         env:
@@ -53,6 +55,15 @@ jobs:
           python -m eos_pv_helper.dashboard --source "$RUNNER_TEMP/dashboard-source" --destination "$RUNNER_TEMP/dashboard-site"
       - name: Browser-check dashboard, mobile view, ranges and automatic event refresh
         run: node scripts/dashboard_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/dashboard-site/index.html" --expect-event --event-python python --event-source "$RUNNER_TEMP/dashboard-source"
+      - name: Pull pinned isolated HTML-only server (local tests only)
+        run: docker pull nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+      - name: Test HTTP publication, server isolation and automatic archived-event refresh
+        run: |
+          python scripts/dashboard_fixture.py --destination "$RUNNER_TEMP/dashboard-http-source"
+          mkdir "$RUNNER_TEMP/dashboard-http-site"
+          python -m eos_pv_helper.dashboard --source "$RUNNER_TEMP/dashboard-http-source" --destination "$RUNNER_TEMP/dashboard-http-site"
+          node scripts/dashboard_http_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" \
+            --html "$RUNNER_TEMP/dashboard-http-site/index.html" --event-python python --event-source "$RUNNER_TEMP/dashboard-http-source"
       - run: docker compose config --no-path-resolution
       - run: docker build --target eos-source -t eos-pv-helper:ci .
       - run: python scripts/unraid_smoke.py --image eos-pv-helper:ci
@@ -111,3 +122,9 @@ jobs:
               --html "$RUNNER_TEMP/replay-time-cases/cases/$replay_case/site/index.html" \
               --sidecar "$RUNNER_TEMP/replay-time-cases/cases/$replay_case/replays.json" --stack-regression
           done
+      - name: Test native replay UI through the isolated HTTP server
+        run: |
+          docker pull nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+          node scripts/dashboard_http_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" \
+            --html "$RUNNER_TEMP/replay-time-cases/cases/autumn-900/site/index.html" \
+            --sidecar "$RUNNER_TEMP/replay-time-cases/cases/autumn-900/replays.json"

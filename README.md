@@ -1,5 +1,10 @@
 # EOS PV-Prognose-Helfer
 
+EMS Dashboard LAN-Paket im Review: [Replay-Bytehashes, privater Nginx und
+Unraid-Installationsbefehle](docs/DASHBOARD_UNRAID_LAN.md),
+[PASS/BLOCKED und unabhängiges Abnahmeprotokoll](docs/DASHBOARD_LAN_REVIEW.md).
+Nur vorbereitet; Webserver und Scheduler benötigen separate Betreiberfreigaben.
+
 Korrekturreview zu PR #22: [R1/R2/R3-Gates und Nachweise](docs/PR22_INPUT_BINDING_FIX_REVIEW.md),
 [gemeinsamer Prüfvertrag v2 und Legacy-Grenzen](docs/INPUT_BINDING_CONTRACT.md).
 Issue #21 und sämtliche Produktiv-/Gerätefreigaben bleiben offen.

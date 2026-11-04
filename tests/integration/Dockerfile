@@ -17,6 +17,9 @@ COPY licenses ./licenses
 COPY docs/GENETIC_ACCEPTANCE.json ./docs/GENETIC_ACCEPTANCE.json
 COPY docs/EMS_SOURCE_MANIFEST.json docs/RELEASE_0_1_0_CANDIDATE.json ./docs/
 COPY docs/INPUT_BINDING_TRANSPORTS.json ./docs/
+COPY docs/DASHBOARD_CODE_HASHES.json ./docs/
+COPY docs/DASHBOARD_LAN_CODE_HASHES.json docs/DASHBOARD_UNRAID_LAN.md docs/DASHBOARD_LAN_REVIEW.md ./docs/
+COPY deploy/dashboard ./deploy/dashboard
 COPY docs/release-admin ./docs/release-admin
 COPY docs/doctor-export-review ./docs/doctor-export-review
 COPY src ./src

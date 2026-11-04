@@ -1,0 +1,49 @@
+# PREPARATION ONLY. Activation on Unraid requires separate operator approval.
+name: ems-dashboard-lan
+services:
+  dashboard:
+    image: nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+    user: '101:101'
+    entrypoint: [nginx]
+    command: [-c, /etc/nginx/nginx.conf, -g, 'daemon off;']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 64m
+    cpus: 0.25
+    restart: unless-stopped
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    ports:
+      - '${DASHBOARD_LAN_IP:?Set the private Unraid LAN IPv4 address}:${DASHBOARD_PORT:-8505}:8080'
+    volumes:
+      - type: bind
+        source: ${DASHBOARD_ROOT:-/mnt/user/appdata/ems-dashboard-review}/publish
+        target: /srv/dashboard
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
+    networks: [static_only]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/index.html]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: '2'
+networks:
+  static_only:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: 'false'

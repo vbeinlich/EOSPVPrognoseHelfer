@@ -1,0 +1,35 @@
+{
+  "images": {
+    "helper": {
+      "docker_config_image_id": "sha256:7e1c37c1fb49d2c5700591ddb4a1586e4892da7d00687c0ec459ce5eb3b6c8b6",
+      "local_engine_image_id": "sha256:f62850fa23909c17fc165205af10329b1ab35ef5416b946de75ca476b5a17040",
+      "local_manifest_digest": "sha256:f62850fa23909c17fc165205af10329b1ab35ef5416b946de75ca476b5a17040",
+      "registry_manifest_digest": null,
+      "source_modules_match_frozen_commit": true,
+      "tag": "ghcr.io/vbeinlich/eospvprognosehelfer:ems-v1.1-test-546baa63",
+      "tar": "images/eos-helper-ems-v1.1-test-546baa63-linux-amd64.tar",
+      "tar_bytes": 323600384,
+      "tar_sha256": "f08d666c424efa56c675f2735f39699291b608f3561193f01eabf9e9aa3b4105"
+    },
+    "worker": {
+      "docker_config_image_id": "sha256:a4b0919727b273065c7803ec335842a7a0fcff8a05841eb7d3aa61e6d1482561",
+      "local_engine_image_id": "sha256:0a1f4c6da5b786f37e4ee28f9df48d5bc9560b0f829777a551bf990f9661753b",
+      "local_manifest_digest": "sha256:0a1f4c6da5b786f37e4ee28f9df48d5bc9560b0f829777a551bf990f9661753b",
+      "registry_manifest_digest": null,
+      "source_modules_match_frozen_commit": true,
+      "tag": "ems-native-replay:ems-v1.1-test-546baa63",
+      "tar": "images/ems-replay-ems-v1.1-test-546baa63-linux-amd64.tar",
+      "tar_bytes": 323389440,
+      "tar_sha256": "ac87b4dcfe0963cd4d5834c627853c79c2b3a63947af3d3f04207a44eef3acfa"
+    }
+  },
+  "platform": "linux/amd64",
+  "production_activation_approved": false,
+  "registry_push": false,
+  "source_archive": {
+    "file": "source-546baa63.tar",
+    "git_archive_commit": "546baa63ade70cab20c67a7410575c8d2b8dc667",
+    "sha256": "e93237277cb841ff2bb4711a779280ec97354aa55af4e1451ed9aac254c4eab3"
+  },
+  "source_commit": "546baa63ade70cab20c67a7410575c8d2b8dc667"
+}

@@ -21,6 +21,7 @@ jobs:
           node-version: '22'
       - run: pip install '.[test]'
       - run: ruff check src tests scripts
+      - run: ruff check deploy/unraid-test
       - name: Validate every workflow with pinned Actionlint
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 -shellcheck= -pyflakes=
       - name: Check standalone engine embedding, wrapper and code-bundle hashes
@@ -89,6 +90,18 @@ jobs:
           fetch-depth: 0
       - run: docker build -f tests/integration/Dockerfile -t eos-pv-helper:eos-test .
       - run: docker run --rm --network none -e PYTEST_ADDOPTS eos-pv-helper:eos-test
+      - name: Manual installer simulation in disposable tmpfs with no Docker socket
+        run: |
+          docker run --rm --network none --read-only --user 0:0 --cap-drop=ALL \
+            --cap-add=CHOWN --cap-add=DAC_OVERRIDE --cap-add=FOWNER --security-opt=no-new-privileges \
+            --tmpfs /tmp:rw,exec,nosuid,nodev,size=256m,mode=1777 \
+            --tmpfs /mnt:rw,nosuid,nodev,size=64m --tmpfs /app:rw,nosuid,nodev,size=16m \
+            --tmpfs /output:rw,nosuid,nodev,size=16m --tmpfs /run/secrets:rw,nosuid,nodev,size=1m \
+            --tmpfs /var/lock:rw,nosuid,nodev,size=1m \
+            --mount type=bind,source="$PWD",target=/review,readonly \
+            -e EMS_INSTALL_SIMULATION_ONLY=1 -e PYTHONPATH=/review/src:/review/scripts:/review/tests:/opt/eos/src \
+            --workdir /review --entrypoint python eos-pv-helper:eos-test \
+            -m pytest -q -p no:cacheprovider tests/test_unraid_install_simulation.py tests/test_unraid_test_prepare.py
       - name: Non-root read-only writer, shared contract and pipeline regression gate
         run: |
           docker run --rm --network none --read-only --user 10001:10001 --cap-drop=ALL \

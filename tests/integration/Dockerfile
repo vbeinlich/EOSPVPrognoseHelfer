@@ -20,6 +20,7 @@ COPY docs/INPUT_BINDING_TRANSPORTS.json ./docs/
 COPY docs/DASHBOARD_CODE_HASHES.json ./docs/
 COPY docs/DASHBOARD_LAN_CODE_HASHES.json docs/DASHBOARD_UNRAID_LAN.md docs/DASHBOARD_LAN_REVIEW.md ./docs/
 COPY deploy/dashboard ./deploy/dashboard
+COPY deploy/unraid-test ./deploy/unraid-test
 COPY docs/release-admin ./docs/release-admin
 COPY docs/doctor-export-review ./docs/doctor-export-review
 COPY src ./src

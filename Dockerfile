@@ -20,6 +20,7 @@ FROM runtime AS test
 USER root
 RUN pip install --no-cache-dir '.[test]'
 COPY tests ./tests
+COPY deploy/unraid-test ./deploy/unraid-test
 COPY templates ./templates
 COPY scripts ./scripts
 COPY config.example.toml ./

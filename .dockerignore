@@ -17,6 +17,8 @@
 !deploy/
 !deploy/dashboard/
 !deploy/dashboard/**
+!deploy/unraid-test/
+!deploy/unraid-test/**
 !docs/release-admin/
 !docs/release-admin/**
 !docs/doctor-export-review/

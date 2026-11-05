@@ -3,8 +3,8 @@
   "contains_private_data": false,
   "contract": "eos-pv-helper/replay-worker-code-inventory-v1",
   "files": {
-    ".dockerignore": "01fee0aac5b6f406498f1e827ef652dd38900c435df6c2652bdd377d88767ffd",
-    ".github/workflows/test.yaml": "ddf66222be65631a0718e86df366a6466f7e43e19235a96d08450c2fd4757aae",
+    ".dockerignore": "5fe629b7cc2d8160059e199055773f0a54071a708dcdd3a701240ac038c0ea23",
+    ".github/workflows/test.yaml": "a1c17fe8d3404e6453ddc99cb2b99620940bf1b80e2821e78f96ce1bd2b50036",
     "replay-worker/Dockerfile": "2182a76c08773297aee96ade1f378d0928a55e83e7c58fddcbf5d921757c47d5",
     "replay-worker/compose.yaml": "5c6e6c399af629bde8263266a0e34f10e29836599fa04b0280a3c493c0ee1295",
     "replay-worker/constraints.txt": "fbb593389b46b92051ca8e08393d3cf088782a1f16f6879a71cb7a8784a345e8",
@@ -18,7 +18,7 @@
     "src/eos_pv_helper/replay_worker_catalog.py": "e7390a88245b486223dbaf869d7736c6558cdbb565635c0c253a2c67ca22b19f",
     "src/eos_pv_helper/replay_worker_io.py": "32f55e4bfefcf8dc626311133ddf3c8ccbb413362573c64bf018e0b54bc1fc32",
     "src/eos_pv_helper/replay_worker_job.py": "baf39167bf12f6b894a5e94233734c3fe5ec11101d421b5c421e43fdc3c1cde9",
-    "tests/integration/Dockerfile": "bf9d2f9c688a9442ff9d35adcf1eaa3802c09af9febb2d8472ee041e7f55e360"
+    "tests/integration/Dockerfile": "3c1e3a32a073991126bb4c7d2a9dadd01d425d454c56c9104188321499f56253"
   },
   "native_revision": "8a8cd43a1915668927eda5504b7de039c2e762b4",
   "production_activation_approved": false

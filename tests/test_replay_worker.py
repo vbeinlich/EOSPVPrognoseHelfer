@@ -285,7 +285,10 @@ def test_concurrent_catalog_update_and_refresh_never_observe_partial_json(case, 
         publish = pool.submit(worker.tick)
         observed = []
         for _ in range(30):
-            value = contract.decode(read(root / "catalog.json"))
+            # Exercise the actual dashboard transport: one opened catalog inode.
+            # The strict original-file reader intentionally rejects path replacement,
+            # even when a complete new catalog is atomically published in its place.
+            value = dashboard.load_replays(filename=root / "catalog.json")
             observed.append(len(value["plans"]))
             assert dashboard.refresh(source, site, replay_file=root / "catalog.json")
         assert publish.result()["counts"]["verified"] == 2
@@ -294,6 +297,22 @@ def test_concurrent_catalog_update_and_refresh_never_observe_partial_json(case, 
     for days in ("1", "7", "30"):
         slots = report["ranges"].get(days, [])
         assert len({slot["start_utc"] for slot in slots}) == len(slots)
+
+
+def test_strict_original_reader_still_rejects_replaced_path(tmp_path, monkeypatch):
+    original, replacement = tmp_path / "original.json", tmp_path / "replacement.json"
+    original.write_bytes(b'{"source":1}')
+    replacement.write_bytes(b'{"source":2}')
+    real_stat = Path.stat
+
+    def replace_before_identity_check(path, *args, **kwargs):
+        if path == original and kwargs.get("follow_symlinks") is False:
+            replacement.replace(original)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", replace_before_identity_check)
+    with pytest.raises(WorkerError, match="input_changed_during_read"):
+        read(original)
 
 
 def test_missing_original_input_cannot_use_live_replacement(case):

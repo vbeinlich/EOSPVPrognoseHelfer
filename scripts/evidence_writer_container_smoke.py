@@ -72,7 +72,7 @@ from pathlib import Path
 from eos_pv_helper import sync,evidence
 ns=runpy.run_path('/review/synthetic.py'); ns['deny_real_actions']()
 os.environ['DRY_RUN']='false'  # Test process only: there is no real HTTP transport.
-event=ns['SyntheticEvent']('/output','/review/template.json',now=datetime.now(UTC).replace(microsecond=0))
+event=ns['SyntheticEvent']('/output','/review/template.json',now=datetime.now(UTC))
 original=sync.archive_success; elapsed=[]
 def measured(*args,**kwargs):
     start=time.monotonic()

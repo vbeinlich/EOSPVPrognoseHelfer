@@ -57,11 +57,22 @@ Optimierung, einer historischen Ausführung oder einer Geräteaktion.
 
 ## Ergebnisse und Ressourcen
 
-Lokal **761 Tests bestanden**, davon 22 neue Writer-/Native-Fälle, in 105,76 s.
+Lokal **762 Tests bestanden**, davon 23 neue Writer-/Native-/Originalschutzfälle,
+in 104,21 s. Der Original-Dateiaustauschtest und die Korrektur des bisherigen
+Katalog-Konkurrenztests sind in diesem vollständigen Lauf enthalten.
 Die drei markierten echten Optimierungstests bleiben explizit ausgeschlossen.
 Die headbezogene GitHub-CI samt synthetischem Containerartefakt wird im PR
 aufgeführt. Neue Tests ergänzen sämtliche bisherigen Fälle. Ruff und sämtliche bestehenden Hash-/Review-Gates bleiben
 verpflichtend. Es werden keine privaten Originale oder Sidecars in CI verwendet.
+
+Der erste PR-CI-Lauf deckte im bestehenden PR-#27-Konkurrenztest eine falsche
+Leserwahl auf: `replay_worker_io.read` verweigert beabsichtigt einen Dateipfad,
+der während des Lesens ersetzt wird. Das ist bei Originalen korrekt, bei einem
+atomar publizierten Katalog aber kein Teil-JSON. Der Test verwendet jetzt den
+tatsächlichen Dashboard-Katalogleser und prüft weiterhin jede Kataloggeneration,
+den parallelen HTML-Refresh und doppelfreie Zeitbereiche. Ein deterministischer
+Negativtest belegt, dass der strenge Originalreader weiterhin Dateiaustausch
+ablehnt. Der Runtime-Code beider Leser wurde nicht verändert.
 
 Zwei lokale Messungen bei jeweils 0,5 CPU und 768 MiB Containerlimit:
 synthetischer Sync inklusive einer nativen Modellantwort 0,75–1,67 s,

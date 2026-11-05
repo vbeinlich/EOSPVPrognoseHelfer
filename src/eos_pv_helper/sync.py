@@ -311,6 +311,12 @@ def sync_once(config, *, write_eos=False, refresh_source=False, now=None, http=r
                 prior = state["events"].get(version["version"])
                 if prior:
                     report["event"]["status"] = prior["status"]
+                    # Preserve the selected ORIGINAL plan's identity in later ticks.
+                    # Do not attach today's inputs or manufacture an old request receipt.
+                    for key in ("start_utc", "control_hours", "interval_seconds", "effective_tail_hours",
+                                "requested_tail_hours", "budgeted_tail_hours", "claimed_at_utc"):
+                        if key in prior:
+                            report["event"][key] = prior[key]
                     if prior["status"] != "succeeded":
                         raise ForecastError("Previous dispatch outcome uncertain; manual review required")
                     return

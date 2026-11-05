@@ -4,7 +4,7 @@
   "contract": "eos-pv-helper/replay-worker-code-inventory-v1",
   "files": {
     ".dockerignore": "01fee0aac5b6f406498f1e827ef652dd38900c435df6c2652bdd377d88767ffd",
-    ".github/workflows/test.yaml": "5288ef342a49b931adf435dc4291de3444e2e3ab3118939a87e626005343835f",
+    ".github/workflows/test.yaml": "ddf66222be65631a0718e86df366a6466f7e43e19235a96d08450c2fd4757aae",
     "replay-worker/Dockerfile": "2182a76c08773297aee96ade1f378d0928a55e83e7c58fddcbf5d921757c47d5",
     "replay-worker/compose.yaml": "5c6e6c399af629bde8263266a0e34f10e29836599fa04b0280a3c493c0ee1295",
     "replay-worker/constraints.txt": "fbb593389b46b92051ca8e08393d3cf088782a1f16f6879a71cb7a8784a345e8",

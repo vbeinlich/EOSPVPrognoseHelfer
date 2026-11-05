@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir . && useradd --uid 10001 --create-home helper \
     && mkdir /output && chown helper:helper /output \
     && python scripts/license_inventory.py --output /usr/share/eos-pv-helper/licenses
 USER 10001:10001
+
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
   CMD ["python", "-m", "eos_pv_helper", "health"]
 ENTRYPOINT ["python", "-m", "eos_pv_helper"]
@@ -45,4 +46,16 @@ RUN pip install --no-cache-dir \
 RUN python scripts/native_sources.py --mapping-only --output /usr/share/eos-pv-helper/licenses/native \
     && python scripts/license_inventory.py --output /usr/share/eos-pv-helper/licenses --eos /opt/eos
 ENV PYTHONPATH=/opt/eos/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+USER 10001:10001
+
+# Separately reviewed helper candidate, never an automatic production upgrade.
+# Retains eos-source's entrypoint, DRY_RUN default, healthcheck and native dependency set.
+FROM eos-source AS evidence-candidate
+USER root
+COPY scripts/evidence_writer_inventory.py /app/scripts/evidence_writer_inventory.py
+RUN python /app/scripts/evidence_writer_inventory.py \
+    --output /usr/share/eos-pv-helper/licenses/evidence-writer.json
+LABEL org.eos.event-evidence-contract="eos-pv-helper/event-evidence-v2" \
+    org.eos.replay-admission-contract="eos-pv-helper/replay-ready-archive-v1" \
+    org.eos.production-activation="requires-independent-review-and-operator-approval"
 USER 10001:10001

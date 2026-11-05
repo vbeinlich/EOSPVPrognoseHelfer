@@ -1,5 +1,11 @@
 # EOS PV-Prognose-Helfer
 
+EMS v1.1 Archivwriter-Folgeauftrag zu PR #27:
+[v2-Archiv und Worker-Uebergabe](docs/EVIDENCE_WRITER_CONTRACT.md),
+[sichere Helper-Migration und Rollback](docs/EVIDENCE_WRITER_MIGRATION.md),
+[PASS/BLOCKED und CI-Nachweise](docs/EVIDENCE_WRITER_REVIEW.md).
+Separater Helper-Kandidat; Produktionsimage und bestehende Freigaben bleiben unveraendert.
+
 EMS Dashboard v1.1 im Review: [isolierter automatischer Offline-Replay](docs/REPLAY_WORKER_UNRAID.md),
 [Katalog- und Archivvertrag](docs/REPLAY_WORKER_CONTRACT.md),
 [PASS/BLOCKED und Gegenreview](docs/REPLAY_WORKER_REVIEW.md).

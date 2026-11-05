@@ -118,7 +118,8 @@ print(json.dumps({'python':sys.version,'uid':os.getuid(),'gid':os.getgid(),
         finally:
             docker("rm", temporary)
     env_lines.append("ROLLBACK_SHA256=e7f988ab5dbf6807fbb9072b5d66cd0b0b88fcf73b898c0e983f8c2a2e7321a3")
-    (destination / "images.env").write_text("\n".join(env_lines)+"\n", encoding="utf-8")
+    # This package is produced on Windows and sourced by Bash on Unraid.
+    (destination / "images.env").write_bytes(("\n".join(env_lines)+"\n").encode("utf-8"))
     for path in (tooling / "deploy/unraid-test").iterdir():
         if path.is_file():
             shutil.copyfile(path, destination / "tools" / path.name)

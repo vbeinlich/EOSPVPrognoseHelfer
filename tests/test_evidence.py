@@ -33,6 +33,21 @@ def build_case(config, monkeypatch):
             source = {key: {"pvforecast_ac_power": v} for key, v in case["series"]["pvforecast_ac_power"].items()}
             value.update(controls_start_at_now=True, parameters=parameters(prices[first:],
                 averages(source, "pvforecast_ac_power", origin, len(prices))[first:], 55))
+            # Complete synthetic response shape for the worker's structural admission.
+            # These unit results are mocked; real native equality has its own integration gate.
+            template = json.loads((Path(__file__).parent / "fixtures/replay-synthetic-solution.json").read_bytes())
+            value["parameters"]["inverter"].update(ac_charge_limits_total_charge=False,
+                dc_to_ac_efficiency_curve=None, dc_to_ac_efficiency_reference_load_fraction=.06)
+            for key, target in (("loadforecast_power_w", "total_load"),
+                                ("feed_in_tariff_wh", "feed_in_tariff_per_wh")):
+                rows = {k: {key: v} for k, v in case["series"][key].items()}
+                value["parameters"]["ems"][target] = averages(rows, key, origin, len(prices))[first:]
+            value["result"] = template["result"]
+            value["result"]["electricity_price"] = prices[first:first+24]
+            value["result"]["feed_in_tariff"] = value["parameters"]["ems"]["feed_in_tariff_per_wh"][:24]
+            value["terminal_value"] = {"mode": "AUTO", "control_horizon_hours": 24,
+                "battery_energy_wh": 0, "credited_euro": 0,
+                "curve": {"energy_wh": [0, 13000], "value_euro": [0, 3.9]}}
         return value
     case["http"] = http
     def pv_runner(*args, **kwargs):

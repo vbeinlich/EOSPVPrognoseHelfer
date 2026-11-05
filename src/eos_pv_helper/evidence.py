@@ -13,11 +13,16 @@ from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
 
+from . import economics
 from . import historical as doctor
 from .event_context import canonical_sha, observed_options, solution_inputs
 
 DIRECTORY = "genetic-evidence"
 INPUTS = {"prices.json", "soc.json", "forecast.json", "report.json"}
+REPLAY_ADMISSION = "eos-pv-helper/replay-ready-archive-v1"
+SERIES = {"pvforecast_ac_power": "pv_forecast_wh", "loadforecast_power_w": "total_load",
+          "elecprice_marketprice_wh": "electricity_price_per_wh",
+          "feed_in_tariff_wh": "feed_in_tariff_per_wh"}
 
 
 class EvidenceError(ValueError):
@@ -51,8 +56,49 @@ def capture_inputs(output, report, frame, series, plan, clock, settings=None):
         if row.get("pvforecast_ac_power") is None:
             raise EvidenceError("dispatch_pv_interval_missing")
         position += timedelta(minutes=15)
+    slots = int((end-start).total_seconds() / plan["interval_seconds"])
+    frozen = {target: doctor.interval_averages(series[source], start, slots, plan["interval_seconds"])
+              for source, target in SERIES.items()}
+    if any(value is None for values in frozen.values() for value in values):
+        raise EvidenceError("dispatch_solver_series_incomplete")
     return {"files": files, "captured_at_utc": clock().isoformat(),
+            "dispatch_series_binding": {"contract": REPLAY_ADMISSION,
+                "start_utc": plan["start_utc"], "interval_seconds": plan["interval_seconds"],
+                "series": frozen, "series_sha256": canonical_sha(frozen)},
             "observed_options": observed_options(settings or {})}
+
+
+def _replay_admission(manifest, files, evidence):
+    """Same v2 admission as PR #27, plus a structural projection; no model execution."""
+    if not (evidence["accepted"] and evidence["input_binding_complete"]
+            and evidence["validation_scope"] == "request_solver_inputs"
+            and all(evidence["checks"].values())
+            and manifest.get("producer", {}).get("contract") ==
+            "eos-pv-helper/automatic-evidence-v1"
+            and evidence["runtime_context"]["status"] ==
+            "consistent_observation_and_returned_inputs"):
+        raise EvidenceError("archive_replay_binding_not_proven")
+    solution = doctor.decode(files["solution-" + manifest["event_version"] + ".json"])
+    try:
+        economics.project(solution)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise EvidenceError("archive_saved_model_not_replay_compatible") from None
+    binding = manifest["producer"].get("dispatch_series_binding")
+    if binding is not None:
+        claim = doctor.decode(files["sync-state.json"])["events"][manifest["event_version"]]
+        slots = int((claim["control_hours"]+claim["effective_tail_hours"])*3600 / claim["interval_seconds"])
+        if (binding.get("contract") != REPLAY_ADMISSION
+                or binding.get("start_utc") != claim["start_utc"]
+                or binding.get("interval_seconds") != claim["interval_seconds"]
+                or set(binding.get("series", {})) != set(SERIES.values())
+                or canonical_sha(binding["series"]) != binding.get("series_sha256")):
+            raise EvidenceError("archive_dispatch_series_binding_invalid")
+        for key, values in binding["series"].items():
+            actual = solution["parameters"]["ems"][key]
+            if (not isinstance(values, list) or len(values) != slots or len(actual) < slots
+                    or any(not doctor.close_values(a, b, energy=key in ("pv_forecast_wh", "total_load"))
+                           for a, b in zip(actual, values))):
+                raise EvidenceError("archive_dispatch_solver_series_differ")
 
 
 def _sync_directory(path):
@@ -106,8 +152,10 @@ def _verify(raw, config, version, claim, solution_sha, clock):
         raise EvidenceError("archive_persisted_success_differ")
     if manifest["files"]["solution-" + version + ".json"] != solution_sha:
         raise EvidenceError("archive_solution_differ")
-    if not doctor.validate(manifest, files, now=clock(), settings=config)["input_binding_complete"]:
+    evidence = doctor.validate(manifest, files, now=clock(), settings=config)
+    if not evidence["input_binding_complete"]:
         raise EvidenceError("archive_legacy_limited_request_binding_missing")
+    _replay_admission(manifest, files, evidence)
     return manifest
 
 
@@ -121,7 +169,9 @@ def inspect_archive(output, config, version, claim, solution_sha, clock):
     return {"status": "archived", "archive": DIRECTORY + "/" + version + ".zip",
             "sha256": hashlib.sha256(raw).hexdigest(), "captured_at_utc": manifest["captured_at_utc"],
             "validation_contract": doctor.VALIDATION_CONTRACT, "validation_scope": "request_solver_inputs",
-            "input_binding_complete": True}
+            "input_binding_complete": True,
+            "replay_admission": {"contract": REPLAY_ADMISSION, "status": "ready_for_native_replay",
+                                 "native_result_verified": False}}
 
 
 def _publish(root, pending, raw, version, verify):
@@ -130,7 +180,7 @@ def _publish(root, pending, raw, version, verify):
     manifest = verify(raw)
     for existing in (target, ready):
         if existing.exists() or existing.is_symlink():
-            if verify(_raw(existing))["files"] != manifest["files"]:
+            if canonical_sha(verify(_raw(existing))) != canonical_sha(manifest):
                 raise EvidenceError("archive_conflict_preserved")
     if not target.exists():
         if not ready.exists():
@@ -155,7 +205,7 @@ def _publish(root, pending, raw, version, verify):
         try:
             os.link(ready, target)
         except FileExistsError:
-            if verify(_raw(target))["files"] != manifest["files"]:
+            if canonical_sha(verify(_raw(target))) != canonical_sha(manifest):
                 raise EvidenceError("archive_conflict_preserved") from None
         _sync_directory(root)
     # Final archive is never deleted. Remove only our validated staging link.
@@ -186,6 +236,7 @@ def archive_success(output, config, captured, state, report, clock):
     context = captured["observed_options"]
     manifest["producer"].update(observed_options=context, observed_options_sha256=canonical_sha(context),
         dispatched_request_sha256=captured.get("dispatched_request_sha256"),
+        dispatch_series_binding=captured["dispatch_series_binding"],
         solution_inputs=solution_inputs(doctor.decode(files["solution-" + version + ".json"])))
     if not doctor.timestamp(captured["captured_at_utc"]) <= doctor.timestamp(
         state["events"][version]["claimed_at_utc"]) <= now:

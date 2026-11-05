@@ -157,6 +157,25 @@ jobs:
           python scripts/replay_worker_container_smoke.py \
             --image ems-replay-worker:review --fixture-image ems-replay-worker:test \
             --report "$RUNNER_TEMP/replay-worker-resources.json"
+      - name: Writer admission, real process crashes and native sync-to-dashboard pipeline
+        run: |
+          docker run --rm --network none --read-only --user 10001:10001 --cap-drop=ALL \
+            --security-opt=no-new-privileges --cpus=1 --memory=768m --memory-swap=768m \
+            --pids-limit=128 --tmpfs /tmp:rw,exec,nosuid,nodev,size=256m,mode=1777 -e PYTEST_ADDOPTS \
+            ems-replay-worker:test -q -p no:cacheprovider \
+            tests/test_evidence_writer.py tests/integration/test_evidence_writer_native.py
+      - name: Build separately reviewed helper candidate without publishing
+        run: docker build --target evidence-candidate -t eos-pv-helper:evidence-candidate .
+      - name: Packaged helper writer to separate read-only native worker and dashboard
+        run: |
+          python scripts/evidence_writer_container_smoke.py \
+            --helper-image eos-pv-helper:evidence-candidate --worker-image ems-replay-worker:review \
+            --report "$RUNNER_TEMP/evidence-writer-pipeline.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: evidence-writer-pipeline-${{ github.sha }}
+          path: ${{ runner.temp }}/evidence-writer-pipeline.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: replay-worker-synthetic-resources-${{ github.sha }}

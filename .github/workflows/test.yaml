@@ -29,6 +29,8 @@ jobs:
         run: python scripts/check_dashboard_hashes.py
       - name: Check separate LAN publication package code hashes
         run: python scripts/check_dashboard_lan_hashes.py
+      - name: Check isolated replay worker code inventory
+        run: python scripts/check_replay_worker_hashes.py
       - run: pytest -q
       - name: Independent PR22 review counterexamples must now be rejected
         env:
@@ -128,3 +130,34 @@ jobs:
           node scripts/dashboard_http_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" \
             --html "$RUNNER_TEMP/replay-time-cases/cases/autumn-900/site/index.html" \
             --sidecar "$RUNNER_TEMP/replay-time-cases/cases/autumn-900/replays.json"
+  replay-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTEST_ADDOPTS: '-m "not genetic_execution"'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Build separate pinned native worker and synthetic test image
+        run: |
+          docker build -f replay-worker/Dockerfile --target test -t ems-replay-worker:test .
+          docker build -f replay-worker/Dockerfile --target runtime -t ems-replay-worker:review .
+      - name: Admission, recovery, races, actual native replay and timeouts
+        run: |
+          docker run --rm --network none --read-only --user 10001:10001 --cap-drop=ALL \
+            --security-opt=no-new-privileges --cpus=1 --memory=768m --memory-swap=768m \
+            --pids-limit=128 --tmpfs /tmp:rw,exec,nosuid,nodev,size=256m,mode=1777 -e PYTEST_ADDOPTS \
+            ems-replay-worker:test -q -p no:cacheprovider \
+            tests/test_replay_worker.py tests/test_replay_worker_deployment.py \
+            tests/integration/test_replay_worker_native.py
+      - name: Inspect actual offline worker boundary and measure synthetic resources
+        run: |
+          python scripts/replay_worker_container_smoke.py \
+            --image ems-replay-worker:review --fixture-image ems-replay-worker:test \
+            --report "$RUNNER_TEMP/replay-worker-resources.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: replay-worker-synthetic-resources-${{ github.sha }}
+          path: ${{ runner.temp }}/replay-worker-resources.json

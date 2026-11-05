@@ -1,0 +1,35 @@
+{
+  "contract": "eos-pv-helper/replay-worker-resource-review-v1",
+  "measurement_date": "2026-11-05",
+  "environment": "local Docker Desktop, Linux amd64; not Unraid production",
+  "native_revision": "8a8cd43a1915668927eda5504b7de039c2e762b4",
+  "cpu_quota": 0.5,
+  "container_ram_limit_mib": 768,
+  "pids_limit": 128,
+  "address_space_limit_mib": 3072,
+  "wall_timeout_seconds": 90,
+  "cpu_time_limit_seconds": 30,
+  "synthetic_24_slot_case": {
+    "runtime_isolation_verified": true,
+    "originals_unchanged": true,
+    "second_container_start_did_not_replay": true,
+    "container_wall_seconds": 2.422,
+    "native_process_wall_seconds": 1.297442,
+    "native_process_cpu_seconds": 0.644865,
+    "native_process_max_rss_kib": 151704
+  },
+  "private_local_review_copy_cases": {
+    "provenance": "existing operator-hash-matching archive-format reconstructions; no new NAS transfer",
+    "raw_inputs_or_sidecars_in_report": false,
+    "native_reproduced_plans": 2,
+    "historical_claims_not_upgraded": true,
+    "combined_with_one_synthetic_new_plan": true,
+    "process_metrics": [
+      {"wall_seconds": 1.790206, "cpu_seconds": 0.883321, "max_rss_kib": 153008},
+      {"wall_seconds": 1.710285, "cpu_seconds": 0.852658, "max_rss_kib": 153072}
+    ]
+  },
+  "productive_nas_archive_admission_verified": false,
+  "concurrent_production_optimization_measured": false,
+  "production_activation_approved": false
+}

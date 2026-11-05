@@ -1,5 +1,10 @@
 # EOS PV-Prognose-Helfer
 
+EMS Dashboard v1.1 im Review: [isolierter automatischer Offline-Replay](docs/REPLAY_WORKER_UNRAID.md),
+[Katalog- und Archivvertrag](docs/REPLAY_WORKER_CONTRACT.md),
+[PASS/BLOCKED und Gegenreview](docs/REPLAY_WORKER_REVIEW.md).
+Der bestehende v1.0-Betrieb bleibt unveraendert; keine automatische Installation.
+
 EMS Dashboard LAN-Paket im Review: [Replay-Bytehashes, privater Nginx und
 Unraid-Installationsbefehle](docs/DASHBOARD_UNRAID_LAN.md),
 [PASS/BLOCKED und unabhängiges Abnahmeprotokoll](docs/DASHBOARD_LAN_REVIEW.md).

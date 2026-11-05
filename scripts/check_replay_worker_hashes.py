@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = [
     ".dockerignore",
     ".github/workflows/test.yaml",
+    "tests/integration/Dockerfile",
     "src/eos_pv_helper/replay_worker.py",
     "src/eos_pv_helper/replay_worker_io.py",
     "src/eos_pv_helper/replay_worker_catalog.py",

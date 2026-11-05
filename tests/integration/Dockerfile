@@ -26,6 +26,7 @@ COPY src ./src
 COPY tests ./tests
 COPY templates ./templates
 COPY scripts ./scripts
+COPY replay-worker ./replay-worker
 COPY config.example.toml ./
 COPY .github/workflows ./.github/workflows
 RUN pip install --no-cache-dir '.[test]'

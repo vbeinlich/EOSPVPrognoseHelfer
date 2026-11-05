@@ -1,0 +1,37 @@
+# Review artifact only. Explicit activation profile required.
+services:
+  replay-worker:
+    profiles: [operator-approved]
+    image: ${EMS_REPLAY_IMAGE:?Set a reviewed immutable worker image reference}
+    pull_policy: never
+    user: "10001:10001"
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.50
+    cpu_shares: 64
+    mem_limit: 768m
+    memswap_limit: 768m
+    pids_limit: 128
+    ulimits:
+      nofile: {soft: 1024, hard: 1024}
+      core: {soft: 0, hard: 0}
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    volumes:
+      - type: bind
+        source: ${EMS_ARCHIVE_ROOT:?Set the unchanged original archive directory}
+        target: /archive
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${EMS_REPLAY_ROOT:?Set a NEW private worker workspace}
+        target: /replays
+        bind: {create_host_path: false}
+    command: ["--watch", "--poll-seconds", "60", "--settle-seconds", "2",
+              "--timeout", "90", "--cpu-seconds", "30", "--address-space-mb", "3072"]
+    restart: "no"
+    logging:
+      driver: json-file
+      options: {max-size: 1m, max-file: "2"}

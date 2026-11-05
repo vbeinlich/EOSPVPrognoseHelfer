@@ -33,3 +33,7 @@
 !.github/
 !.github/workflows/
 !.github/workflows/**
+!replay-worker/
+!replay-worker/**
+!docs/REPLAY_WORKER*.md
+!docs/REPLAY_WORKER*.json

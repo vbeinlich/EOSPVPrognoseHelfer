@@ -1,0 +1,4 @@
+# Native numerical stack used by the reviewed EOS replay reference.
+numpy==2.4.6
+scipy==1.17.1
+pydantic==2.14.1

@@ -12,6 +12,7 @@ SIM_PANEL = r"""
 <label>Szenario <select id="maxxi-scenario" aria-label="SIM Szenario"></select></label></div>
 <p class="notice">SIM · Modellvergleich, keine gemessene Ersparnis. Keine Gerätebefehle.</p>
 <p id="maxxi-source" class="muted"></p>
+<p id="maxxi-reference" class="muted"></p>
 <div class="cards">
 <div class="card"><span>SIM Südhütte / Südzaun</span><strong id="maxxi-pv"></strong><small>Mittlere Leistung im gewählten Intervall</small></div>
 <div class="card"><span>SIM MaxxiCharge SOC</span><strong id="maxxi-soc"></strong><small id="maxxi-power"></small></div>
@@ -29,14 +30,19 @@ SIM_PANEL = r"""
 SIM_SCRIPT = r"""
 {
  const sim=data.maxxicharge_sim;
- if(sim?.simulation_schema===1&&sim.mode==='SIM'&&sim.devices_commanded===false){
+ if([1,2].includes(sim?.simulation_schema)&&sim.mode==='SIM'&&sim.devices_commanded===false){
   const panel=$('maxxi-panel'), select=$('maxxi-scenario'), slider=$('maxxi-slot');panel.hidden=false;
   const scenarios=Object.values(sim.scenarios), n=(v,d=2)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
-  for(const s of scenarios){const o=document.createElement('option');o.value=s.id;o.textContent='SIM · '+s.label;select.append(o)}select.value='pv2_bat5';
+  for(const s of scenarios){const o=document.createElement('option');o.value=s.id;o.textContent='SIM · '+s.label;select.append(o)}select.value=sim.scenarios.pv2_bat5?'pv2_bat5':'pv2_bat5__coordinated';
   $('maxxi-source').textContent=`${sim.start_utc} → ${sim.end_utc} · ${sim.coverage_hours} h · ${sim.data_kind} · PV: ${sim.pv_model.quality}`;
   const tbody=$('maxxi-comparison');
+  const phase2=sim.simulation_schema===2;
+  if(phase2){const tr=tbody.parentElement.querySelector('thead tr');tr.replaceChildren();for(const label of ['SIM Szenario','PV · kWh','Zus. Eigenverbrauch · kWh','Bezug · kWh','Einspeisung · kWh','Verluste · kWh','Abregelung · kWh','SOC E3/DC / Maxxi','LUOX · €','32 ct · €','Einspeiseerlös · €','Nettokosten · €','Ersparnis · €','Ersparnis endwertber. · €','Speichermehrwert · €','Investition · €']){const th=document.createElement('th');th.textContent=label;tr.append(th)}}
+  $('maxxi-reference').textContent=phase2?(sim.historical_audit?.message||'Keine geprüfte HA-Messreferenz importiert. Tabelle zeigt ausschließlich SIM-Ergebnisse.'):'';
+  if(phase2&&sim.historical_audit){const a=sim.historical_audit,v=a.reference_totals;$('maxxi-reference').textContent+=` · Historische Abnahme: ${a.historical_acceptance_passed?'bestanden':'offen'} · Originalreferenz: Verbrauch ${n(v.load_wh/1000)} kWh, PV ${n(v.base_pv_wh/1000)} kWh, Bezug ${n(v.grid_import_wh/1000)} kWh, LUOX ${n(v.grid_cost_eur)} €, 32 ct ${n(v.fixed_grid_cost_eur)} €`}
   for(const s of scenarios){const v=s.summary,tr=document.createElement('tr');
-   const vals=['SIM · '+s.label,n(v.pv_to_load_wh/1000),n(v.additional_self_consumption_wh/1000),n(v.grid_import_wh/1000),n(v.grid_export_wh/1000),n(v.losses_wh/1000),n(v.savings_cash_eur),n(v.savings_inventory_adjusted_eur),v.investment_eur==null?'Nicht hinterlegt':n(v.investment_eur)];
+   const capex=v.investment_eur==null?(v.investment_base_eur==null?'Nicht hinterlegt':n(v.investment_base_eur)+' + offen'):n(v.investment_eur);
+   const vals=phase2?['SIM · '+s.label,n(v.pv_wh/1000),n(v.additional_self_consumption_wh/1000),n(v.grid_import_wh/1000),n(v.grid_export_wh/1000),n(v.losses_wh/1000),n(v.curtailed_wh/1000),n(v.e3dc_soc_end_percent,1)+' / '+(v.maxxi_soc_end_percent==null?'—':n(v.maxxi_soc_end_percent,1))+' %',n(v.grid_cost_eur),n(v.fixed_grid_cost_eur),n(v.feed_in_revenue_eur),n(v.net_electricity_cost_eur),n(v.savings_cash_eur),n(v.savings_inventory_adjusted_eur),v.storage_increment_eur==null?'—':n(v.storage_increment_eur),capex]:['SIM · '+s.label,n(v.pv_to_load_wh/1000),n(v.additional_self_consumption_wh/1000),n(v.grid_import_wh/1000),n(v.grid_export_wh/1000),n(v.losses_wh/1000),n(v.savings_cash_eur),n(v.savings_inventory_adjusted_eur),capex];
    for(const value of vals){const td=document.createElement('td');td.textContent=value;tr.append(td)}tbody.append(tr)
   }
   $('maxxi-assumptions').textContent='SIM · '+sim.assumptions.join(' · ')+' · Amortisation: ohne repräsentative Jahresdaten nicht berechenbar.';
@@ -58,10 +64,24 @@ SIM_SCRIPT = r"""
 def validate_sim_report(report):
     """Bounded, explicit display contract, also rejecting nonfinite JS numbers."""
     if (not isinstance(report, dict) or type(report.get("simulation_schema")) is not int
-            or report.get("simulation_schema") != 1
+            or report.get("simulation_schema") not in (1, 2)
             or report.get("mode") != "SIM" or report.get("devices_commanded") is not False
-            or set(report.get("scenarios", {})) != {"e3dc", "pv2_bat5", "pv6_bat10", "pv6_only"}):
+            or not isinstance(report.get("scenarios"), dict)):
         raise ValueError("Invalid SIM report")
+    phase2 = report["simulation_schema"] == 2
+    required = {"e3dc", "pv2_bat5", "pv6_bat10", "pv6_only"}
+    if phase2:
+        required = {"e3dc", "pv2_only", "pv3_only", "pv6_only"} | {
+            e + "__" + m for e in ("pv2_bat5", "pv3_bat5", "pv6_bat10")
+            for m in ("autonomous", "coordinated", "ideal")}
+        if report.get("config", {}).get("operation", {}).get("optional_grid_charging") is True:
+            required |= {k + "__grid_optional" for k in required if "__" in k}
+        capabilities = report.get("manufacturer_capabilities", {})
+        if (capabilities.get("exact_discharge_setpoint_supported") is not False
+                or capabilities.get("external_grid_charge_start_stop_confirmed") is not False):
+            raise ValueError("SIM report contradicts confirmed hardware capability limits")
+    if set(report["scenarios"]) != required:
+        raise ValueError("Missing or unexpected SIM scenarios")
     def check(value):
         if isinstance(value, float) and not math.isfinite(value):
             raise ValueError("Nonfinite SIM report")
@@ -83,6 +103,17 @@ def validate_sim_report(report):
                 or not math.isfinite(value) or minimum is not None and value < minimum):
             raise ValueError("Invalid SIM value")
         return value
+    audit = report.get("historical_audit") if phase2 else None
+    if audit is not None:
+        if (not isinstance(audit, dict) or not isinstance(audit.get("message"), str)
+                or not isinstance(audit.get("reference_totals"), dict)
+                or type(audit.get("historical_acceptance_passed")) is not bool
+                or audit.get("status") not in ("passed", "warnings")
+                or audit["historical_acceptance_passed"] and (
+                    report["data_kind"] != "measured" or audit["status"] != "passed")):
+            raise ValueError("Invalid historical SIM audit")
+        for field in ("load_wh", "base_pv_wh", "grid_import_wh", "grid_cost_eur", "fixed_grid_cost_eur"):
+            numeric(audit["reference_totals"].get(field))
     def at(value):
         try:
             parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -107,6 +138,12 @@ def validate_sim_report(report):
         if not isinstance(scenario.get("label"), str) or not isinstance(scenario.get("summary"), dict):
             raise ValueError("Incomplete SIM scenario")
         summary = scenario["summary"]
+        if phase2:
+            for field in ("pv_wh", "curtailed_wh", "e3dc_soc_end_percent", "fixed_grid_cost_eur",
+                          "feed_in_revenue_eur", "operating_cost_eur", "grid_cost_eur"):
+                numeric(summary.get(field))
+            if summary.get("storage_increment_eur") is not None:
+                numeric(summary["storage_increment_eur"])
         for field in ("pv_to_load_wh", "grid_import_wh", "grid_export_wh", "losses_wh",
                       "additional_self_consumption_wh", "savings_cash_eur",
                       "savings_inventory_adjusted_eur"):
@@ -124,7 +161,8 @@ def validate_sim_report(report):
                 numeric(row.get(field), 0)
             numeric(row.get("cumulative_savings_cash_eur"))
             state, cfg = row.get("maxxi"), scenario.get("maxxi_config")
-            if key in ("pv2_bat5", "pv6_bat10"):
+            has_maxxi = key.startswith(("pv2_bat5__", "pv3_bat5__", "pv6_bat10__")) if phase2 else key in ("pv2_bat5", "pv6_bat10")
+            if has_maxxi:
                 if not isinstance(state, dict) or not isinstance(cfg, dict):
                     raise ValueError("Missing SIM battery")
                 if numeric(state.get("soc_percent"), 0) > 100:

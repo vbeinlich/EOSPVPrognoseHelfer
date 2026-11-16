@@ -6,6 +6,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 const args=process.argv.slice(2), option=k=>args[args.indexOf(k)+1];
+const phase2=args.includes('--phase2'), expectedScenarios=phase2?13:4;
 if(!args.includes('--browser')||!args.includes('--html'))throw Error('--browser and --html required');
 const profile=mkdtempSync(path.join(tmpdir(),'maxxi-ui-'));
 const browser=spawn(option('--browser'),['--headless=new','--disable-gpu','--disable-background-networking','--disable-component-update','--disable-extensions','--disable-sync','--no-first-run','--no-default-browser-check','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1','--user-data-dir='+profile,'about:blank'],{windowsHide:true,stdio:['ignore','ignore','pipe']});
@@ -23,20 +24,21 @@ try{
  await call('Emulation.setDeviceMetricsOverride',{width:1365,height:1100,deviceScaleFactor:1,mobile:false},sessionId);
  await call('Page.navigate',{url:pathToFileURL(path.resolve(option('--html'))).href},sessionId);
  let loaded=false;
- for(let i=0;i<60;i++){if(await evaluate("!!document.querySelector('#maxxi-panel')&&!document.querySelector('#maxxi-panel').hidden&&document.querySelectorAll('#maxxi-comparison tr').length===4")){loaded=true;break}await new Promise(resolve=>setTimeout(resolve,100))}
+ for(let i=0;i<60;i++){if(await evaluate("!!document.querySelector('#maxxi-panel')&&!document.querySelector('#maxxi-panel').hidden&&document.querySelectorAll('#maxxi-comparison tr').length==="+expectedScenarios)){loaded=true;break}await new Promise(resolve=>setTimeout(resolve,100))}
  if(!loaded)throw Error('SIM panel failed to render: '+errors.join('; '));
- await check("document.querySelectorAll('#maxxi-scenario option').length===4");
+ await check("document.querySelectorAll('#maxxi-scenario option').length==="+expectedScenarios);
  await check("document.querySelector('#maxxi-soc').textContent.includes('%')");
  await check("document.querySelector('#maxxi-pv').textContent.includes('W')");
  await check("(()=>{const s=document.querySelector('#maxxi-slot');s.value=s.max;s.dispatchEvent(new Event('input'));return document.querySelector('#maxxi-time').textContent.includes('SIM')&&document.querySelector('#maxxi-savings').textContent.includes('€')})()");
  await check("(()=>{const s=document.querySelector('#maxxi-scenario');s.value='pv6_only';s.dispatchEvent(new Event('change'));return document.querySelector('#maxxi-soc').textContent==='Ohne Zusatzspeicher'})()");
- await check("(()=>{const s=document.querySelector('#maxxi-scenario');s.value='pv6_bat10';s.dispatchEvent(new Event('change'));return document.querySelector('#maxxi-soc').textContent.includes('%')})()");
+ await check("(()=>{const s=document.querySelector('#maxxi-scenario');s.value='"+(phase2?'pv6_bat10__coordinated':'pv6_bat10')+"';s.dispatchEvent(new Event('change'));return document.querySelector('#maxxi-soc').textContent.includes('%')})()");
+ if(phase2){for(const model of ['autonomous','coordinated','ideal'])await check("(()=>{const s=document.querySelector('#maxxi-scenario');s.value='pv2_bat5__"+model+"';s.dispatchEvent(new Event('change'));return document.querySelector('#maxxi-soc').textContent.includes('%')})()");await check("document.querySelector('#maxxi-comparison').parentElement.textContent.includes('LUOX')&&document.querySelector('#maxxi-comparison').parentElement.textContent.includes('32 ct')");}
  await check("document.documentElement.scrollWidth<=innerWidth+1");
  if(args.includes('--screenshot')){await evaluate("document.querySelector('#maxxi-panel').scrollIntoView()");const shot=await call('Page.captureScreenshot',{format:'png'},sessionId);writeFileSync(option('--screenshot'),Buffer.from(shot.data,'base64'))}
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true},sessionId);
  await check("document.documentElement.scrollWidth<=innerWidth+1");
  if(errors.length||requests.length)throw Error(JSON.stringify({errors,requests}));
- const result={passed:true,scenarios:4,desktop_width:1365,mobile_width:390,external_requests:0,javascript_errors:0};
+ const result={passed:true,scenarios:expectedScenarios,desktop_width:1365,mobile_width:390,external_requests:0,javascript_errors:0};
  if(args.includes('--report'))writeFileSync(option('--report'),JSON.stringify(result,null,2)+'\n');
  console.log(JSON.stringify(result));
  await call('Browser.close');

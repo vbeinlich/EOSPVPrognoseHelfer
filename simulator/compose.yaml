@@ -17,7 +17,7 @@ services:
     restart: 'no'
     environment:
       PYTHONDONTWRITEBYTECODE: '1'
-    command: [--input, /input/input.json, --config, /input/config.json, --output, /output/run]
+    command: [--input, /input/input.json, --config, /input/config.json, --output, /output/run, --phase2]
     volumes:
       - type: bind
         source: ${SIM_INPUT_DIR:?Set separate prepared SIM input directory}

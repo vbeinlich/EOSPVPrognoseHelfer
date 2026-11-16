@@ -1,0 +1,19 @@
+{
+  "operation": {
+    "substep_seconds": 10,
+    "maxxi_feedback_gain": 0.25,
+    "e3dc_feedback_gain": 0.65,
+    "maxxi_ac_output_limit_w": 800,
+    "pv_only_ac_limit_w": null,
+    "e3dc_coordination_enabled": false,
+    "price_hold_enabled": true,
+    "optional_grid_charging": false,
+    "fixed_price_eur_kwh": 0.32,
+    "poc_investment_eur": 2500,
+    "pv_only_2kwp_investment_eur": null,
+    "additional_3kwp_cost_eur": null,
+    "ideal_solver_time_limit_seconds": 30
+  },
+  "investments_eur": {},
+  "representative_year_confirmed": false
+}

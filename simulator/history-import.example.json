@@ -1,0 +1,29 @@
+{
+  "energy_kind": "measured_interval_integrals",
+  "data_kind": "measured",
+  "load_scope": "whole_site_including_loadpoints",
+  "tariff_basis": "retail_final_eur_kwh",
+  "tariff_aggregation": "energy_weighted_hour",
+  "battery_basis": "ac_bus",
+  "delimiter": ";",
+  "decimal_separator": ",",
+  "timezone": "Europe/Berlin",
+  "naive_local_time_acknowledged": false,
+  "site_balance_tolerance_wh": 50,
+  "soc_model_tolerance_wh": 200,
+  "columns": {},
+  "units": {
+    "load_wh": "kWh", "base_pv_wh": "kWh", "grid_import_wh": "kWh",
+    "grid_export_wh": "kWh", "battery_charge_wh": "kWh", "battery_discharge_wh": "kWh"
+  },
+  "e3dc": {
+    "capacity_wh": 13000, "min_soc_percent": 10, "initial_soc_percent": 10,
+    "max_soc_percent": 100, "max_discharge_w": 6000, "max_pv_charge_w": 6000,
+    "max_grid_charge_w": 0, "charge_efficiency": 0.92, "discharge_efficiency": 0.92
+  },
+  "pv_source": {
+    "mode": "reference_proxy", "proxy_acknowledged": false,
+    "latitude": null, "longitude": null,
+    "reference_wp": 11000, "reference_tilt_deg": null, "reference_azimuth_deg": 180
+  }
+}

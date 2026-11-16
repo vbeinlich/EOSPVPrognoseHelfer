@@ -38,6 +38,9 @@ def make(days=3, seconds=900):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--days", type=int, choices=range(1, 32), default=3)
+    parser.add_argument("--seconds", type=int, choices=(900, 3600), default=900)
     args = parser.parse_args()
     with Path(args.output).open("x", encoding="utf-8") as handle:
-        json.dump(make(), handle, ensure_ascii=False, allow_nan=False, indent=2)
+        json.dump(make(days=args.days, seconds=args.seconds), handle,
+                  ensure_ascii=False, allow_nan=False, indent=2)

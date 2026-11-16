@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--input-dir", required=True)
     parser.add_argument("--output-parent", required=True)
     parser.add_argument("--report", required=True)
+    parser.add_argument("--phase2", action="store_true")
     args = parser.parse_args()
     context = json.loads(docker("context", "inspect"))[0]
     for endpoint in (context["Endpoints"]["docker"]["Host"], os.environ.get("DOCKER_HOST", "")):
@@ -37,7 +38,7 @@ def main():
         "--mount", f"type=bind,source={source},target=/input,readonly",
         "--mount", f"type=bind,source={output},target=/output",
         args.image, "--input", "/input/input.json", "--config", "/input/config.json",
-        "--output", "/output/run")
+        "--output", "/output/run", *(["--phase2"] if args.phase2 else []))
     try:
         state = json.loads(docker("inspect", identifier))[0]
         assert state["Name"] == "/" + name
@@ -64,6 +65,7 @@ def main():
                   "started_at": state["State"]["StartedAt"],
                   "finished_at": state["State"]["FinishedAt"],
                   "devices_commanded": False, "production_changed": False}
+        result["comparison_phase"] = 2 if args.phase2 else 1
         with Path(args.report).open("x", encoding="utf-8") as handle:
             json.dump(result, handle, indent=2)
         print(json.dumps(result))

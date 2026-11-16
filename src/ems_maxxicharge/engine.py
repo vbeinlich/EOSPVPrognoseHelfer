@@ -7,6 +7,7 @@ from pathlib import Path
 
 from . import VERSION
 from .battery import Battery
+from .capabilities import CONFIRMED
 from .config import SCENARIOS, SimulationError
 from .inputs import digest, validate
 from .pv import generate
@@ -188,6 +189,8 @@ def simulate(data, config):
     run_id = digest({"input": digest(data), "config": digest(asdict(config)), "code": source_hash})
     return {
         "simulation_schema": 1, "mode": "SIM", "engine": VERSION,
+        "operating_model": "legacy_ideal_only",
+        "manufacturer_capabilities": CONFIRMED,
         "run_id": run_id, "engine_code_sha256": source_hash,
         "python_version": ".".join(map(str, sys.version_info[:3])),
         "devices_commanded": False, "hardware_transport_available": False,

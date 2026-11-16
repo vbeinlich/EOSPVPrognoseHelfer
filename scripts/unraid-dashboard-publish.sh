@@ -79,7 +79,7 @@ mark_error() {
 }
 bundle="$tools/ems-dashboard-final.pyz"
 wrapper="$tools/unraid-ems-dashboard.sh"
-bundle_sha=ac69221797f1cee0cef47355936b44298c595dc75481847f6681141ea3836e1f
+bundle_sha=73e705dad32a672afd5947c508dd2b0e29406f25da4bdcfc96d8e39f7ff8004f
 wrapper_sha=312a9f748cf5e928eb665769b057ddfdb64005ce91707b16ad1ef8a13782f04e
 status=0
 if [ ! -f "$bundle" ] || [ -L "$bundle" ] || [ ! -f "$wrapper" ] || [ -L "$wrapper" ] ||

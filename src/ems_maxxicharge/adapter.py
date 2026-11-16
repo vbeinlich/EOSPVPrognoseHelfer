@@ -46,7 +46,9 @@ class SimulationAdapter:
         if (intent.discharge_w > 0 and intent.grid_charge_w > 0
                 or stamp(intent.valid_until_utc) <= stamp(intent.at_utc)):
             raise SimulationError("Conflicting or expired SIM intent")
-        return self.envelope("intent", {**intent.__dict__, "accepted_in_simulation": True})
+        return self.envelope("intent", {**intent.__dict__, "accepted_in_simulation": True,
+                                        "exact_power_hardware_supported": False,
+                                        "legacy_theoretical_action_only": True})
 
     def telemetry(self, state):
         allowed = ("start_utc", "end_utc", "soc_percent", "charge_pv_w", "charge_grid_w",
@@ -61,6 +63,9 @@ class SimulationAdapter:
 
 
 def journal(report):
+    if report["simulation_schema"] == 2:
+        yield from limit_journal(report)
+        return
     for scenario_id, scenario in report["scenarios"].items():
         cfg = scenario["maxxi_config"]
         if not cfg:
@@ -72,4 +77,24 @@ def journal(report):
             yield adapter.apply_intent(Intent(str(index), row["start_utc"], row["end_utc"],
                                               state["discharge_w"], state["charge_grid_w"]))
             yield adapter.telemetry({**state, "start_utc": row["start_utc"],
+                                     "end_utc": row["end_utc"]})
+
+
+def limit_journal(report):
+    """Only B has EMS limit intents; C plans are theoretical local observations."""
+    for scenario_id, scenario in report["scenarios"].items():
+        cfg = scenario["maxxi_config"]
+        if not cfg:
+            continue
+        adapter = SimulationAdapter(report["run_id"], scenario_id,
+                                    cfg["max_discharge_w"], cfg["max_grid_charge_w"])
+        model = scenario["operating_model"]
+        for row in scenario["rows"]:
+            if model == "coordinated":
+                yield adapter.envelope("limits", {**row["limits"],
+                    "start_utc": row["start_utc"], "valid_until_utc": row["end_utc"],
+                    "firmware_mapping_verified": False,
+                    "external_grid_start_stop_confirmed": False,
+                    "grid_charge_optional_assumption": scenario["grid_charging_optional_assumption"]})
+            yield adapter.telemetry({**row["maxxi"], "start_utc": row["start_utc"],
                                      "end_utc": row["end_utc"]})

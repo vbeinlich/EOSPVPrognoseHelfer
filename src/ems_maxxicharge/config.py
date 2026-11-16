@@ -3,6 +3,8 @@
 import math
 from dataclasses import asdict, dataclass, field, replace
 
+from .capabilities import EXPANSIONS
+
 
 class SimulationError(ValueError):
     """Invalid input; do not publish a partially calculated report."""
@@ -69,6 +71,40 @@ def construct(cls, values):
 
 
 @dataclass(frozen=True)
+class OperationConfig:
+    """Simulation sensitivities, never claims of measured firmware behavior."""
+
+    substep_seconds: int = 10
+    maxxi_feedback_gain: float = 0.25
+    e3dc_feedback_gain: float = 0.65
+    maxxi_ac_output_limit_w: float = 800
+    pv_only_ac_limit_w: float | None = None
+    e3dc_coordination_enabled: bool = False
+    price_hold_enabled: bool = True
+    optional_grid_charging: bool = False
+    fixed_price_eur_kwh: float = 0.32
+    poc_investment_eur: float = 2500
+    pv_only_2kwp_investment_eur: float | None = None
+    additional_3kwp_cost_eur: float | None = None
+    ideal_solver_time_limit_seconds: float = 30
+
+    def __post_init__(self):
+        if type(self.substep_seconds) is not int or self.substep_seconds not in (5, 10, 30, 60):
+            raise SimulationError("Unsupported regulator simulation step")
+        for key in ("maxxi_feedback_gain", "e3dc_feedback_gain"):
+            number(getattr(self, key), key, .001, 1)
+        for key in ("maxxi_ac_output_limit_w", "fixed_price_eur_kwh", "poc_investment_eur"):
+            number(getattr(self, key), key, 0)
+        for key in ("pv_only_ac_limit_w", "pv_only_2kwp_investment_eur", "additional_3kwp_cost_eur"):
+            if getattr(self, key) is not None:
+                number(getattr(self, key), key, 0)
+        number(self.ideal_solver_time_limit_seconds, "solver timeout", .1, 120)
+        for key in ("e3dc_coordination_enabled", "price_hold_enabled", "optional_grid_charging"):
+            if type(getattr(self, key)) is not bool:
+                raise SimulationError("Operation capability switch must be boolean")
+
+
+@dataclass(frozen=True)
 class Config:
     maxxi: BatteryConfig = field(default_factory=BatteryConfig)
     panels: tuple = field(default_factory=lambda: (
@@ -83,6 +119,7 @@ class Config:
     representative_year_confirmed: bool = False
     investments_eur: dict = field(default_factory=dict)
     annual_maintenance_eur: dict = field(default_factory=dict)
+    operation: OperationConfig = field(default_factory=OperationConfig)
 
     def __post_init__(self):
         if any(type(v) is not bool for v in (self.grid_charging_enabled,
@@ -97,7 +134,7 @@ class Config:
         if len(self.panels) != 2 or {p.name for p in self.panels} != {"suedhuette", "suedzaun"}:
             raise SimulationError("Exactly two distinct panel generators are required")
         for mapping in (self.investments_eur, self.annual_maintenance_eur):
-            if not isinstance(mapping, dict) or set(mapping) - set(SCENARIOS):
+            if not isinstance(mapping, dict) or set(mapping) - set(SCENARIOS) - set(EXPANSIONS):
                 raise SimulationError("Unknown investment scenario")
             for value in mapping.values():
                 number(value, "investment or annual maintenance", 0)
@@ -109,6 +146,8 @@ class Config:
         values = dict(data)
         if "maxxi" in values:
             values["maxxi"] = construct(BatteryConfig, values["maxxi"])
+        if "operation" in values:
+            values["operation"] = construct(OperationConfig, values["operation"])
         if "panels" in values:
             if not isinstance(values["panels"], list):
                 raise SimulationError("panels must be an array")

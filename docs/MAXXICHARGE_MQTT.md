@@ -1,5 +1,48 @@
 # MaxxiCharge: interner Adaptervertrag v1
 
+## Phase 2: bestätigte Fähigkeiten und Grenzenvertrag
+
+Die vom Betreiber weitergegebene Herstellerantwort bestätigt lokale
+MQTT-Telemetrie und firmwareabhängige SOC-/Leistungsgrenzen. Exakte Entladeleistung
+ist **kein bestätigter Hardware-Sollwert**; externer Netzlade-Start/Stopp ist offen.
+Reale Topics, Register, Einheiten und Quittungen einer konkreten Firmware sind
+weiterhin nicht geprüft. Siehe [Fakten und Annahmen](MAXXICHARGE_PHASE2.md).
+
+Für Reports `simulation_schema=2` erzeugt `adapter.limit_journal()` ausschließlich:
+
+```text
+ems/sim/maxxicharge/v1/<run-id>/<scenario>/limits     # nur Modell B
+ems/sim/maxxicharge/v1/<run-id>/<scenario>/telemetry  # A/B/C
+```
+
+Die Hülle bleibt Version 1 und `transport=local_journal_only`, `mode=SIM`,
+`retain=false`. Die Reportversion ist davon unabhängig. Szenariokennungen sind
+beispielsweise `pv2_bat5__coordinated`, `pv3_bat5__autonomous`,
+`pv6_bat10__ideal`; optionale Netzladungsfälle enden auf `__grid_optional`.
+
+`limits` enthält `discharge_limit_w`, `charge_limit_w`, `min_soc_percent`,
+`max_soc_percent`, `price_hold`, `e3dc_coordination_enabled`, `start_utc`,
+`valid_until_utc`. Das sind Ober-/Untergrenzen für die interne Modellregelung,
+keine garantierte tatsächlich abgegebene Leistung. Hinzu kommen zwingend
+`exact_discharge_setpoint=null`, `firmware_mapping_verified=false`,
+`external_grid_start_stop_confirmed=false`, `grid_charge_optional_assumption`.
+Das Modell setzt keine Netzlade-Leistung über einen vermeintlich bestätigten
+MQTT-Befehl. Tatsächliche simulierte Leistung erscheint nur in Telemetrie.
+
+A bekommt keine EMS-Grenzbefehle. C bekommt ebenfalls keine Befehle: der perfekte
+Dispatch ist eine interne theoretische Rechengröße. Kein Journal wird an einen
+Broker gesendet. Eine reale Anbindung benötigt ein gesondert geprüftes Mapping
+von Grenzen und Telemetrie; sie kann nicht durch Umbenennen eines SIM-Topics
+aktiviert werden. Ein E3/DC-Signal als virtueller Maxxi-Smart-Meter wird nicht
+implementiert.
+
+## Historischer Vertrag aus Phase 1
+
+Der folgende `Intent` bleibt ausschließlich für alte theoretische Replays
+kompatibel. Seine Antworten tragen zusätzlich
+`legacy_theoretical_action_only=true` und `exact_power_hardware_supported=false`.
+Er darf nicht auf reale Hardware übertragen werden.
+
 **SIM, kein Hardwareprotokoll.** Es sind weder MaxxiCharge-Hersteller-Topics noch
 Schreibmöglichkeiten des V2 Plus nachgewiesen. Dieses Dokument definiert die
 interne EMS-Schnittstelle, auf die eine spätere geprüfte Geräteanbindung abbilden

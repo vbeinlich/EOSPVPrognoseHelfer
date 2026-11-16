@@ -1,9 +1,10 @@
 # EOS PV-Prognose-Helfer
 
-MaxxiCharge Multi-Battery PoC: [Bestandsanalyse und Plan](docs/MAXXICHARGE_PLAN.md),
-[isolierter Simulator und Vergleichsszenarien](docs/MAXXICHARGE_SIMULATOR.md),
+MaxxiCharge Multi-Battery PoC: [Phase 2: Herstellergrenzen und Modelle A/B/C](docs/MAXXICHARGE_PHASE2.md),
+[historischer Import und Offline-Betrieb](docs/MAXXICHARGE_PHASE2_RUNBOOK.md),
 [MQTT-Schnittstelle](docs/MAXXICHARGE_MQTT.md),
-[Tests und offene Messdatenabnahme](docs/MAXXICHARGE_VALIDATION.md).
+[Phase-2-Abnahme und offene Messdaten](docs/MAXXICHARGE_PHASE2_VALIDATION.md).
+Die [Phase-1-Grundlage](docs/MAXXICHARGE_SIMULATOR.md) bleibt erhalten.
 Nur SIM, kein Hardwaretransport und keine Änderung der produktiven Steuerung.
 
 EMS v1.1 Archivwriter-Folgeauftrag zu PR #27:

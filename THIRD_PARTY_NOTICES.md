@@ -90,3 +90,15 @@ Primary license texts and requirements:
 [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0),
 [LGPL-3.0](https://www.gnu.org/licenses/lgpl-3.0.html),
 [LGPL-2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).
+
+# Isolierter MaxxiCharge-Phase-2-Simulator
+
+Der optionale lokale Simulator verwendet NumPy 2.4.6 und SciPy 1.17.1
+(BSD-Lizenzen) einschließlich HiGHS und der in den Wheels enthaltenen nativen
+Bibliotheken mit eigenen Notices. Installierte Originaltexte bleiben unter
+`numpy-*.dist-info/licenses` und `scipy-*.dist-info/licenses` erhalten.
+Die Linux/amd64-/CPython-3.11-Wheels sind in `simulator/requirements.txt`
+mit SHA256 gepinnt. Der lokale Wheelcache ist nicht Teil des Git-Repositories.
+Der Build und der Lauf erfolgen ohne Netzwerk; Wheels werden vorab separat
+bereitgestellt. Keine Änderung der Laufzeitabhängigkeiten des produktiven Helfers.
+Es erfolgt kein Registry-Push oder binärer Release dieses PoC-Images.

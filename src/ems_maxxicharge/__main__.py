@@ -17,7 +17,16 @@ def run(args):
     # New run directories only. Neither old reports nor source data are replaced.
     if output.exists() or output.is_symlink() or not output.parent.is_dir():
         raise SimulationError("Output must be a new directory under an existing parent")
-    raw_input, input_sha = read_json(source)
+    if args.input_kind == "history_csv":
+        import hashlib
+
+        with source.open("rb") as handle:
+            csv_raw = handle.read(16_000_001)
+        if len(csv_raw) > 16_000_000:
+            raise SimulationError("Historical CSV exceeds the bounded import size")
+        input_sha, raw_input = hashlib.sha256(csv_raw).hexdigest(), None
+    else:
+        raw_input, input_sha = read_json(source)
     config_data, config_sha = read_json(args.config) if args.config else ({}, digest({}))
     config = Config.from_dict(config_data)
     context, context_sha = read_json(args.context) if args.context else ({}, None)
@@ -25,9 +34,18 @@ def run(args):
         data = from_eos(raw_input, input_sha, context=context)
     elif args.input_kind == "actuals":
         data = from_actuals(raw_input, input_sha, context=context)
+    elif args.input_kind == "history_csv":
+        from .history import import_csv
+
+        data = import_csv(csv_raw, context)
     else:
         data = raw_input
-    result = simulate(data, config)
+    if args.phase2:
+        from .comparison import compare
+
+        result = compare(data, config)
+    else:
+        result = simulate(data, config)
     result["input_file_sha256"] = input_sha
     result["config_file_sha256"] = config_sha
     result["context_file_sha256"] = context_sha
@@ -36,6 +54,7 @@ def run(args):
 
     preview = render({"dashboard_schema": 1, "plans": [], "ranges": {},
                       "latest_sync_status": "SIM offline", "checked_at_utc": None,
+                      "synthetic_only": data["data_kind"] == "synthetic",
                       "maxxicharge_sim": result})
     artifacts = {
         "simulation.json": canonical(result),
@@ -67,11 +86,12 @@ def run(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="Existing local input, mounted read-only")
-    parser.add_argument("--input-kind", choices=("normalized", "eos", "actuals"),
+    parser.add_argument("--input-kind", choices=("normalized", "eos", "actuals", "history_csv"),
                         default="normalized")
     parser.add_argument("--config", help="Simulator-only JSON configuration")
     parser.add_argument("--context", help="Explicit offline EOS/measurement modelling context")
     parser.add_argument("--output", required=True, help="New isolated output directory")
+    parser.add_argument("--phase2", action="store_true", help="Manufacturer-limited A/B/C comparison")
     args = parser.parse_args(argv)
     try:
         return run(args)

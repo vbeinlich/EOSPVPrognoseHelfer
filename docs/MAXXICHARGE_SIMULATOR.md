@@ -1,5 +1,14 @@
 # MaxxiCharge V2 Plus: isolierter Multi-Battery-PoC
 
+**Historischer Stand Phase 1.** Die folgenden vier Szenarien und exakten internen
+Dispatchwerte beschreiben die ursprüngliche theoretische Simulation, keine
+bestätigte Hardwaresteuerung. Aktuell gelten die
+[Herstellergrenzen und Modelle A/B/C](MAXXICHARGE_PHASE2.md), der
+[Phase-2-Runbook einschließlich Offline-Wheels](MAXXICHARGE_PHASE2_RUNBOOK.md)
+und die [Phase-2-Abnahme](MAXXICHARGE_PHASE2_VALIDATION.md).
+Der alte CLI-Modus bleibt für vorhandene Replays erhalten; der separate
+Compose-Service startet jetzt Phase 2 mit `--phase2`.
+
 [Bestand und ursprünglicher Plan](MAXXICHARGE_PLAN.md),
 [MQTT-Adaptervertrag](MAXXICHARGE_MQTT.md),
 [Test-/Abnahmebericht](MAXXICHARGE_VALIDATION.md).

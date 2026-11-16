@@ -30,6 +30,11 @@
 !scripts/
 !scripts/**
 !config.example.toml
+!compose.yaml
+!simulator/
+!simulator/compose.yaml
+!simulator/production-baseline.json
+!simulator/Dockerfile
 !.github/
 !.github/workflows/
 !.github/workflows/**

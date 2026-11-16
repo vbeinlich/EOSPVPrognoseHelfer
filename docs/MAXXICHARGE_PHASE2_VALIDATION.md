@@ -137,3 +137,27 @@ Für die verwendete Config eine unveränderte private Kopie von
 
 GitHub-CI ist von diesen lokalen Ergebnissen getrennt. Der Draft-PR bleibt ohne
 Merge und ohne Produktivaktivierung; historische Abnahme ist ausdrücklich offen.
+
+## Korrektur des CI-Testimages
+
+Der [erste PR-CI-Lauf](https://github.com/vbeinlich/EOSPVPrognoseHelfer/actions/runs/43859732582)
+bestand `unit` und `replay-worker`. `eos-integration` meldete 848 bestandene,
+zwei fehlgeschlagene und drei abgewählte Tests. Ursache waren fehlende
+Dateien im gebauten Testimage: `simulator/compose.yaml` und
+`simulator/production-baseline.json`. Der lokale Gesamttest hatte die Dateien
+über einen read-only Projektmount zur Verfügung und deckte diese Verpackungslücke
+des separaten Integrationsimages deshalb nicht ab.
+
+`tests/integration/Dockerfile` kopiert nun explizit die drei benötigten
+Simulator-Prüfdateien (Compose, Dockerfile, eingefrorene Prüfsummen) und das
+Root-Compose für den anschließenden Produktionsquellenvergleich. Die
+`.dockerignore`-Allowlist gibt genau diese zusätzlichen öffentlichen Dateien frei;
+private Daten und Wheelcache bleiben ausgeschlossen. Das bestehende
+Replay-Worker-Codeinventar wurde entsprechend aktualisiert. Simulatorlogik,
+Testanforderungen und produktive Dockerfiles/Compose bleiben unverändert.
+
+Nachprüfung im tatsächlich neu gebauten Integrationsimage
+`eos-pv-helper:maxxi-ci-fix`, **ohne Projektmount**: 853 Tests in 83,47 Sekunden
+bestanden, einschließlich der drei GENETIC-Tests. Netzwerk aus, read-only Root,
+temporäres `/tmp`, keine Capabilities. Ruff über `src tests scripts` ebenfalls
+bestanden. Der separate erneute GitHub-CI-Lauf folgt mit dem Korrekturcommit.

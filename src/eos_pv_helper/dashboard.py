@@ -511,6 +511,7 @@ def refresh(
     replays=None,
     replay_file=None,
     solutions=None,
+    simulation_file=None,
 ):
     root = Path(source).resolve(strict=True) if source else None
     output = Path(destination).resolve(strict=True)
@@ -536,6 +537,7 @@ def refresh(
             replays=replays,
             replay_file=replay_file,
             solutions=solutions,
+            simulation_file=simulation_file,
         )
         atomic_write(target, html.encode("utf-8"))
         return valid
@@ -551,6 +553,7 @@ def render_refresh(
     replays=None,
     replay_file=None,
     solutions=None,
+    simulation_file=None,
 ):
     from .dashboard_view import render
 
@@ -568,6 +571,13 @@ def render_refresh(
                 replay_file=replay_file,
             )
         )
+        if simulation_file:
+            from .dashboard_view import validate_sim_report
+
+            sim_path = Path(simulation_file).resolve(strict=True)
+            report["maxxicharge_sim"] = validate_sim_report(
+                json.loads(inspector.read(sim_path.parent, sim_path.name, 256_000_000))
+            )
     except Exception:
         valid = False
         report = {
@@ -603,6 +613,7 @@ def main():
         "--economics", help="Optional previously computed native offline economics report"
     )
     parser.add_argument("--legacy-timezone")
+    parser.add_argument("--maxxicharge-sim", help="Optional offline SIM report; display only")
     args = parser.parse_args()
     try:
         return (
@@ -614,6 +625,7 @@ def main():
                 legacy_timezone=args.legacy_timezone,
                 replay_file=args.replays,
                 solutions=args.solution,
+                simulation_file=args.maxxicharge_sim,
             )
             else 2
         )

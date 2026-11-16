@@ -1,5 +1,11 @@
 # EOS PV-Prognose-Helfer
 
+MaxxiCharge Multi-Battery PoC: [Bestandsanalyse und Plan](docs/MAXXICHARGE_PLAN.md),
+[isolierter Simulator und Vergleichsszenarien](docs/MAXXICHARGE_SIMULATOR.md),
+[MQTT-Schnittstelle](docs/MAXXICHARGE_MQTT.md),
+[Tests und offene Messdatenabnahme](docs/MAXXICHARGE_VALIDATION.md).
+Nur SIM, kein Hardwaretransport und keine Änderung der produktiven Steuerung.
+
 EMS v1.1 Archivwriter-Folgeauftrag zu PR #27:
 [v2-Archiv und Worker-Uebergabe](docs/EVIDENCE_WRITER_CONTRACT.md),
 [sichere Helper-Migration und Rollback](docs/EVIDENCE_WRITER_MIGRATION.md),

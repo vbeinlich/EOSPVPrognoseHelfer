@@ -1,0 +1,10 @@
+{
+  "compose.yaml": "cc2bc36185f4ae925e3e4a45c30ccb3028dd7249436715e979003cd3ebfbac17",
+  "config.example.toml": "81181b3db24c8f1ded3935084b026e89d7e833450e98a078555b4d93d7f62667",
+  "deploy/dashboard/compose.yaml": "907bf211c6af9856269984db5ac97098254884cc79d544d8508d21297845a49d",
+  "docs/GENETIC_ACCEPTANCE.json": "6006f801ad32de2417fbd5b89d5f679b7d5e6bd85a21135132c1cf2b3f06bcc9",
+  "scripts/unraid-ems-dashboard.sh": "312a9f748cf5e928eb665769b057ddfdb64005ce91707b16ad1ef8a13782f04e",
+  "src/eos_pv_helper/app.py": "cad35cc1de3c2352fb4b943575dab45cc70566bb61c964638561d5ca7d47bbb6",
+  "src/eos_pv_helper/evcc_source.py": "8e7df6cd2201bbd95011dfdf6507e855799474bdeee5c66de91bb895bb3c264d",
+  "src/eos_pv_helper/sync.py": "31d64b47294b3fe65aaff55b4b925c0ad6bf13d91aae3782c940ea075115f083"
+}

@@ -1,0 +1,30 @@
+{
+  "maxxi": {
+    "capacity_wh": 5000,
+    "min_soc_percent": 10,
+    "initial_soc_percent": 10,
+    "max_soc_percent": 100,
+    "max_discharge_w": 800,
+    "max_pv_charge_w": 2000,
+    "max_grid_charge_w": 800,
+    "charge_efficiency": 0.92,
+    "discharge_efficiency": 0.92,
+    "wear_eur_per_kwh_output": 0
+  },
+  "panels": [
+    {"name": "suedhuette", "wp": 1000, "azimuth_deg": 180, "tilt_deg": 14,
+     "bifacial_gain": 0, "performance_ratio": 0.86},
+    {"name": "suedzaun", "wp": 1000, "azimuth_deg": 180, "tilt_deg": 90,
+     "bifacial_gain": 0, "performance_ratio": 0.86}
+  ],
+  "grid_charging_enabled": true,
+  "lookahead_hours": 24,
+  "min_spread_eur_kwh": 0.02,
+  "terminal_value_eur_kwh_ac": 0.20,
+  "albedo": 0.20,
+  "proxy_diffuse_fraction": 0.30,
+  "proxy_max_orientation_ratio": 3,
+  "representative_year_confirmed": false,
+  "investments_eur": {},
+  "annual_maintenance_eur": {}
+}

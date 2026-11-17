@@ -479,7 +479,9 @@ def as_actuals(data):
                        "house_load_scope": "whole_site_including_loadpoints", "pv_basis": "ac",
                        "battery_basis": "dc_bus" if dc else "not_converted",
                        "tariff_basis": "retail_final_eur_kwh",
-                       "cost_basis": "measured_grid_purchase_eur" if costs else "not_measured",
+                       # A recorded counter can itself integrate power × tariff.
+                       # Its deltas do not prove an independent metered bill.
+                       "cost_basis": "recorded_grid_purchase_counter_eur" if costs else "not_measured",
                        "manufacturer_standard_mode_confirmed": False},
             "energy": energy, "tariffs": tariffs, "costs": costs,
             "soc": [{"at_utc": at, "percent": value} for at, value in sorted(points.items())],

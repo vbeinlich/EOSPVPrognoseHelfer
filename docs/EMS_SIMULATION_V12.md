@@ -4,6 +4,9 @@ Stand: Entwicklungszweig auf PR #30. Keine Aktivierung, kein produktiver
 30-Tage-Betrieb und keine belastbare Aussage zur realen Modellgenauigkeit allein
 aus bestandenem synthetischem Replay.
 
+Die [Datenprüfung für die erste reale Tagesabnahme](EMS_REAL_DAY_ACCEPTANCE.md)
+beschreibt die Untersuchung der Originalquellen und die weiterhin offenen Gates.
+
 ## Bestandsprüfung vor der Implementierung
 
 | Grundlage | Bereits vorhanden und wiederverwendet | Verbleibende Grenze |

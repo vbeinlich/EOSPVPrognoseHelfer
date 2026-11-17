@@ -339,7 +339,10 @@ def test_shared_projection_into_existing_plan_actual_reader():
     reader = Actuals(canonical(data))
     assert reader.total("load_wh", START, START + timedelta(hours=2)) == 2000
     assert reader.cash_cost(START, START + timedelta(hours=2)) == pytest.approx(.54)
-    assert reader.measured_cash_cost(START, START + timedelta(hours=2)) == pytest.approx(.54)
+    assert reader.measured_cash_cost(START, START + timedelta(hours=2)) is None
+    assert data["origin"]["cost_basis"] == "recorded_grid_purchase_counter_eur"
+    assert sum(r["grid_cost_eur"] for r in data["costs"]) == pytest.approx(.54)
+    assert all(r["source_method"] == "derived_counter" for r in data["costs"])
     assert len(reader.import_weighted_tariffs) == 2
     assert data["measurement_preparation"]["interval_quality"][0]["quality"] == prepared["rows"][0]["quality"]
     assert reader.soc_at(START)[0] == 10

@@ -108,3 +108,63 @@ def test_120_synthetic_hours_use_existing_historical_gates_without_real_claim():
                     START.isoformat(), END.isoformat(), as_of=END.isoformat())
     with pytest.raises(SimulationError, match="reference totals"):
         from_prepared(bad, settings)
+
+
+def provisional_case():
+    records, config = fixture()
+    # Keep fresh initial SOC, remove only the inner boundary observation.
+    records[:] = [r for r in records if not (r["entity_id"] == "soc" and r["at"] == at(1))]
+    for r in records:
+        if r["entity_id"] == "house_wh" and r["at"] in (at(1), at(2)):
+            r["value"] += 56
+    return records, config
+
+
+def test_explicit_provisional_mode_keeps_strict_audit_failed_and_never_invents_soc():
+    records, config = provisional_case()
+    data = run(records, config)
+    with pytest.raises(SimulationError):
+        from_prepared(data, context())
+    settings = {**context(), "provisional_measurements_acknowledged": True,
+                "provisional_max_site_balance_error_wh": 60}
+    accepted = from_prepared(data, settings)
+    assert accepted["historical_audit"]["historical_acceptance_passed"] is False
+    assert "VORLÄUFIG" in accepted["historical_audit"]["message"]
+    assert accepted["measurement_preparation"]["audit"]["status"] == "incomplete"
+    assert accepted["historical_audit"]["site_balance_audit"]["strict_tolerance_wh"] == 50
+    assert accepted["measured_intervals"][0]["soc_end_percent"] is None
+    assert accepted["e3dc"]["initial_soc_percent"] == 10
+    assert len(compare(accepted, Config())["scenarios"]) == 13
+    with pytest.raises(SimulationError):
+        from_prepared(data, {**settings, "historical_reference": True})
+    with pytest.raises(SimulationError):
+        from_prepared(data, {**settings, "provisional_max_site_balance_error_wh": 50})
+
+
+@pytest.mark.parametrize("missing", ["energy", "tariff", "initial_soc"])
+def test_provisional_mode_cannot_fill_required_simulation_inputs(missing):
+    records, config = provisional_case()
+    if missing == "energy":
+        records[:] = [r for r in records if r["entity_id"] != "vehicle_wh"]
+    elif missing == "tariff":
+        records[:] = [r for r in records if r["entity_id"] != "feed"]
+    else:
+        records[:] = [r for r in records if not (r["entity_id"] == "soc" and r["at"] == at())]
+    with pytest.raises(SimulationError):
+        from_prepared(run(records, config), {**context(), "provisional_measurements_acknowledged": True,
+                                            "provisional_max_site_balance_error_wh": 60})
+
+
+def test_mean_power_provenance_is_distinct_from_left_hold_in_simulation():
+    records, config = fixture()
+    config["metrics"]["vehicle_wh"]["sources"] = [
+        {"entity_id": "ev_mean_archive", "kind": "interval", "unit": "Wh", "basis": "ac_bus",
+         "derivation": "derived_interval_mean_power", "mean_interval_seconds": 300}]
+    for h in range(2):
+        records.append({"entity_id": "ev_mean_archive", "start": at(h), "end": at(h + 1), "value": 200,
+                        "unit": "Wh", "mean_power_coverage": "12/12"})
+    accepted = from_prepared(run(records, config), context())
+    quality = accepted["measurement_preparation"]
+    assert quality["interval_mean_power_derived"] is True
+    assert quality["provisional_power_integration"] is False
+    assert "Left hold" not in accepted["historical_audit"]["warnings"]

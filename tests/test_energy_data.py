@@ -448,3 +448,61 @@ def test_private_original_120_hour_regression_if_supplied():
         pytest.skip("Original November hours not supplied; aggregate reference is not an hourly fixture")
     reference = json.loads((Path(__file__).parent / "fixtures/energy-november-reference.json").read_bytes())
     assert check(json.loads(Path(path).read_bytes()), reference)["status"] == "passed"
+
+
+def test_stale_soc_preserves_original_observation_without_using_it_as_boundary_value():
+    records, config = fixture()
+    record = next(r for r in records if r["entity_id"] == "soc" and r["at"] == at(1))
+    record["at"] = at(1, -120)
+    row = run(records, config)["rows"][0]
+    assert row["soc_end_percent"] is None
+    assert row["soc_end_at_utc"] == at(1, -120)
+    assert row["soc_end_age_seconds"] == 120
+    detail = row["quality"]["soc_end_percent"]["rejected_candidates"][0]
+    assert detail["issue"] == "stale_boundary_soc" and detail["observed_percent"] == 10
+
+
+def test_original_five_minute_means_integrate_over_explicit_intervals_without_left_hold():
+    records, config = fixture()
+    records[:] = [r for r in records if r["entity_id"] != "vehicle_wh"]
+    config["metrics"]["vehicle_wh"]["sources"] = [
+        {"entity_id": "mean_ev", "kind": "mean_power", "unit": "W", "basis": "ac_bus",
+         "mean_interval_seconds": 300}]
+    # Irregular alternating 0/400 W means give precisely 200 Wh each hour.
+    for second in range(0, 7200, 300):
+        records.append({"entity_id": "mean_ev", "start": at(seconds=second), "end": at(seconds=second + 300),
+                        "value": 400 if second % 600 else 0, "unit": "W"})
+    data = run(records, config)
+    assert data["rows"][0]["vehicle_wh"] == pytest.approx(200)
+    assert data["rows"][0]["quality"]["vehicle_wh"]["status"] == "derived_interval_mean_power"
+    detail = data["rows"][0]["quality"]["vehicle_wh"]
+    assert "original_value" not in detail
+    assert detail["interval_mean_integration"]["energy_wh"] == pytest.approx(200)
+    config["interval_seconds"] = 900
+    assert run(records, config)["rows"][0]["vehicle_wh"] == pytest.approx(400 / 12)
+    config["interval_seconds"] = 3600
+    records.pop()
+    assert run(records, config)["rows"][1]["vehicle_wh"] is None
+
+
+@pytest.mark.parametrize("coverage", ["11/12", "12/13", "", None])
+def test_imported_mean_energy_with_partial_or_unknown_coverage_is_missing(coverage):
+    records, config = fixture()
+    config["metrics"]["vehicle_wh"]["sources"] = [
+        {"entity_id": "ev_derived", "kind": "interval", "unit": "Wh", "basis": "ac_bus",
+         "derivation": "derived_interval_mean_power", "mean_interval_seconds": 300}]
+    records.append({"entity_id": "ev_derived", "start": at(), "end": at(1), "value": 200,
+                    "unit": "Wh", "mean_power_coverage": coverage})
+    assert run(records, config)["rows"][0]["vehicle_wh"] is None
+
+
+def test_imported_mean_energy_retains_coverage_and_correct_provenance():
+    records, config = fixture()
+    config["metrics"]["vehicle_wh"]["sources"] = [
+        {"entity_id": "ev_derived", "kind": "interval", "unit": "Wh", "basis": "ac_bus",
+         "derivation": "derived_interval_mean_power", "mean_interval_seconds": 300}]
+    records.append({"entity_id": "ev_derived", "start": at(), "end": at(1), "value": 200,
+                    "unit": "Wh", "mean_power_coverage": "12/12"})
+    row = run(records, config)["rows"][0]
+    assert row["vehicle_wh"] == 200
+    assert row["quality"]["vehicle_wh"]["status"] == "derived_interval_mean_power"

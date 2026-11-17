@@ -12,10 +12,10 @@ from eos_pv_helper.energy_data import EnergyDataError, verify_prepared
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def check(data, reference):
+def check(data, reference, *, aggregate_only=False):
     checked = verify_prepared(data)
     rows, audit = checked["rows"], checked["audit"]
-    if (checked["data_kind"] != "measured" or audit["status"] != "passed"
+    if (checked["data_kind"] != "measured" or not aggregate_only and audit["status"] != "passed"
             or len(rows) != reference["intervals"]
             or rows[0]["start_utc"] != reference["start_utc"]
             or rows[-1]["end_utc"] != reference["end_utc"]):
@@ -29,7 +29,8 @@ def check(data, reference):
         if abs(delta) > tolerance:
             raise EnergyDataError("Original measurements differ from aggregate reference: " + key)
         deltas[key] = delta
-    return {"status": "passed", "reference_deltas": deltas,
+    return {"status": "aggregate_match" if aggregate_only else "passed", "reference_deltas": deltas,
+            "strict_quality_status": audit["status"],
             "original_intervals": len(rows), "historical_acceptance_passed": False,
             "message": "Original hourly aggregate regression passed; historical SOC/model admission remains separate"}
 
@@ -38,10 +39,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prepared", required=True)
     parser.add_argument("--reference", default=str(ROOT / "tests/fixtures/energy-november-reference.json"))
+    parser.add_argument("--aggregate-only", action="store_true", help="Compare complete energies; never grants strict quality acceptance")
     args = parser.parse_args(argv)
     try:
         print(json.dumps(check(json.loads(Path(args.prepared).read_bytes()),
-                               json.loads(Path(args.reference).read_bytes())), sort_keys=True))
+                               json.loads(Path(args.reference).read_bytes()),
+                               aggregate_only=args.aggregate_only), sort_keys=True))
         return 0
     except (ValueError, OSError, KeyError, TypeError):
         print("Original 120-hour energy regression failed or original data missing; no historical acceptance.")

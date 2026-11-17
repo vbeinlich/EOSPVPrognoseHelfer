@@ -178,7 +178,7 @@ nötig. Dann bleiben Report und HTML deutlich **VORLÄUFIG**, und
 Andere historische oder zukünftige Zeitfenster verwenden denselben Adapter ohne
 November-Sonderlogik; ihre historische Modellkalibrierung wird nicht behauptet.
 
-## November-Referenz und aktueller Abnahmestand
+## November-Referenz und Ausgangsbefund vor der Ergänzungsdatei
 
 Die Betreiberaggregate stehen getrennt in
 `tests/fixtures/energy-november-reference.json`. Reine Rechenprüfung:
@@ -217,3 +217,95 @@ sichtbarer vorläufiger Leistungsintegration und unveränderten Eingangsdateien.
 
 Keine produktive Installation, kein Containerneustart, keine Gerätesteuerung,
 kein Merge und keine Image-Veröffentlichung erfolgen durch diese Änderung.
+
+## Ergänzende Originalexporte und vorläufige Simulation
+
+Die spätere WP-/EV-Ergänzung wird mit `eos_pv_helper.energy_join` anhand beider
+Intervallgrenzen verbunden. Der Join prüft eindeutige, lückenlose und gleiche
+Zeitfenster beider Dateien. Er verweigert fehlende Stunden, veränderte Endgrenzen,
+Überlappungen und kollidierende Nicht-Schlüssel-Spalten. Er verändert keine
+Messwerte; die ursprüngliche `load_wh`-Spalte bleibt im Join der Hausverbrauch.
+Erst die bestehende gemeinsame Aufbereitung bildet daraus den Standortverbrauch.
+
+Der Join erhält beide vollständigen Originaldateien samt Prüfsummen. Eigene
+private Verzeichnisse verwenden; keine Originale ersetzen:
+
+```sh
+python -m eos_pv_helper.energy_join \
+  --base /PRIVATE/base.csv --supplement /PRIVATE/wp-ev.csv \
+  --start 2026-11-10T00:00:00+01:00 --end 2026-11-15T00:00:00+01:00 \
+  --output /PRIVATE/join-new
+
+python -m eos_pv_helper.energy_data_cli \
+  --input /PRIVATE/join-new/joined.csv --input-kind wide_csv \
+  --mapping simulator/energy-wide-history.example.json \
+  --start 2026-11-10T00:00:00+01:00 --end 2026-11-15T00:00:00+01:00 \
+  --as-of 2026-11-15T01:00:00+01:00 --output /PRIVATE/prepared-new
+
+python scripts/check_energy_regression.py \
+  --prepared /PRIVATE/prepared-new/prepared.json --aggregate-only
+```
+
+`--aggregate-only` prüft vollständige originale Energiesummen gegen die
+Referenz, auch wenn SoC- oder Bilanzqualitätsprobleme bestehen. Der Status
+`aggregate_match` ist ausdrücklich keine bestandene historische Abnahme.
+Der bisherige strenge Standardaufruf bleibt unverändert.
+
+Fahrzeugenergie aus original gespeicherten Fünf-Minuten-Leistungsmittelwerten
+erhält `derived_interval_mean_power`. Sie ist weder direkte Energiemessung noch
+`derived_power_left_hold` über Momentanwerte. Beim bereits aggregierten Wh-Export
+fordert die Zuordnung eine ausgewiesene Abdeckung `vehicle_barn_5min_coverage`.
+Nur vollständige `12/12` für eine Stunde bei 300 Sekunden Raster wird zugelassen.
+Diese Information ist eine deklarierte Eigenschaft des Originalexports; sie
+beweist nicht nachträglich die hier nicht mitgelieferten einzelnen Mittelwerte.
+Fehlende/teilweise Abdeckung bleibt fehlende Energie. Der neue Quellentyp
+`mean_power` kann auch die originalen zeitlich abgegrenzten Mittelwerte selbst
+verarbeiten: Energie = Mittelwert × Originaldauer, anschließend exakte Addition.
+
+Der Audit unterscheidet nun vollständige Energie-/Tarifintervalle, überschrittene
+Standortbilanzgrenzen und gültige SoC-Intervalle. Veraltete SoC-Werte bleiben in
+den Originaldaten und in den Ablehnungsdetails mit Beobachtungszeit und Alter;
+sie werden nicht als gültige Grenzwerte eingesetzt.
+
+Für den ausdrücklich beauftragten **vorläufigen** Vergleich kann die private
+SIM-Konfiguration enthalten:
+
+```json
+{
+  "historical_reference": false,
+  "provisional_measurements_acknowledged": true,
+  "provisional_max_site_balance_error_wh": 60
+}
+```
+
+Diese Felder werden zu den vorhandenen bestätigten E3/DC-/PV-/Tarifangaben
+ergänzt. Die Wahl von 60 Wh ist ein explizites Limit nur dieses vorläufigen
+Beispiels, keine Änderung der strengen Standardtoleranz von 50 Wh. Alle
+ursprünglichen Überschreitungen bleiben im Audit sichtbar. Zugelassen werden
+hier ausschließlich fehlende/veraltete spätere SoC-Grenzen und begrenzte
+Bilanzabweichungen. Der Anfangs-SoC muss weiterhin gültig sein. Fehlende Energien,
+Tarife, Teilabdeckung, zukünftige Intervalle oder ein unbekannter Anfangs-SoC
+werden auch vorläufig abgewiesen. `historical_reference=true` behält sämtliche
+strengen Gates und kann nicht mit dieser Option überstimmt werden.
+
+Die Simulation ersetzt weder spätere SoC-Werte noch Energieflüsse. Ihr Status
+bleibt `warnings`, `historical_acceptance_passed=false`, und Report/HTML sind
+sichtbar **VORLÄUFIG**. Eine Wirkungsgraddiagnose nutzt ausschließlich beidseitig
+gültige SoC-Intervalle und wird niemals automatisch auf das Modell angewandt.
+
+```sh
+python -m ems_maxxicharge --input /PRIVATE/prepared-new/prepared.json \
+  --input-kind prepared --context /PRIVATE/provisional-context.json \
+  --config simulator/phase2.example.json --phase2 --output /PRIVATE/comparison-new
+
+python scripts/maxxicharge_comparison_report.py \
+  --simulation /PRIVATE/comparison-new/simulation.json --output /PRIVATE/comparison.md
+```
+
+Der Vergleichsbericht übernimmt bereits berechnete Szenariokennzahlen. Er rechnet
+keinen zweiten Kostenpfad und zeigt Cash-/Endwert-Ersparnis, Speichermehrwert bei
+gleicher PV-Leistung und Investitionsannahmen getrennt. Simulierte Bestandskosten
+werden von gemessenen Bezugskosten abgegrenzt; die Modellreferenz ist weiterhin
+nicht am realen E3/DC-Betrieb kalibriert. Keine Jahreshochrechnung aus fünf Tagen.
+Die tatsächlichen Messdateien und finanziellen Vergleichsergebnisse bleiben in
+privaten lokalen Artefakten; CI erhält ausschließlich synthetische Prüfdaten.

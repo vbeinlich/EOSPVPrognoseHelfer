@@ -67,9 +67,11 @@
           "csv": {
             "value": "vehicle_barn_wh",
             "start": "start_utc",
-            "end": "end_utc"
+            "end": "end_utc",
+            "coverage": "vehicle_barn_5min_coverage"
           },
-          "derivation": "derived_power_left_hold"
+          "derivation": "derived_interval_mean_power",
+          "mean_interval_seconds": 300
         }
       ]
     },

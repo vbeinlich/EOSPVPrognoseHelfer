@@ -40,19 +40,26 @@ jobs:
           python - <<'PY'
           import json, os
           from pathlib import Path
-          from test_energy_data import at, fixture, power_vehicle
-          from test_prepared import context
+          from test_energy_data import at
+          from test_prepared import context, provisional_case
           from eos_pv_helper.energy_data_cli import main
           root = Path(os.environ['RUNNER_TEMP']) / 'shared-energy'
           root.mkdir()
-          records, mapping = fixture()
-          power_vehicle(records, mapping)
+          records, mapping = provisional_case()
+          records = [r for r in records if r['entity_id'] != 'vehicle_wh']
+          mapping['metrics']['vehicle_wh']['sources'] = [{
+              'entity_id': 'original_mean_power', 'kind': 'mean_power', 'unit': 'W',
+              'basis': 'ac_bus', 'mean_interval_seconds': 300}]
+          for second in range(0, 7200, 300):
+              records.append({'entity_id': 'original_mean_power', 'start': at(seconds=second),
+                              'end': at(seconds=second + 300), 'value': 200, 'unit': 'W'})
           (root / 'original.json').write_text(json.dumps({'observations': records}))
           (root / 'mapping.json').write_text(json.dumps(mapping))
-          settings = {**context(), 'provisional_simulation_acknowledged': True}
+          settings = {**context(), 'provisional_measurements_acknowledged': True,
+                      'provisional_max_site_balance_error_wh': 60}
           (root / 'context.json').write_text(json.dumps(settings))
           assert main(['--input', str(root / 'original.json'), '--mapping', str(root / 'mapping.json'),
-                       '--start', at(), '--end', at(2), '--as-of', at(2), '--output', str(root / 'prepared')]) == 0
+                       '--start', at(), '--end', at(2), '--as-of', at(2), '--output', str(root / 'prepared')]) == 3
           (root / 'output').mkdir(mode=0o777)
           (root / 'output').chmod(0o777)
           (root / 'prepared').chmod(0o755)
@@ -73,7 +80,10 @@ jobs:
           root = Path('/input')
           report = json.loads((root / 'output/run/simulation.json').read_bytes())
           assert len(report['scenarios']) == 13
-          assert report['measurement_preparation']['provisional_power_integration'] is True
+          assert report['measurement_preparation']['provisional_power_integration'] is False
+          assert report['measurement_preparation']['interval_mean_power_derived'] is True
+          assert report['measurement_preparation']['audit']['status'] == 'incomplete'
+          assert 'VORLÄUFIG' in report['historical_audit']['message']
           assert report['historical_audit']['historical_acceptance_passed'] is False
           manifest = json.loads((root / 'prepared/manifest.json').read_bytes())
           for name, sha in manifest['artifacts_sha256'].items():

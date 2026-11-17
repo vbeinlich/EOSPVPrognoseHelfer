@@ -18,7 +18,7 @@ EnergyDataError = ActualsError
 ENERGY = ("load_wh", "base_pv_wh", "grid_import_wh", "grid_export_wh",
           "battery_charge_wh", "battery_discharge_wh")
 REQUIRED = (*ENERGY, "grid_cost_eur", "import_eur_kwh", "export_eur_kwh")
-PRIORITY = {"interval": 0, "counter": 1, "power": 2, "state": 0}
+PRIORITY = {"interval": 0, "counter": 1, "mean_power": 2, "power": 3, "state": 0}
 
 
 def canonical(value):
@@ -103,15 +103,19 @@ def validate_mapping(config):
                 raise EnergyDataError("One sensor cannot count toward two quantities")
             entities[entity] = name
             unit = source.get("unit")
-            allowed = (("W", "kW") if kind == "power" else
+            allowed = (("W", "kW") if kind in ("power", "mean_power") else
                        ("%", "EUR/kWh") if kind == "state" else
                        ("EUR/kWh",) if name in ("import_eur_kwh", "export_eur_kwh") else
                        ("EUR", "€") if name == "grid_cost_eur" else ("Wh", "kWh"))
-            if unit not in allowed or kind == "power" and not name.endswith("_wh"):
+            if unit not in allowed or kind in ("power", "mean_power") and not name.endswith("_wh"):
                 raise EnergyDataError("Unit does not match sensor semantics")
             if source.get("derivation", "direct") not in (
-                    "direct", "derived_counter", "derived_power_left_hold"):
+                    "direct", "derived_counter", "derived_power_left_hold", "derived_interval_mean_power"):
                 raise EnergyDataError("Unknown original interval derivation")
+            if kind == "mean_power" or source.get("derivation") == "derived_interval_mean_power":
+                duration = source.get("mean_interval_seconds")
+                if type(duration) is not int or not 0 < duration <= 3600:
+                    raise EnergyDataError("Original mean-power interval duration required")
             if kind == "state" and (name, unit) not in (
                     ("soc_percent", "%"), ("import_eur_kwh", "EUR/kWh"),
                     ("export_eur_kwh", "EUR/kWh")):
@@ -172,7 +176,7 @@ class MeasurementBuffer:
 def _series(records, source, config, as_of):
     result = {}
     for index, raw in records:
-        key = "start" if source["kind"] == "interval" else "at"
+        key = "start" if source["kind"] in ("interval", "mean_power") else "at"
         if key not in raw and ("at" if key == "start" else "start") in raw:
             continue
         at = timestamp(raw.get(key), config)
@@ -192,6 +196,16 @@ def _series(records, source, config, as_of):
             value = number(value, nonnegative=source["unit"] not in ("EUR/kWh", "EUR", "€"))
             if source["unit"] == "%" and not 0 <= value <= 100:
                 raise EnergyDataError("SOC outside physical range")
+        if source["kind"] == "mean_power":
+            if (finish - at).total_seconds() != source["mean_interval_seconds"]:
+                raise EnergyDataError("Original mean-power interval duration differs from mapping")
+        elif source.get("derivation") == "derived_interval_mean_power":
+            # Imported aggregated Wh: retain upstream mean-power provenance and
+            # source-declared coverage; never reinterpret as instantaneous samples.
+            expected = (finish - at).total_seconds() / source["mean_interval_seconds"]
+            coverage = raw.get("mean_power_coverage", "")
+            if not expected.is_integer() or coverage != f"{int(expected)}/{int(expected)}":
+                value = None
         if type(raw.get("reset", False)) is not bool:
             raise EnergyDataError("Counter reset indication must be boolean")
         record = (at, finish, value, index, received, raw.get("reset", False),
@@ -209,7 +223,7 @@ def _series(records, source, config, as_of):
             continue
         result[identity] = record
     rows = sorted(result.values())
-    if source["kind"] == "interval" and any(b[0] < a[1] for a, b in zip(rows, rows[1:])):
+    if source["kind"] in ("interval", "mean_power") and any(b[0] < a[1] for a, b in zip(rows, rows[1:])):
         raise EnergyDataError("Original energy intervals overlap")
     return rows
 
@@ -223,8 +237,10 @@ def _extract(series, source, left, right, *, point=False):
         max_age = source.get("max_age_seconds", 60)
         if not 0 <= number(max_age) <= 60:
             raise EnergyDataError("SOC observation age cannot exceed historical limit")
-        if i < 0 or (left - series[i][0]).total_seconds() > max_age or series[i][2] is None:
+        if i < 0 or series[i][2] is None:
             return None, "incomplete", [], "missing_boundary_soc"
+        if (left - series[i][0]).total_seconds() > max_age:
+            return None, "incomplete", [series[i][3]], "stale_boundary_soc"
         return series[i][2], "direct", [series[i][3]], None
     if kind == "counter":
         a, b = bisect.bisect_left(times, left), bisect.bisect_left(times, right)
@@ -239,7 +255,7 @@ def _extract(series, source, left, right, *, point=False):
         if source["unit"] not in ("EUR", "€") and any(y[2] < x[2] for x, y in zip(window, window[1:])):
             return None, "incomplete", ids, "counter_reset"
         return window[-1][2] - window[0][2], "derived_counter", ids, None
-    if kind == "interval":
+    if kind in ("interval", "mean_power"):
         selected = [r for r in series if r[0] < right and r[1] > left]
         ids = [r[3] for r in selected]
         if (not selected or selected[0][0] != left or selected[-1][1] != right
@@ -250,6 +266,8 @@ def _extract(series, source, left, right, *, point=False):
             if len({r[2] for r in selected}) != 1:
                 return None, "incomplete", ids, "changing_tariff_without_aligned_energy"
             return selected[0][2], "direct", ids, None
+        if kind == "mean_power":
+            return math.fsum(r[2] * (r[1] - r[0]).total_seconds() / 3600 for r in selected), "derived_interval_mean_power", ids, None
         return math.fsum(r[2] for r in selected), "direct", ids, None
     if kind == "state":
         # Tariffs must explicitly cover the full interval; state carry is forbidden.
@@ -277,10 +295,16 @@ def _metric(metric, spec, series, config, left, right, *, point=False):
     failures = []
     # Stable ordering preserves configured preference between equivalent sources.
     for source in sorted(spec["sources"], key=lambda s: max(PRIORITY[s["kind"]],
-                         {"direct": 0, "derived_counter": 1, "derived_power_left_hold": 2}.get(s.get("derivation"), 0))):
+                         {"direct": 0, "derived_counter": 1, "derived_interval_mean_power": 2,
+                          "derived_power_left_hold": 3}.get(s.get("derivation"), 0))):
         value, quality, ids, issue = _extract(series[id(source)], source, left, right, point=point)
         if issue:
-            failures.append({"entity_id": source["entity_id"], "issue": issue, "records": ids})
+            detail = {"entity_id": source["entity_id"], "issue": issue, "records": ids}
+            if point and ids:
+                original = next(r for r in series[id(source)] if r[3] == ids[0])
+                detail.update(observed_at_utc=original[0].isoformat(), observed_percent=original[2],
+                              age_seconds=(left - original[0]).total_seconds())
+            failures.append(detail)
             continue
         original = value
         if source["kind"] == "interval":
@@ -291,9 +315,14 @@ def _metric(metric, spec, series, config, left, right, *, point=False):
             value = ac_energy(value, metric, source.get("basis"), config)
             if source.get("basis") == "dc_bus":
                 quality += "+dc_to_ac"
-        return value, {"status": quality, "entity_id": source["entity_id"], "records": ids,
-                       "original_value": original, "original_unit": source["unit"],
-                       "basis": source.get("basis"), "rejected_candidates": failures}
+        detail = {"status": quality, "entity_id": source["entity_id"], "records": ids,
+                  "original_value": original, "original_unit": source["unit"],
+                  "basis": source.get("basis"), "rejected_candidates": failures}
+        if source["kind"] == "mean_power":
+            detail.pop("original_value")  # Integrated Wh is not an original W sample.
+            detail["interval_mean_integration"] = {"energy_wh": value,
+                "source_interval_seconds": source["mean_interval_seconds"], "method": "mean_times_original_duration"}
+        return value, detail
     return None, {"status": "incomplete", "rejected_candidates": failures}
 
 
@@ -331,6 +360,12 @@ def prepare(observations, config, start, end, *, as_of):
                     ids = quality[label].get("records", [])
                     values[label.replace("percent", "at_utc")] = (
                         timestamp(observations[ids[0]]["at"], config).isoformat() if ids else None)
+                    rejected = quality[label].get("rejected_candidates", [])
+                    if not ids and rejected and rejected[0].get("observed_at_utc"):
+                        values[label.replace("percent", "at_utc")] = rejected[0]["observed_at_utc"]
+                    point_at = values[label.replace("percent", "at_utc")]
+                    values[label.replace("percent", "age_seconds")] = (
+                        (at - timestamp(point_at, config)).total_seconds() if point_at else None)
             else:
                 values[name], quality[name] = _metric(name, spec, series, config, left, right)
         components = config["load_components"]
@@ -385,6 +420,9 @@ def prepare(observations, config, start, end, *, as_of):
             "mapping": copy.deepcopy(config), "rows": rows,
             "audit": {"status": "passed" if all(r["status"] == "complete" for r in rows) else "incomplete",
                       "intervals": len(rows), "complete_intervals": sum(r["status"] == "complete" for r in rows),
+                      "energy_complete_intervals": sum(all(r.get(k) is not None for k in REQUIRED) for r in rows),
+                      "site_balance_failed_intervals": sum("site_balance_exceeds_tolerance" in r["issues"] for r in rows),
+                      "soc_complete_intervals": sum(r.get("soc_start_percent") is not None and r.get("soc_end_percent") is not None for r in rows),
                       "totals": totals, "totals_covered_intervals": totals_coverage,
                       "historical_acceptance_passed": False,
                       "message": "Prepared measurements; historical SOC/tariff/model acceptance remains separate"}}

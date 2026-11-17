@@ -50,6 +50,8 @@ def read_observations(raw, kind, config=None):
                         value = value.replace(",", ".")
                     record = {"entity_id": source["entity_id"], "unit": source["unit"],
                               "value": value if value != "" else None, "original": dict(row)}
+                    if "coverage" in columns:
+                        record["mean_power_coverage"] = row.get(columns["coverage"])
                     for key in ("at", "start", "end", "received_at"):
                         if key in columns:
                             record[key] = row[columns[key]]

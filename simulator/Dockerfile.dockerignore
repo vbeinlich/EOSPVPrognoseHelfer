@@ -9,6 +9,7 @@
 !src/eos_pv_helper/plan_actual.py
 !src/eos_pv_helper/energy_data.py
 !src/eos_pv_helper/energy_data_cli.py
+!src/eos_pv_helper/energy_join.py
 !src/eos_pv_helper/dashboard_view.py
 !simulator/
 !simulator/requirements.txt

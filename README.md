@@ -1,5 +1,10 @@
 # EOS PV-Prognose-Helfer
 
+EMS Simulation v1.2: [Bestand, native Modellvalidierung und idempotente Offline-Auswertung](docs/EMS_SIMULATION_V12.md).
+Archivierte GENETIC-Steuerfolgen, getrennte Prognose-/Modellabweichungen und
+24-h-/7-/30-Tage-Berichte; unvollständige Vergleiche bleiben `NOT_COMPARABLE`.
+Keine neue Optimierung, Installation oder Gerätesteuerung.
+
 MaxxiCharge Multi-Battery PoC: [Phase 2: Herstellergrenzen und Modelle A/B/C](docs/MAXXICHARGE_PHASE2.md),
 [historischer Import und Offline-Betrieb](docs/MAXXICHARGE_PHASE2_RUNBOOK.md),
 [MQTT-Schnittstelle](docs/MAXXICHARGE_MQTT.md),

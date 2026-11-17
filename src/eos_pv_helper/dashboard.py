@@ -512,6 +512,7 @@ def refresh(
     replay_file=None,
     solutions=None,
     simulation_file=None,
+    shadow_file=None,
 ):
     root = Path(source).resolve(strict=True) if source else None
     output = Path(destination).resolve(strict=True)
@@ -538,6 +539,7 @@ def refresh(
             replay_file=replay_file,
             solutions=solutions,
             simulation_file=simulation_file,
+            shadow_file=shadow_file,
         )
         atomic_write(target, html.encode("utf-8"))
         return valid
@@ -554,6 +556,7 @@ def render_refresh(
     replay_file=None,
     solutions=None,
     simulation_file=None,
+    shadow_file=None,
 ):
     from .dashboard_view import render
 
@@ -571,6 +574,11 @@ def render_refresh(
                 replay_file=replay_file,
             )
         )
+        if shadow_file:
+            from .dashboard_view import project_shadow_report
+
+            shadow_path = Path(shadow_file).resolve(strict=True)
+            report["ems_shadow"] = project_shadow_report(json.loads(inspector.read(shadow_path.parent, shadow_path.name, 64_000_000)))
         if simulation_file:
             from .dashboard_view import validate_sim_report
 
@@ -614,6 +622,7 @@ def main():
     )
     parser.add_argument("--legacy-timezone")
     parser.add_argument("--maxxicharge-sim", help="Optional offline SIM report; display only")
+    parser.add_argument("--ems-shadow", help="Optional offline v1.2 report; display only")
     args = parser.parse_args()
     try:
         return (
@@ -626,6 +635,7 @@ def main():
                 replay_file=args.replays,
                 solutions=args.solution,
                 simulation_file=args.maxxicharge_sim,
+                shadow_file=args.ems_shadow,
             )
             else 2
         )

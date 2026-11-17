@@ -28,6 +28,14 @@ try{
  const check=async expression=>{if(!await evaluate(expression))throw Error('UI assertion failed: '+expression+'; '+JSON.stringify(await evaluate("({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].filter(n=>n.getBoundingClientRect().right>innerWidth+1).slice(0,10).map(n=>[n.tagName,n.id,n.className,n.getBoundingClientRect().right])})")));};
  let loaded=false;for(let i=0;i<100;i++){if(await evaluate("document.querySelectorAll('#slots tr').length===96")){loaded=true;break}await sleep(100)}
  if(!loaded)throw Error('Dashboard did not render: '+errors.join('; '));
+ if(args.includes('--expect-shadow')){
+  await check("document.querySelector('#ems-shadow-panel')!==null");
+  await check("document.querySelectorAll('#shadow-results tr').length===1");
+  await check("document.querySelector('#shadow-coverage').textContent.includes('SYNTHETISCHE TESTDATEN')");
+  await check("document.querySelectorAll('#shadow-hours tr').length===24");
+  await check("document.querySelector('#shadow-chart svg')!==null");
+  await check("(()=>{const s=document.querySelector('#shadow-days');s.value='30';s.dispatchEvent(new Event('change'));return document.querySelector('#shadow-coverage').textContent.includes('NOT_COMPARABLE')})()");
+ }
  await check("document.querySelectorAll('#history button').length>=3");
  await check("document.querySelector('#sync').textContent==='waiting-publication'");
  await check("document.querySelector('#advantage').textContent==='Nicht belegt'");

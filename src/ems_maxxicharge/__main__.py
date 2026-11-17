@@ -38,6 +38,10 @@ def run(args):
         from .history import import_csv
 
         data = import_csv(csv_raw, context)
+    elif args.input_kind == "prepared":
+        from .prepared import from_prepared
+
+        data = from_prepared(raw_input, context)
     else:
         data = raw_input
     if args.phase2:
@@ -86,7 +90,7 @@ def run(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="Existing local input, mounted read-only")
-    parser.add_argument("--input-kind", choices=("normalized", "eos", "actuals", "history_csv"),
+    parser.add_argument("--input-kind", choices=("normalized", "eos", "actuals", "history_csv", "prepared"),
                         default="normalized")
     parser.add_argument("--config", help="Simulator-only JSON configuration")
     parser.add_argument("--context", help="Explicit offline EOS/measurement modelling context")

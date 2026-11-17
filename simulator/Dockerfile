@@ -7,6 +7,7 @@ COPY simulator/.wheels/ /wheels/
 RUN --network=none pip install --no-cache-dir --no-index --require-hashes --find-links=/wheels -r /tmp/simulation-requirements.txt
 COPY src/ems_maxxicharge/ /app/ems_maxxicharge/
 COPY src/eos_pv_helper/__init__.py src/eos_pv_helper/plan_actual.py src/eos_pv_helper/dashboard_view.py /app/eos_pv_helper/
+COPY src/eos_pv_helper/energy_data.py src/eos_pv_helper/energy_data_cli.py /app/eos_pv_helper/
 COPY LICENSE THIRD_PARTY_NOTICES.md /app/licenses/
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "ems_maxxicharge"]

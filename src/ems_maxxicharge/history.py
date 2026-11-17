@@ -7,10 +7,12 @@ import math
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from eos_pv_helper.energy_data import ac_energy, site_balance
+
 from .config import BatteryConfig, SimulationError, construct, number
 from .inputs import canonical, stamp, validate
 
-REFERENCE = {"load_wh": 227880, "base_pv_wh": 64100, "grid_import_wh": 168230,
+REFERENCE = {"load_wh": 227940, "base_pv_wh": 64103, "grid_import_wh": 168233,
              "grid_cost_eur": 67.17, "fixed_grid_cost_eur": 53.83}
 ENERGY = ("load_wh", "base_pv_wh", "grid_import_wh", "grid_export_wh",
           "battery_charge_wh", "battery_discharge_wh")
@@ -124,11 +126,9 @@ def import_csv(raw, context):
         if not (0 <= (at - start_point).total_seconds() <= 60
                 and 0 <= (end - end_point).total_seconds() <= 60):
             raise SimulationError("SOC timestamps do not establish boundary SOC without future values")
-        c, d = values["battery_charge_wh"], values["battery_discharge_wh"]
-        if context["battery_basis"] == "dc_bus":
-            c /= number(context.get("inverter_ac_to_dc_efficiency"), "inverter charge efficiency", .01, 1)
-            d *= number(context.get("inverter_dc_to_ac_efficiency"), "inverter discharge efficiency", .01, 1)
-        site_error = values["base_pv_wh"] + values["grid_import_wh"] + d - values["load_wh"] - values["grid_export_wh"] - c
+        c = ac_energy(values["battery_charge_wh"], "battery_charge_wh", context["battery_basis"], context)
+        d = ac_energy(values["battery_discharge_wh"], "battery_discharge_wh", context["battery_basis"], context)
+        _, site_error = site_balance({**values, "battery_charge_wh": c, "battery_discharge_wh": d})
         soc_error = battery.capacity_wh * (soc_end - soc_start) / 100 - (
             c * battery.charge_efficiency - d / battery.discharge_efficiency)
         observed.append({**values, "start_utc": at.isoformat(), "end_utc": end.isoformat(),

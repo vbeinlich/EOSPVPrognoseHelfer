@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "data_kind": "measured",
+  "tariff_basis": "retail_final_eur_kwh",
+  "grid_cost_scope": "energy_import_only",
+  "timezone": "Europe/Berlin",
+  "naive_local_time_acknowledged": false,
+  "interval_seconds": 3600,
+  "site_balance_tolerance_wh": 50,
+  "load_components": ["house_wh", "heatpump_wh", "vehicle_barn_wh"],
+  "excluded_entities": ["sensor.evcc_m_tec_evcc_charge_power"],
+  "metrics": {
+    "house_wh": {"covers": ["house_without_heatpump_or_barn_ev"], "sources": [
+      {"entity_id": "sensor.em_hausverbrauch_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "heatpump_wh": {"covers": ["mtec_heatpump"], "sources": [
+      {"entity_id": "sensor.em_mtec_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "vehicle_barn_wh": {"covers": ["barn_ev"], "sources": [
+      {"entity_id": "sensor.evcc_scheune_charge_power", "kind": "power", "unit": "W", "basis": "ac_bus", "integration": "left_hold", "max_gap_seconds": 300}
+    ]},
+    "base_pv_wh": {"sources": [
+      {"entity_id": "sensor.em_pv_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "grid_import_wh": {"sources": [
+      {"entity_id": "sensor.em_netzbezug_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "grid_export_wh": {"sources": [
+      {"entity_id": "sensor.em_netzeinspeisung_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "battery_charge_wh": {"sources": [
+      {"entity_id": "sensor.em_batterie_ladung_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "battery_discharge_wh": {"sources": [
+      {"entity_id": "sensor.em_batterie_entladung_energie", "kind": "counter", "unit": "kWh", "basis": "ac_bus"}
+    ]},
+    "grid_cost_eur": {"sources": [
+      {"entity_id": "sensor.luox_netzbezugskosten_gesamt", "kind": "counter", "unit": "EUR"}
+    ]},
+    "soc_percent": {"sources": [
+      {"entity_id": "sensor.evcc_battery_soc", "kind": "state", "unit": "%", "max_age_seconds": 60}
+    ]},
+    "export_eur_kwh": {"sources": [
+      {"entity_id": "configured.feed_in_tariff", "kind": "interval", "unit": "EUR/kWh"}
+    ]}
+  }
+}

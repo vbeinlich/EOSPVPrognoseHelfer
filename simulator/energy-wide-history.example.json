@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "data_kind": "measured",
+  "tariff_basis": "retail_final_eur_kwh",
+  "grid_cost_scope": "energy_import_only",
+  "timezone": "Europe/Berlin",
+  "naive_local_time_acknowledged": false,
+  "interval_seconds": 3600,
+  "site_balance_tolerance_wh": 50,
+  "load_components": [
+    "house_wh",
+    "heatpump_wh",
+    "vehicle_barn_wh"
+  ],
+  "excluded_entities": [
+    "sensor.evcc_m_tec_evcc_charge_power"
+  ],
+  "metrics": {
+    "house_wh": {
+      "covers": [
+        "house_without_heatpump_or_barn_ev"
+      ],
+      "sources": [
+        {
+          "entity_id": "sensor.em_hausverbrauch_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "load_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "heatpump_wh": {
+      "covers": [
+        "mtec_heatpump"
+      ],
+      "sources": [
+        {
+          "entity_id": "sensor.em_mtec_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "heatpump_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "vehicle_barn_wh": {
+      "covers": [
+        "barn_ev"
+      ],
+      "sources": [
+        {
+          "entity_id": "sensor.evcc_scheune_charge_power",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "vehicle_barn_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_power_left_hold"
+        }
+      ]
+    },
+    "base_pv_wh": {
+      "sources": [
+        {
+          "entity_id": "sensor.em_pv_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "base_pv_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "grid_import_wh": {
+      "sources": [
+        {
+          "entity_id": "sensor.em_netzbezug_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "grid_import_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "grid_export_wh": {
+      "sources": [
+        {
+          "entity_id": "sensor.em_netzeinspeisung_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "grid_export_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "battery_charge_wh": {
+      "sources": [
+        {
+          "entity_id": "sensor.em_batterie_ladung_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "battery_charge_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "battery_discharge_wh": {
+      "sources": [
+        {
+          "entity_id": "sensor.em_batterie_entladung_energie",
+          "kind": "interval",
+          "unit": "Wh",
+          "basis": "ac_bus",
+          "csv": {
+            "value": "battery_discharge_wh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "grid_cost_eur": {
+      "sources": [
+        {
+          "entity_id": "sensor.luox_netzbezugskosten_gesamt",
+          "kind": "interval",
+          "unit": "EUR",
+          "csv": {
+            "value": "import_cost_eur",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "derived_counter"
+        }
+      ]
+    },
+    "soc_percent": {
+      "sources": [
+        {
+          "entity_id": "sensor.evcc_battery_soc",
+          "kind": "state",
+          "unit": "%",
+          "max_age_seconds": 60,
+          "csv": {
+            "value": "soc_start_percent",
+            "at": "soc_start_at_utc"
+          }
+        },
+        {
+          "entity_id": "sensor.evcc_battery_soc",
+          "kind": "state",
+          "unit": "%",
+          "max_age_seconds": 60,
+          "csv": {
+            "value": "soc_end_percent",
+            "at": "soc_end_at_utc"
+          }
+        }
+      ]
+    },
+    "export_eur_kwh": {
+      "sources": [
+        {
+          "entity_id": "configured.feed_in_tariff",
+          "kind": "interval",
+          "unit": "EUR/kWh",
+          "csv": {
+            "value": "export_eur_kwh",
+            "start": "start_utc",
+            "end": "end_utc"
+          },
+          "derivation": "direct"
+        }
+      ]
+    }
+  },
+  "delimiter": ",",
+  "decimal_separator": "."
+}

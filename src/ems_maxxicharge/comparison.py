@@ -298,6 +298,8 @@ def compare(data, config):
             "pv_model": pv_metadata, "config": asdict(config), "scenarios": cases,
             "manufacturer_capabilities": CONFIRMED,
             "historical_audit": data.get("historical_audit"),
+            **({"measurement_preparation": data["measurement_preparation"]}
+               if "measurement_preparation" in data else {}),
             "assumptions": [
                 "SIM: keine realen Gerätebefehle; neue PV-Erträge sind modelliert.",
                 "A/B: interne Rückkopplungsregler und Reaktionszeiten sind Annahmen, keine Firmware-Nachbildung.",

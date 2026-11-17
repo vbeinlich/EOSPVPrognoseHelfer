@@ -27,7 +27,11 @@ COPY tests ./tests
 COPY templates ./templates
 COPY scripts ./scripts
 COPY replay-worker ./replay-worker
-COPY config.example.toml ./
+# Code-only fixtures required by the simulator isolation and frozen-source tests.
+# Keep the private inputs and wheel cache outside this test image.
+COPY simulator/compose.yaml simulator/production-baseline.json simulator/Dockerfile ./simulator/
+COPY simulator/energy-mapping.example.json simulator/energy-wide-history.example.json ./simulator/
+COPY config.example.toml compose.yaml ./
 COPY .github/workflows ./.github/workflows
 RUN pip install --no-cache-dir '.[test]'
 ENTRYPOINT ["pytest"]

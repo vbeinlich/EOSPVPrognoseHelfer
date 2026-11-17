@@ -3,6 +3,180 @@
 import base64
 import hashlib
 import json
+import math
+from datetime import datetime
+
+SIM_PANEL = r"""
+<section class="panel" id="maxxi-panel" hidden>
+<div class="section-head"><h2>MaxxiCharge · <span class="badge">SIM</span></h2>
+<label>Szenario <select id="maxxi-scenario" aria-label="SIM Szenario"></select></label></div>
+<p class="notice">SIM · Modellvergleich, keine gemessene Ersparnis. Keine Gerätebefehle.</p>
+<p id="maxxi-source" class="muted"></p>
+<p id="maxxi-reference" class="muted"></p>
+<div class="cards">
+<div class="card"><span>SIM Südhütte / Südzaun</span><strong id="maxxi-pv"></strong><small>Mittlere Leistung im gewählten Intervall</small></div>
+<div class="card"><span>SIM MaxxiCharge SOC</span><strong id="maxxi-soc"></strong><small id="maxxi-power"></small></div>
+<div class="card"><span>SIM Netzbezug / Einspeisung</span><strong id="maxxi-grid"></strong><small>Standortbilanz im gewählten Intervall</small></div>
+<div class="card"><span>SIM kumulierte Kostenersparnis</span><strong id="maxxi-savings"></strong><small>Gegen E3/DC-Referenz · ohne Investition und Endwert</small></div>
+</div>
+<label>SIM Intervall <input type="range" id="maxxi-slot" min="0" value="0" aria-label="SIM Intervall" style="width:65%"></label>
+<p id="maxxi-time" class="muted"></p>
+<div id="maxxi-chart" aria-label="SIM PV, SOC und Netzbezug"></div>
+<p class="legend"><span class="key" style="--c:#37d597">SIM Zusatz-PV</span><span class="key" style="--c:#5a9cff">SIM Netzbezug</span><span class="key" style="--c:#b88bff">SIM SOC · rechte Skala</span></p>
+<div class="table-wrap"><table><thead><tr><th>SIM Szenario</th><th>PV an Last · kWh</th><th>Zusätzlich · kWh</th><th>Bezug · kWh</th><th>Einspeisung · kWh</th><th>Verluste · kWh</th><th>Ersparnis · €</th><th>Mit Endwert · €</th><th>Investition · €</th></tr></thead><tbody id="maxxi-comparison"></tbody></table></div>
+<p id="maxxi-assumptions" class="muted"></p></section>
+"""
+
+SIM_SCRIPT = r"""
+{
+ const sim=data.maxxicharge_sim;
+ if([1,2].includes(sim?.simulation_schema)&&sim.mode==='SIM'&&sim.devices_commanded===false){
+  const panel=$('maxxi-panel'), select=$('maxxi-scenario'), slider=$('maxxi-slot');panel.hidden=false;
+  const scenarios=Object.values(sim.scenarios), n=(v,d=2)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
+  for(const s of scenarios){const o=document.createElement('option');o.value=s.id;o.textContent='SIM · '+s.label;select.append(o)}select.value=sim.scenarios.pv2_bat5?'pv2_bat5':'pv2_bat5__coordinated';
+  $('maxxi-source').textContent=`${sim.start_utc} → ${sim.end_utc} · ${sim.coverage_hours} h · ${sim.data_kind} · PV: ${sim.pv_model.quality}`;
+  const tbody=$('maxxi-comparison');
+  const phase2=sim.simulation_schema===2;
+  if(phase2){const tr=tbody.parentElement.querySelector('thead tr');tr.replaceChildren();for(const label of ['SIM Szenario','PV · kWh','Zus. Eigenverbrauch · kWh','Bezug · kWh','Einspeisung · kWh','Verluste · kWh','Abregelung · kWh','SOC E3/DC / Maxxi','LUOX · €','32 ct · €','Einspeiseerlös · €','Nettokosten · €','Ersparnis · €','Ersparnis endwertber. · €','Speichermehrwert · €','Investition · €']){const th=document.createElement('th');th.textContent=label;tr.append(th)}}
+  $('maxxi-reference').textContent=phase2?(sim.historical_audit?.message||'Keine geprüfte HA-Messreferenz importiert. Tabelle zeigt ausschließlich SIM-Ergebnisse.'):'';
+  if(phase2&&sim.historical_audit){const a=sim.historical_audit,v=a.reference_totals;$('maxxi-reference').textContent+=` · Historische Abnahme: ${a.historical_acceptance_passed?'bestanden':'offen'} · Originalreferenz: Verbrauch ${n(v.load_wh/1000)} kWh, PV ${n(v.base_pv_wh/1000)} kWh, Bezug ${n(v.grid_import_wh/1000)} kWh, LUOX ${n(v.grid_cost_eur)} €, 32 ct ${n(v.fixed_grid_cost_eur)} €`}
+  for(const s of scenarios){const v=s.summary,tr=document.createElement('tr');
+   const capex=v.investment_eur==null?(v.investment_base_eur==null?'Nicht hinterlegt':n(v.investment_base_eur)+' + offen'):n(v.investment_eur);
+   const vals=phase2?['SIM · '+s.label,n(v.pv_wh/1000),n(v.additional_self_consumption_wh/1000),n(v.grid_import_wh/1000),n(v.grid_export_wh/1000),n(v.losses_wh/1000),n(v.curtailed_wh/1000),n(v.e3dc_soc_end_percent,1)+' / '+(v.maxxi_soc_end_percent==null?'—':n(v.maxxi_soc_end_percent,1))+' %',n(v.grid_cost_eur),n(v.fixed_grid_cost_eur),n(v.feed_in_revenue_eur),n(v.net_electricity_cost_eur),n(v.savings_cash_eur),n(v.savings_inventory_adjusted_eur),v.storage_increment_eur==null?'—':n(v.storage_increment_eur),capex]:['SIM · '+s.label,n(v.pv_to_load_wh/1000),n(v.additional_self_consumption_wh/1000),n(v.grid_import_wh/1000),n(v.grid_export_wh/1000),n(v.losses_wh/1000),n(v.savings_cash_eur),n(v.savings_inventory_adjusted_eur),capex];
+   for(const value of vals){const td=document.createElement('td');td.textContent=value;tr.append(td)}tbody.append(tr)
+  }
+  $('maxxi-assumptions').textContent='SIM · '+sim.assumptions.join(' · ')+' · Amortisation: ohne repräsentative Jahresdaten nicht berechenbar.';
+  const draw=()=>{const s=sim.scenarios[select.value],rows=s.rows;slider.max=rows.length-1;slider.value=Math.min(+slider.value,rows.length-1);const r=rows[+slider.value],b=r.maxxi;
+   $('maxxi-pv').textContent=n(r.pv_suedhuette_w,0)+' / '+n(r.pv_suedzaun_w,0)+' W';
+   $('maxxi-soc').textContent=b?n(b.soc_percent,1)+' %':'Ohne Zusatzspeicher';
+   $('maxxi-power').textContent=b?`SIM PV-Ladung ${n(b.charge_pv_w,0)} W · Netzladung ${n(b.charge_grid_w,0)} W · Entladung ${n(b.discharge_w,0)} W`:'';
+   $('maxxi-grid').textContent=n(r.grid_import_w,0)+' / '+n(r.grid_export_w,0)+' W';$('maxxi-savings').textContent=n(r.cumulative_savings_cash_eur)+' €';
+   $('maxxi-time').textContent='SIM · '+new Date(r.start_utc).toLocaleString('de-DE',{timeZone:'Europe/Berlin'})+' · SOC jeweils Intervallende';
+   const stride=Math.max(1,Math.ceil(rows.length/800)),sampled=rows.filter((_,i)=>i%stride===0||i===rows.length-1);let peak=1;for(const p of sampled)peak=Math.max(peak,p.pv_suedhuette_w+p.pv_suedzaun_w,p.grid_import_w);
+   const points=(fn,scale)=>sampled.map((p,i)=>`${45+i*875/Math.max(1,sampled.length-1)},${200-fn(p)*scale}`).join(' ');
+   $('maxxi-chart').innerHTML=`<svg class="chart" viewBox="0 0 1000 235" role="img" aria-label="SIM Zeitverlauf"><text x="45" y="18">SIM W · ${n(peak,0)}</text><text x="925" y="18">100 %</text><line x1="45" y1="200" x2="920" y2="200" stroke="#536278"/><polyline fill="none" stroke="#37d597" points="${points(p=>p.pv_suedhuette_w+p.pv_suedzaun_w,170/peak)}"/><polyline fill="none" stroke="#5a9cff" points="${points(p=>p.grid_import_w,170/peak)}"/>${b?`<polyline fill="none" stroke="#b88bff" points="${points(p=>p.maxxi.soc_percent,1.7)}"/>`:''}<text x="45" y="225">SIM · ${rows.length} Intervalle${stride>1?' · Diagramm ausgedünnt':''}</text></svg>`;
+  };select.addEventListener('change',()=>{slider.value=0;draw()});slider.addEventListener('input',draw);draw();
+ }
+}
+"""
+
+
+def validate_sim_report(report):
+    """Bounded, explicit display contract, also rejecting nonfinite JS numbers."""
+    if (not isinstance(report, dict) or type(report.get("simulation_schema")) is not int
+            or report.get("simulation_schema") not in (1, 2)
+            or report.get("mode") != "SIM" or report.get("devices_commanded") is not False
+            or not isinstance(report.get("scenarios"), dict)):
+        raise ValueError("Invalid SIM report")
+    phase2 = report["simulation_schema"] == 2
+    required = {"e3dc", "pv2_bat5", "pv6_bat10", "pv6_only"}
+    if phase2:
+        required = {"e3dc", "pv2_only", "pv3_only", "pv6_only"} | {
+            e + "__" + m for e in ("pv2_bat5", "pv3_bat5", "pv6_bat10")
+            for m in ("autonomous", "coordinated", "ideal")}
+        if report.get("config", {}).get("operation", {}).get("optional_grid_charging") is True:
+            required |= {k + "__grid_optional" for k in required if "__" in k}
+        capabilities = report.get("manufacturer_capabilities", {})
+        if (capabilities.get("exact_discharge_setpoint_supported") is not False
+                or capabilities.get("external_grid_charge_start_stop_confirmed") is not False):
+            raise ValueError("SIM report contradicts confirmed hardware capability limits")
+    if set(report["scenarios"]) != required:
+        raise ValueError("Missing or unexpected SIM scenarios")
+    def check(value):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError("Nonfinite SIM report")
+        if isinstance(value, dict):
+            for item in value.values():
+                check(item)
+        elif isinstance(value, list):
+            for item in value:
+                check(item)
+    check(report)
+    if (not isinstance(report.get("pv_model"), dict)
+            or not isinstance(report["pv_model"].get("quality"), str)
+            or report.get("data_kind") not in ("synthetic", "archived_forecast", "measured")
+            or not isinstance(report.get("assumptions"), list)
+            or not all(isinstance(v, str) for v in report["assumptions"])):
+        raise ValueError("Incomplete SIM metadata")
+    def numeric(value, minimum=None):
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or minimum is not None and value < minimum):
+            raise ValueError("Invalid SIM value")
+        return value
+    audit = report.get("historical_audit") if phase2 else None
+    if audit is not None:
+        if (not isinstance(audit, dict) or not isinstance(audit.get("message"), str)
+                or not isinstance(audit.get("reference_totals"), dict)
+                or type(audit.get("historical_acceptance_passed")) is not bool
+                or audit.get("status") not in ("passed", "warnings")
+                or audit["historical_acceptance_passed"] and (
+                    report["data_kind"] != "measured" or audit["status"] != "passed")):
+            raise ValueError("Invalid historical SIM audit")
+        for field in ("load_wh", "base_pv_wh", "grid_import_wh", "grid_cost_eur", "fixed_grid_cost_eur"):
+            numeric(audit["reference_totals"].get(field))
+    def at(value):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.utcoffset() is None:
+                raise ValueError()
+            return parsed
+        except (AttributeError, TypeError):
+            raise ValueError("Invalid SIM time") from None
+    start, end = at(report.get("start_utc")), at(report.get("end_utc"))
+    if (end <= start or abs(numeric(report.get("coverage_hours"), 0)
+                           - (end - start).total_seconds() / 3600) > 1e-6):
+        raise ValueError("SIM coverage mismatch")
+    count = None
+    for key, scenario in report["scenarios"].items():
+        rows = scenario.get("rows")
+        if (scenario.get("id") != key or scenario.get("mode") != "SIM"
+                or not isinstance(rows, list) or not 1 <= len(rows) <= 35136
+                or count is not None and len(rows) != count
+                or any(r.get("mode") != "SIM" for r in rows)):
+            raise ValueError("Incomplete SIM intervals")
+        count = len(rows)
+        if not isinstance(scenario.get("label"), str) or not isinstance(scenario.get("summary"), dict):
+            raise ValueError("Incomplete SIM scenario")
+        summary = scenario["summary"]
+        if phase2:
+            for field in ("pv_wh", "curtailed_wh", "e3dc_soc_end_percent", "fixed_grid_cost_eur",
+                          "feed_in_revenue_eur", "operating_cost_eur", "grid_cost_eur"):
+                numeric(summary.get(field))
+            if summary.get("storage_increment_eur") is not None:
+                numeric(summary["storage_increment_eur"])
+        for field in ("pv_to_load_wh", "grid_import_wh", "grid_export_wh", "losses_wh",
+                      "additional_self_consumption_wh", "savings_cash_eur",
+                      "savings_inventory_adjusted_eur"):
+            numeric(summary.get(field))
+        if summary.get("investment_eur") is not None:
+            numeric(summary["investment_eur"], 0)
+        previous = start
+        for row in rows:
+            left, right = at(row.get("start_utc")), at(row.get("end_utc"))
+            seconds = (right - left).total_seconds()
+            if left != previous or seconds not in (900, 3600) or row.get("interval_seconds") != seconds:
+                raise ValueError("SIM interval coverage mismatch")
+            previous = right
+            for field in ("pv_suedhuette_w", "pv_suedzaun_w", "grid_import_w", "grid_export_w"):
+                numeric(row.get(field), 0)
+            numeric(row.get("cumulative_savings_cash_eur"))
+            state, cfg = row.get("maxxi"), scenario.get("maxxi_config")
+            has_maxxi = key.startswith(("pv2_bat5__", "pv3_bat5__", "pv6_bat10__")) if phase2 else key in ("pv2_bat5", "pv6_bat10")
+            if has_maxxi:
+                if not isinstance(state, dict) or not isinstance(cfg, dict):
+                    raise ValueError("Missing SIM battery")
+                if numeric(state.get("soc_percent"), 0) > 100:
+                    raise ValueError("Invalid SIM SOC")
+                for field in ("charge_pv_w", "charge_grid_w", "discharge_w"):
+                    numeric(state.get(field), 0)
+                if state["discharge_w"] > numeric(cfg.get("max_discharge_w"), 0) + 1e-6:
+                    raise ValueError("SIM discharge exceeds limit")
+            elif state is not None:
+                raise ValueError("Unexpected SIM battery")
+        if previous != end:
+            raise ValueError("Incomplete SIM horizon")
+    return report
+
 
 CSS = r"""
 :root{color-scheme:dark;--bg:#0c1017;--panel:#141b26;--border:#273142;--muted:#91a0b7;--text:#e7edf8;--pv:#37d597;--grid:#5a9cff;--dis:#ffad57;--soc:#b88bff;--unknown:#8492a6}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}button,select{font:inherit;color:inherit;background:#1c2635;border:1px solid #354259;border-radius:8px;padding:8px 13px;cursor:pointer}button:hover,select:hover{border-color:#6d8cbc}button:focus-visible,select:focus-visible,tr:focus-visible{outline:2px solid var(--grid);outline-offset:3px}button.active{background:#294c7f;border-color:#5a9cff}header{border-bottom:1px solid var(--border);padding:22px 36px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-size:20px;font-weight:700;letter-spacing:-.6px}.brand b{color:#7aa9ff}.tag,.badge{display:inline-block;border:1px solid #34435b;background:#1b2635;border-radius:6px;padding:3px 9px;font-size:12px;color:#bac9df}.tag{margin-left:18px;color:#6de2b5;background:#142c29;border-color:#275146}.muted,small{color:var(--muted)}.upper{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}main{max-width:1640px;padding:26px 36px 40px;margin:auto}h1{font-size:27px;letter-spacing:-.8px;margin:0 0 5px}h2{font-size:16px;letter-spacing:-.15px;margin:0}h3{font-size:13px;font-weight:500;margin:0 0 14px;color:#b6c4d9}p{margin:6px 0}.intro{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:22px}.live{color:#6de2b5}.dot{display:inline-block;background:#37d597;width:7px;height:7px;border-radius:50%;margin-right:7px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:14px 0 24px}.card,.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px}.card{padding:18px 20px;min-height:133px}.card strong{display:block;font-size:29px;letter-spacing:-1px;font-weight:600;margin:10px 0 3px}.card strong.compact{font-size:20px;letter-spacing:-.3px}.card small{font-size:11px}.card.highlight{border-color:#375275;background:linear-gradient(120deg,#17263a,#141b26)}.workspace>div{min-width:0;width:100%}.quality div{overflow-wrap:anywhere}.workspace{display:grid;grid-template-columns:252px minmax(0,1fr);gap:20px}.panel{padding:20px;margin-bottom:18px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px}.history{padding:17px 12px;align-self:start;position:sticky;top:12px;max-height:800px;overflow:auto}.history h2,.history>p{padding:0 7px}.history button{display:block;text-align:left;width:100%;background:transparent;border-color:transparent;margin-top:10px;padding:13px 10px}.history button.active{border-color:#3b608e;background:#1c2d43}.history button strong,.history button span{display:block}.history button strong{font-size:13px;margin-bottom:4px}.history button span{font-size:11px;color:var(--muted)}.history button .ok{color:#76d4ae}.controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.legend{display:flex;gap:15px;flex-wrap:wrap;font-size:12px;color:#b6c4d9;margin:12px 0 3px}.key:before{content:'';display:inline-block;background:var(--c);width:9px;height:9px;border-radius:2px;margin-right:6px}.chart{width:100%;display:block;height:auto;min-height:120px}.chart text{fill:#91a0b7;font:11px system-ui}.chart .gridline{stroke:#293343;stroke-width:1}.chart .baseline{stroke:#536278;stroke-width:1}.chart .soc{stroke:var(--soc);fill:none;stroke-width:2.5}.chart .bar{cursor:pointer;opacity:.92}.chart .bar:hover{opacity:1;filter:brightness(1.3)}.notice{border:1px solid #695431;background:#292318;color:#f3d397;padding:12px 16px;border-radius:9px;margin-bottom:18px}.notice.error{background:#351f26;border-color:#8a4458;color:#ffc2cf}.notice[hidden]{display:none}.metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:18px 0 5px}.metric{border-right:1px solid var(--border);padding:0 10px}.metric:first-child{padding-left:0}.metric:last-child{border:0}.metric span{font-size:11px;color:var(--muted);display:block}.metric strong{display:block;font-size:19px;overflow-wrap:anywhere;font-weight:550;margin-top:4px}.metrics-note{font-size:11px;color:var(--muted);margin-top:15px}.forecast-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.forecast-grid section{border-right:1px solid var(--border);padding-right:12px}.forecast-grid section:last-child{border:0}.table-wrap{overflow:auto;max-height:490px}table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}th{font-size:10px;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;text-align:left;background:#141b26;position:sticky;top:0}th,td{padding:12px 10px;border-bottom:1px solid #253043}tbody tr{cursor:pointer}tbody tr:hover,tbody tr.selected{background:#223149}td .badge{padding:1px 5px;font-size:10px}.pv{color:var(--pv)}.grid{color:var(--grid)}.dis{color:var(--dis)}.soc{color:var(--soc)}.detail{display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12px;margin-top:17px}.detail pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 0;background:#0d141e;padding:12px;border:1px solid #273448;border-radius:8px;color:#b8c9e1;max-height:290px;overflow:auto}.quality{font-size:12px}.quality div{padding:8px 0;border-bottom:1px solid var(--border)}.quality b{color:#c6d4e9;font-weight:500}.footer{display:flex;justify-content:space-between;gap:20px;color:var(--muted);font-size:11px;margin-top:22px}.empty{padding:45px 15px;text-align:center;color:var(--muted)}.pagination{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:12px}.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:1050px){header{padding:18px 22px}main{padding:22px}.workspace{grid-template-columns:210px minmax(0,1fr)}.metrics{grid-template-columns:repeat(3,1fr);row-gap:18px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.forecast-grid{grid-template-columns:1fr}.forecast-grid section{border:0;padding:0}.intro{align-items:flex-start}}@media(max-width:700px){header{padding:16px;align-items:flex-start}.tag{display:block;margin:6px 0 0;width:max-content}.header-right{font-size:11px;max-width:150px}main{padding:18px 12px}.workspace{display:flex;flex-direction:column;gap:0}.history{position:static;width:100%;max-height:210px}.cards{gap:8px}.card{padding:13px;min-height:122px}.card strong{font-size:24px}.intro,.section-head{align-items:flex-start;flex-wrap:wrap}.panel{padding:15px}.detail{grid-template-columns:1fr}.metrics{gap:8px}.metric{padding:0 6px}.metric strong{font-size:16px}.footer{flex-direction:column;gap:4px}h1{font-size:24px}}
@@ -131,12 +305,18 @@ SHELL = """<!doctype html>
 
 
 def render(report):
+    if report.get("maxxicharge_sim") is not None:
+        validate_sim_report(report["maxxicharge_sim"])
     data = json.dumps(report, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
     data = data.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
-    digest = base64.b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
+    script = SCRIPT + (SIM_SCRIPT if report.get("maxxicharge_sim") else "")
+    shell = SHELL
+    if report.get("maxxicharge_sim"):
+        shell = shell.replace('<div class="workspace">', SIM_PANEL + '<div class="workspace">')
+    digest = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
     return (
-        SHELL.replace("__HASH__", digest)
+        shell.replace("__HASH__", digest)
         .replace("__CSS__", CSS)
         .replace("__DATA__", data)
-        .replace("__SCRIPT__", SCRIPT)
+        .replace("__SCRIPT__", script)
     )

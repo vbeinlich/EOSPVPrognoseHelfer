@@ -13,7 +13,8 @@ requires-python = ">=3.11"
 dependencies = ["astral==3.2", "tzdata==2025.2"]
 
 [project.optional-dependencies]
-test = ["pytest>=8,<10", "jsonschema>=4.23,<5", "ruff>=0.9,<1", "PyYAML>=6,<7"]
+test = ["pytest>=8,<10", "jsonschema>=4.23,<5", "ruff>=0.9,<1", "PyYAML>=6,<7", "numpy==2.4.6", "scipy==1.17.1"]
+simulation = ["numpy==2.4.6", "scipy==1.17.1"]
 
 [project.scripts]
 eos-pv-helper = "eos_pv_helper.app:main"

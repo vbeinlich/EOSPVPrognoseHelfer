@@ -4,6 +4,7 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .venv/
+.venv-data/
 build/
 dist/
 config.toml
@@ -11,5 +12,6 @@ config.toml
 input/
 output/
 private/
+simulator/.wheels/
 *token*
 *secret*

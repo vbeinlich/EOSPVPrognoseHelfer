@@ -1,0 +1,27 @@
+{
+  "provenance": "Operator-supplied aggregate reference from 17.11.2026; NOT 120 original hours",
+  "start_utc": "2026-11-09T23:00:00+00:00",
+  "end_utc": "2026-11-14T23:00:00+00:00",
+  "intervals": 120,
+  "totals": {
+    "house_wh": 106360,
+    "heatpump_wh": 114232,
+    "vehicle_barn_wh": 7348,
+    "load_wh": 227940,
+    "balanced_load_wh": 227884,
+    "base_pv_wh": 64103,
+    "grid_import_wh": 168233,
+    "grid_export_wh": 4057,
+    "battery_charge_wh": 53611,
+    "battery_discharge_wh": 53216,
+    "grid_cost_eur": 67.17,
+    "site_balance_error_wh": -56
+  },
+  "tolerances": {
+    "default_wh": 2,
+    "vehicle_barn_wh": 10,
+    "load_wh": 10,
+    "site_balance_error_wh": 10,
+    "grid_cost_eur": 0.01
+  }
+}

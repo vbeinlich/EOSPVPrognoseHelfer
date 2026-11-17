@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 
 ENERGY = ("pv_wh", "load_wh", "grid_import_wh", "grid_export_wh",
           "battery_charge_dc_wh", "battery_discharge_dc_wh")
+OPTIONAL_ENERGY = ("pv_dc_wh",)
 KINDS = {"evcc_history_export", "homeassistant_statistics_export", "e3dc_meter_export",
          "operator_meter_export"}
 
@@ -54,17 +55,28 @@ class Actuals:
         except (KeyError, TypeError, ValueError):
             raise ActualsError("Invalid measured export contract or provenance") from None
         self.sha = hashlib.sha256(raw).hexdigest()
+        self.synthetic = data.get("synthetic_only") is True
+        self.mapping_sha = origin.get("measurement_mapping_sha256") or data.get(
+            "measurement_preparation", {}).get("mapping_sha256")
         self.source_sha = origin["source_artifact_sha256"]
         self.kind = origin["kind"]
         self.house_scope = origin.get("house_load_scope") == "whole_site_including_loadpoints"
         self.pv_ac = origin.get("pv_basis") == "ac"
+        # Optional independently measured DC input. Never invert an AC meter with
+        # an assumed efficiency to construct native simulation inputs.
+        self.pv_dc = origin.get("pv_dc_basis") == "inverter_input_dc"
         self.battery_dc = origin.get("battery_basis") == "dc_bus"
         self.retail = origin.get("tariff_basis") == "retail_final_eur_kwh"
+        self.metered_cost = origin.get("cost_basis") == "measured_grid_purchase_eur"
         self.standard = origin.get("manufacturer_standard_mode_confirmed") is True
-        self.energy = self.intervals(data.get("energy", []), ENERGY, nonnegative=True)
+        self.energy = self.intervals(data.get("energy", []), ENERGY + OPTIONAL_ENERGY, nonnegative=True)
         self.tariffs = self.intervals(data.get("tariffs", []), ("retail_eur_kwh",), nonnegative=False)
         self.energy_starts = [r[0] for r in self.energy]
         self.tariff_starts = [r[0] for r in self.tariffs]
+        self.import_weighted_tariffs = {(stamp(r["start_utc"]), stamp(r["end_utc"]))
+            for r in data.get("tariffs", []) if r.get("source_method") == "derived_energy_weighted_cost"}
+        self.costs = self.intervals(data.get("costs", []), ("grid_cost_eur",), nonnegative=False)
+        self.cost_starts = [r[0] for r in self.costs]
         points = data.get("soc", [])
         if not isinstance(points, list) or len(points) > 30000:
             raise ActualsError("Invalid or oversized measured SoC series")
@@ -75,7 +87,7 @@ class Actuals:
         if any(not 0 <= v <= 100 for _, v in self.soc) or len({t for t, _ in self.soc}) != len(self.soc):
             raise ActualsError("Invalid or duplicate measured SoC")
         self.soc_times = [p[0] for p in self.soc]
-        if (any(r[1] > now for r in self.energy) or any(t > now for t in self.soc_times)):
+        if (any(r[1] > now for r in self.energy + self.costs) or any(t > now for t in self.soc_times)):
             raise ActualsError("Future values cannot be accepted as completed measurements")
 
     @staticmethod
@@ -113,7 +125,8 @@ class Actuals:
         return selected
 
     def total(self, key, start, end):
-        if ((key == "pv_wh" and not self.pv_ac) or (key == "load_wh" and not self.house_scope)
+        if ((key == "pv_dc_wh" and not self.pv_dc)
+                or (key == "pv_wh" and not self.pv_ac) or (key == "load_wh" and not self.house_scope)
                 or (key.startswith("battery_") and not self.battery_dc)):
             return None
         rows = self.window(self.energy, self.energy_starts, start, end)
@@ -143,6 +156,12 @@ class Actuals:
         source, value = self.soc[i]
         age = (at-source).total_seconds()
         return (value, {"source_at_utc": source.isoformat(), "age_seconds": age}) if age <= max_age_seconds else (None, None)
+
+    def measured_cash_cost(self, start, end):
+        """Optional original purchase-cost counter deltas, distinct from energy × price."""
+        rows = self.window(self.costs, self.cost_starts, start, end) if self.metered_cost else []
+        return sum(r[2]["grid_cost_eur"] for r in rows) if rows and all(
+            "grid_cost_eur" in r[2] for r in rows) else None
 
 
 def analyze(data, comparison, actuals):

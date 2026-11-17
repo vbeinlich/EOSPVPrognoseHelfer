@@ -4,7 +4,111 @@ import base64
 import hashlib
 import json
 import math
+import re
 from datetime import datetime
+
+SHADOW_CONTRACT = "eos-pv-helper/ems-shadow-v1.2"
+
+
+def project_shadow_report(report):
+    if (report.get("contract") != SHADOW_CONTRACT or report.get("read_only") is not True
+            or report.get("optimizer_invoked") is not False or report.get("devices_commanded") is not False
+            or report.get("realized_savings_eur") is not None or len(report.get("results", [])) > 4096):
+        raise ValueError("Invalid offline shadow report")
+
+    def numeric(v):
+        if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)):
+            raise ValueError("Invalid shadow number")
+        return v
+
+    def timestamp(v):
+        if v is None:
+            return None
+        d = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if d.utcoffset() is None:
+            raise ValueError("Invalid shadow timestamp")
+        return d.isoformat()
+
+    ranges = {}
+    for days in ("1", "7", "30"):
+        r = report["ranges"][days]
+        if r["status"] not in ("COMPLETE", "NOT_COMPARABLE"):
+            raise ValueError("Invalid shadow range")
+        ranges[days] = {"status": r["status"], "coverage_hours": numeric(r["coverage_hours"]),
+            "expected_hours": numeric(r["expected_hours"]), "synthetic_only": r["synthetic_only"] is True,
+            "hypothetical_B_minus_C_eur": numeric(r.get("hypothetical_B_minus_C_eur"))}
+    results = []
+    for r in report["results"]:
+        version = r["source_solution_sha256"]
+        if not re.fullmatch("[0-9a-f]{64}", version) or r["status"] not in (
+                "COMPARABLE", "SYNTHETIC_COMPARABLE", "NOT_COMPARABLE"):
+            raise ValueError("Invalid shadow result")
+        reasons = r["reasons"]
+        if any(not re.fullmatch("[a-z0-9_]{1,120}", v) for v in reasons):
+            raise ValueError("Invalid reason code")
+        costs = r.get("costs", {})
+        deviation = r.get("actual_input_reference", {}).get("summary", {}).get("grid_import_wh", {})
+        hours = [{"start_utc": timestamp(h["start_utc"]), **{k: numeric(h.get(k)) for k in (
+            "A_metered_eur", "A_import_times_final_price_eur", "B_original_forecast_eur", "C_original_forecast_eur")}}
+            for h in r.get("hourly_costs", [])]
+        if len(hours) > 672:
+            raise ValueError("Oversized shadow horizon")
+        results.append({"version": version, "start_utc": timestamp(r.get("start_utc")),
+            "end_utc": timestamp(r.get("end_utc")), "status": r["status"], "reasons": reasons,
+            "synthetic_only": r["synthetic_only"] is True,
+            "metered_eur": numeric(r.get("actual_grid_purchase_metered_eur")),
+            "calculated_eur": numeric(r.get("actual_grid_purchase_calculated_eur")),
+            "reference_eur": numeric(costs.get("B_reference", {}).get("grid_cost_eur")),
+            "genetic_eur": numeric(costs.get("C_fixed_genetic", {}).get("grid_cost_eur")),
+            "hypothetical_eur": numeric(costs.get("hypothetical_B_minus_C_eur")),
+            "hypothetical_actual_eur": numeric(costs.get("hypothetical_A_minus_C_eur")),
+            "grid_delta_kwh": numeric(deviation.get("delta_kwh")),
+            "grid_delta_percent": numeric(deviation.get("delta_percent")), "hours": hours})
+    return {"contract": SHADOW_CONTRACT, "as_of_utc": timestamp(report["as_of_utc"]), "ranges": ranges, "results": results}
+
+
+SHADOW_PANEL = """
+<section class="panel" id="ems-shadow-panel" style="min-width:0;overflow-wrap:anywhere">
+<div class="section-head"><h2>EMS Simulation v1.2 · Offline-Modellprüfung</h2>
+<label>Auswertung <select id="shadow-days"><option value="1">24 Stunden</option><option value="7">7 Tage</option><option value="30">30 Tage</option></select></label></div>
+<p class="notice">Vorläufig · A: Ist-Betrieb · B: native E3/DC-Referenz · C: archivierte GENETIC-Steuerfolge auf Ist-Eingängen.
+Keine realisierte Ersparnis. Unabhängige historische Horizonte; kein Nachweis eines durchgehend ausgeführten Betriebs.</p>
+<p id="shadow-coverage" class="muted"></p>
+<div class="table-wrap"><table><thead><tr><th>Horizont / Status</th><th>A gemessen €</th><th>A Energie × Preis €</th><th>B Bezug €</th><th>C Bezug €</th><th>Hypoth. B−C mit Endwert €</th><th>Hypoth. A−C mit Endwert €</th><th>Modellabweichung Bezug kWh / %</th><th>Qualitätsursachen</th></tr></thead><tbody id="shadow-results"></tbody></table></div>
+<p class="muted">Bezugskosten ohne Einspeiseerlös/Verschleiß/Endwert; hypothetischer Modellvorteil enthält diese Bestandteile mit derselben gespeicherten Endwertkurve.
+Überlappende Planzeilen werden nicht addiert. PV-/Lastprognosefehler sind getrennt von der Modellabweichung auf Ist-Eingängen.</p>
+<label>Stündlicher Plan-Ist-Verlauf <select id="shadow-plan" style="max-width:100%;width:100%;min-width:0;display:block"></select></label>
+<div id="shadow-chart"></div>
+<p class="muted">Verlauf: A Energie × Original-Endkundenpreis (grün), B damalige Prognosen (blau), C damalige Prognosen (violett).
+Diese Prognose-Replays belegen keinen Modellfehler. Fehlende Werte bleiben Lücken.</p>
+<div class="table-wrap"><table><thead><tr><th>UTC</th><th>A gemessen €</th><th>A Energie × Preis €</th><th>B Prognose €</th><th>C Prognose €</th></tr></thead><tbody id="shadow-hours"></tbody></table></div>
+</section>
+"""
+
+SHADOW_SCRIPT = r"""
+{
+ const s=data.ems_shadow, n=v=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:3}):'—';
+ const add=(body,values)=>{const tr=document.createElement('tr');for(const v of values){const td=document.createElement('td');td.textContent=v;tr.append(td)}body.append(tr)};
+ const select=$('shadow-plan');
+ for(const r of s.results){const o=document.createElement('option');o.value=r.version;o.textContent=(r.synthetic_only?'SYNTHETISCH · ':'')+(r.start_utc||'Unbekannter Zeitraum')+' · '+r.version.slice(0,12);select.append(o)}
+ function history(){
+  const r=s.results.find(r=>r.version===select.value), rows=r?.hours||[];const body=$('shadow-hours');body.replaceChildren();
+  for(const h of rows)add(body,[h.start_utc,n(h.A_metered_eur),n(h.A_import_times_final_price_eur),n(h.B_original_forecast_eur),n(h.C_original_forecast_eur)]);
+  const keys=['A_import_times_final_price_eur','B_original_forecast_eur','C_original_forecast_eur'],colors=['#37d597','#5a9cff','#b88bff'];
+  const values=rows.flatMap(r=>keys.map(k=>r[k]).filter(v=>typeof v==='number'));const min=Math.min(0,...values),max=Math.max(.01,...values),scale=150/(max-min);
+  let svg='<svg class="chart" viewBox="0 0 1000 205" role="img" aria-label="Offline-Kostenverlauf">';
+  keys.forEach((k,j)=>{let segment=[];const flush=()=>{if(segment.length)svg+=`<polyline fill="none" stroke="${colors[j]}" points="${segment.join(' ')}"/>`;segment=[]};rows.forEach((h,i)=>{if(typeof h[k]!=='number'){flush();return}segment.push(`${40+i*900/Math.max(1,rows.length-1)},${175-(h[k]-min)*scale}`)});flush()});
+  $('shadow-chart').innerHTML=svg+'</svg>';
+ }
+ function show(){const days=$('shadow-days').value,q=s.ranges[days],limit=Date.parse(s.as_of_utc)-Number(days)*86400000;
+  $('shadow-coverage').textContent=`${q.synthetic_only?'SYNTHETISCHE TESTDATEN · ':''}${q.status} · ${n(q.coverage_hours)} / ${q.expected_hours} h · Datenstand ${s.as_of_utc} · Hypothetischer Gesamtvorteil nur bei vollständiger Abdeckung: ${n(q.hypothetical_B_minus_C_eur)} €`;
+  const body=$('shadow-results');body.replaceChildren();
+  for(const r of s.results.filter(r=>!r.end_utc||(Date.parse(r.end_utc)>limit&&Date.parse(r.start_utc)<Date.parse(s.as_of_utc))))add(body,[`${r.synthetic_only?'SYNTHETISCH · ':''}${r.start_utc||'—'} · ${r.status}`,n(r.metered_eur),n(r.calculated_eur),n(r.reference_eur),n(r.genetic_eur),n(r.hypothetical_eur),n(r.hypothetical_actual_eur),`${n(r.grid_delta_kwh)} / ${n(r.grid_delta_percent)}`,r.reasons.join(' · ')||'Vollständig für diesen Modellvergleich']);
+ }
+ $('shadow-days').addEventListener('change',show);select.addEventListener('change',history);show();history();
+}
+"""
+
 
 SIM_PANEL = r"""
 <section class="panel" id="maxxi-panel" hidden>
@@ -311,6 +415,9 @@ def render(report):
     data = data.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
     script = SCRIPT + (SIM_SCRIPT if report.get("maxxicharge_sim") else "")
     shell = SHELL
+    if report.get("ems_shadow"):
+        script += SHADOW_SCRIPT
+        shell = shell.replace('<div class="workspace">', SHADOW_PANEL + '<div class="workspace">')
     if report.get("maxxicharge_sim"):
         shell = shell.replace('<div class="workspace">', SIM_PANEL + '<div class="workspace">')
     digest = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()

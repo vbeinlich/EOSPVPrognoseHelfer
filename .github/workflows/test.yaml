@@ -114,6 +114,31 @@ jobs:
           python -m eos_pv_helper.dashboard --source "$RUNNER_TEMP/dashboard-source" --destination "$RUNNER_TEMP/dashboard-site"
       - name: Browser-check dashboard, mobile view, ranges and automatic event refresh
         run: node scripts/dashboard_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/dashboard-site/index.html" --expect-event --event-python python --event-source "$RUNNER_TEMP/dashboard-source"
+      - name: Synthetic v1.2 offline report and static dashboard view (no native search)
+        env:
+          PYTHONPATH: src:scripts:tests
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import timedelta
+          from pathlib import Path
+          from test_ems_shadow import AS_OF, context, fixture, hand_runner
+          from dashboard_fixture import make
+          from eos_pv_helper import economics, ems_shadow, dashboard
+          root = Path(os.environ['RUNNER_TEMP'])
+          output = root / 'shadow-v12'
+          output.mkdir(mode=0o700)
+          original, measured = fixture(start=AS_OF-timedelta(days=1))
+          actuals, conditions = context(original, measured)
+          ems_shadow.batch([{'raw': economics.canonical(original), 'binding': {}}],
+              actuals, conditions, output, as_of=AS_OF, runner=hand_runner)
+          source = make(root / 'dashboard-shadow-source')
+          site = root / 'dashboard-shadow-site'
+          site.mkdir()
+          assert dashboard.refresh(source, site,
+              shadow_file=output / 'report.json')
+          PY
+          node scripts/dashboard_ui_smoke.mjs --browser "$(command -v google-chrome || command -v chromium)" --html "$RUNNER_TEMP/dashboard-shadow-site/index.html" --expect-shadow
       - name: Pull pinned isolated HTML-only server (local tests only)
         run: docker pull nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
       - name: Test HTTP publication, server isolation and automatic archived-event refresh
@@ -152,7 +177,7 @@ jobs:
             --security-opt=no-new-privileges --tmpfs /tmp:rw,exec,nosuid,nodev,mode=1777 \
             --tmpfs /tmp/eos-test:rw,nosuid,nodev,mode=1777 -e PYTEST_ADDOPTS \
             eos-pv-helper:eos-test -q -p no:cacheprovider \
-            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py tests/test_dashboard.py tests/test_dashboard_wrapper.py tests/integration/test_dashboard_cached.py tests/test_replay_contract.py tests/test_replay_wrapper.py tests/integration/test_replay_export.py
+            tests/test_binding_contract.py tests/test_evidence.py tests/integration/test_ems_pipeline.py tests/test_dashboard.py tests/test_dashboard_wrapper.py tests/integration/test_dashboard_cached.py tests/test_replay_contract.py tests/test_replay_wrapper.py tests/integration/test_replay_export.py tests/test_ems_shadow.py tests/integration/test_ems_shadow_native.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'

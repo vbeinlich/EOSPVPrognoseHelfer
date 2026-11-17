@@ -7,7 +7,7 @@
     "deploy/dashboard/nginx.conf": "c2b59ac3e655f129e119ddb79c1ea1d7c98305db21c621b7a7b0caa3d608f6dd",
     "deploy/dashboard/user-script.sh": "745a77733849e98fcec56e3ca4e4c7ee4bbace608cee8b8e8a82c640e3940006",
     "scripts/unraid-dashboard-preflight.sh": "c716f6ebbf48420b421874d7527ef8d7df73f2327ad8e360c035fd1ffb5916b0",
-    "scripts/unraid-dashboard-publish.sh": "f3a24536d7e034e690c9e47e7c412ef06d3b319a1f03e6132d36935f2c959950",
+    "scripts/unraid-dashboard-publish.sh": "f95fb9a5814fb5c6c095f1c3c0c00404bd33af08b053986471312c4e2dab2c02",
     "scripts/dashboard_archive_hash_probe.py": "444254c0595f819caf69a2def8d3bd0b27cc5f6fc5b749068ed99fd90a9fdfba",
     "scripts/build_dashboard_lan_package.py": "16cbce1e481110cb94d1f3234f4614c5e481cd35164fb09b5aae135da13263aa"
   }

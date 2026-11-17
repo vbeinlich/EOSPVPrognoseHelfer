@@ -451,7 +451,7 @@ def as_actuals(data):
         raise EnergyDataError("Plan-Ist export requires complete measured inputs, never synthetic or failed data")
     config = checked["mapping"]
     dc = all(k in config for k in ("inverter_ac_to_dc_efficiency", "inverter_dc_to_ac_efficiency"))
-    energy, tariffs, points = [], [], {}
+    energy, tariffs, costs, points = [], [], [], {}
     keys = {"load_wh": "load_wh", "base_pv_wh": "pv_wh", "grid_import_wh": "grid_import_wh",
             "grid_export_wh": "grid_export_wh"}
     for r in checked["rows"]:
@@ -465,7 +465,12 @@ def as_actuals(data):
                     values[key.replace("_wh", "_dc_wh")] = value
         energy.append({**identity, **values})
         if r.get("import_eur_kwh") is not None:
-            tariffs.append({**identity, "retail_eur_kwh": r["import_eur_kwh"]})
+            tariffs.append({**identity, "retail_eur_kwh": r["import_eur_kwh"],
+                            "source_method": r["quality"]["import_eur_kwh"]["status"]})
+        if (r.get("grid_cost_eur") is not None
+                and r["quality"]["grid_cost_eur"]["status"] in ("direct", "derived_counter")):
+            costs.append({**identity, "grid_cost_eur": r["grid_cost_eur"],
+                          "source_method": r["quality"]["grid_cost_eur"]["status"]})
         for label in ("soc_start_", "soc_end_"):
             if r.get(label + "percent") is not None:
                 points[r[label + "at_utc"]] = r[label + "percent"]
@@ -474,8 +479,12 @@ def as_actuals(data):
                        "house_load_scope": "whole_site_including_loadpoints", "pv_basis": "ac",
                        "battery_basis": "dc_bus" if dc else "not_converted",
                        "tariff_basis": "retail_final_eur_kwh",
+                       "cost_basis": "measured_grid_purchase_eur" if costs else "not_measured",
                        "manufacturer_standard_mode_confirmed": False},
-            "energy": energy, "tariffs": tariffs,
+            "energy": energy, "tariffs": tariffs, "costs": costs,
             "soc": [{"at_utc": at, "percent": value} for at, value in sorted(points.items())],
             "measurement_preparation": {"audit": checked["audit"], "data_kind": checked["data_kind"],
-                                        "mapping_sha256": checked["mapping_sha256"]}}
+                                        "mapping_sha256": checked["mapping_sha256"],
+                                        "interval_quality": [{"start_utc": r["start_utc"],
+                                            "end_utc": r["end_utc"], "quality": r["quality"]}
+                                            for r in checked["rows"]]}}

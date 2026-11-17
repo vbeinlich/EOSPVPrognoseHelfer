@@ -339,6 +339,9 @@ def test_shared_projection_into_existing_plan_actual_reader():
     reader = Actuals(canonical(data))
     assert reader.total("load_wh", START, START + timedelta(hours=2)) == 2000
     assert reader.cash_cost(START, START + timedelta(hours=2)) == pytest.approx(.54)
+    assert reader.measured_cash_cost(START, START + timedelta(hours=2)) == pytest.approx(.54)
+    assert len(reader.import_weighted_tariffs) == 2
+    assert data["measurement_preparation"]["interval_quality"][0]["quality"] == prepared["rows"][0]["quality"]
     assert reader.soc_at(START)[0] == 10
     assert reader.battery_dc is False
     config.update(inverter_ac_to_dc_efficiency=.9, inverter_dc_to_ac_efficiency=.8)
